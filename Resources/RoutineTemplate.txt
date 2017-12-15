@@ -1,0 +1,1 @@
+﻿<<FUNC_NAME>>: function(o) { return <<CLASS>>("<<SCHEMA>>", "<<ROUTINE>>", [<<PARM_DEFINITION>>], o); }

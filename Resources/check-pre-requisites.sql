@@ -1,0 +1,8 @@
+if (not exists (select top 1 1 from sys.schemas where name = 'orm')) select @err = IsNull(@err + char(10), '') + 'Scheme ''orm'' does not exist.'
+if (not exists (select top 1 1 from sys.tables where name ='SprocDalMonitor' and SCHEMA_NAME(schema_id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Table ''orm.SprocDalMonitor'' does not exist.'
+if (not exists (select top 1 1 from sys.triggers where name = 'SprocDalMonitor' and parent_class_desc = 'DATABASE')) select @err = IsNull(@err + char(10), '') + 'Database trigger ''SprocDalMonitor'' does not exist.'
+if (not exists (select top 1 1 from sys.procedures where name ='SprocGenGetParameterList' and SCHEMA_NAME(schema_Id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Sproc ''SprocGenGetParameterList'' does not exist.'
+if (not exists (select top 1 1 from sys.procedures where name ='SprocGenInitialise' and SCHEMA_NAME(schema_Id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Sproc ''SprocGenInitialise'' does not exist.'
+if (not exists (select top 1 1 from sys.procedures where name ='SprocGenGetRoutineList' and SCHEMA_NAME(schema_Id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Sproc ''SprocGenGetRoutineList'' does not exist.'
+if (not exists (select top 1 1 from sys.procedures where name ='SprocGenGetRoutineListCnt' and SCHEMA_NAME(schema_Id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Sproc ''SprocGenGetRoutineListCnt'' does not exist.'
+if (not exists (select top 1 1 from sys.procedures where name ='SprocGenExtractAndStoreJsonMetadata' and SCHEMA_NAME(schema_Id) = 'orm')) select @err = IsNull(@err + char(10), '') + 'Sproc ''SprocGenExtractAndStoreJsonMetadata'' does not exist.'

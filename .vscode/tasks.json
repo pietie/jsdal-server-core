@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "taskName": "build-project",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/jsdal-server-core.csproj"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}

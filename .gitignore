@@ -8,6 +8,14 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.pfx
+*.key
+key*.xml
+jsdal-server.json
+generated
+cache
+wwwroot
+data
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

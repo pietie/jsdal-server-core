@@ -1,0 +1,25 @@
+﻿/// jsDAL Server auto-generated, do not edit.
+/// <<DATE>>	v<<FILE_VERSION>>
+var DAL;
+(function (dal) {
+	
+    var S = function (schema, routine, params, options) {
+        var r = new ss(schema, routine, params, options);
+        r.dbSource = "<<DB_SOURCE_GUID>>";
+        return r;
+    }
+    
+    var U = function(schema, routine, params, options)
+    {
+        var r = new uu(schema, routine, params, options);
+        r.dbSource = "<<DB_SOURCE_GUID>>";
+        return r;
+    }
+
+    dal.init = function (s, u) { ss = s; uu = u; }
+
+	var x = dal.<<Catalog>> = {};
+	
+<<ROUTINES>>
+
+})(DAL || (DAL = {}));
