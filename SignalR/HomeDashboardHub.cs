@@ -23,6 +23,11 @@ namespace jsdal_server_core.Hubs
             // });
         }
 
+        public MainStats Init()
+        {
+            return new MainStats();
+        }
+
         public IObservable<MainStats> StreamMainStats()
         {
             return mainStatsObs;
