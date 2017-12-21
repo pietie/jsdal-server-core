@@ -16,8 +16,8 @@ namespace jsdal_server_core
     public class Worker
     {
         public string ID { get; private set; }
-        //public string dbSourceKey;
-        //public string name;
+        
+        private MemoryLog log;
 
         public DatabaseSource DBSource { get; private set; }
         public string Description
@@ -49,6 +49,13 @@ namespace jsdal_server_core
             set { _status = value; isIterationDirty = true; }
         }
 
+        public List<LogEntry> LogEntries
+        {
+            get {
+                return log?.Entries;
+            }
+        }
+
         private DateTime? last0Cnt;
 
 
@@ -56,6 +63,7 @@ namespace jsdal_server_core
         {
             this.ID = ShortId.Generate();
             this.DBSource = dbSource;
+            this.log = new MemoryLog();
         }
 
         public void Stop()
@@ -95,8 +103,6 @@ namespace jsdal_server_core
                 this.IsRulesDirty = false;
                 this.IsOutputFilesDirty = false;
 
-                //var cancelTokenSource = new CancellationTokenSource();
-
                 DateTime lastSavedDate = DateTime.Now;
 
                 var cache = this.DBSource.cache;
@@ -113,6 +119,7 @@ namespace jsdal_server_core
                 {
                     this.IsRunning = false;
                     this.Status = $"Data source '{this.DBSource?.Name ?? "(null)"}' does not have valid connection configured.";
+                    this.log.Error(this.Status);
                     SessionLog.Error(this.Status);
                     return;
                 }
@@ -146,13 +153,15 @@ namespace jsdal_server_core
                             catch (Exception oex)
                             {
                                 this.Status = "Failed to open connection to database: " + oex.Message;
-                                //!this.Log.Exception(oex, con.ConnectionString);
+                                this.log.Exception(oex, con.ConnectionString);
                                 SessionLog.Exception(oex, con.ConnectionString);
                                 connectionErrorCnt++;
 
                                 int waitMS = Math.Min(3000 + (connectionErrorCnt * 3000), 300000/*Max 5mins between tries*/);
 
                                 this.Status = $"Attempt: #{connectionErrorCnt + 1} (waiting for {waitMS}ms). " + this.Status;
+
+                                 Hubs.WorkerMonitor.Instance.NotifyObservers();
 
                                 Thread.Sleep(waitMS);
                                 continue;
@@ -170,6 +179,7 @@ namespace jsdal_server_core
                     }
                     catch (Exception ex)
                     {
+                        this.log.Exception(ex);
                         SessionLog.Exception(ex);
                         // TODO: Decide what to do with an exception here
                     }
@@ -182,6 +192,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
+                this.log.Exception(ex);
                 SessionLog.Exception(ex);
             }
             finally
@@ -291,7 +302,7 @@ namespace jsdal_server_core
                     if (!string.IsNullOrWhiteSpace(jsonMetadata))
                     {
                         try
-                        {
+                        { 
                             newCachedRoutine.jsDALMetadata = JsonConvert.DeserializeObject<jsDALMetadata>(jsonMetadata);
                         }
                         catch (Exception ex)
@@ -449,6 +460,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
+                this.log.Exception(ex);
                 SessionLog.Exception(ex);
             }
         }

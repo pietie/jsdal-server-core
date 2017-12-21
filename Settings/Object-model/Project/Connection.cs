@@ -61,7 +61,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             get
             {
                 if (this._connectionStringBuilder == null) this._connectionStringBuilder = new SqlConnectionStringBuilder(this.ConnectionStringDecrypted);
-                return this._connectionStringBuilder.DataSource;
+                return this._connectionStringBuilder?.DataSource?.Split(',')[0]; // Return DataSource without the port
             }
 
         }

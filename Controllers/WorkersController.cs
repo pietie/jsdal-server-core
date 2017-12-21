@@ -51,8 +51,7 @@ namespace jsdal_server_core.Controllers
 
             if (worker != null)
             {
-                return ApiResponse.Payload("TODO!!");
-                //!return ApiResponse.Payload(worker.log.Entries);
+                return ApiResponse.Payload(worker.LogEntries);
             }
             else
             {
