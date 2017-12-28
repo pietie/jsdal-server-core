@@ -40,17 +40,25 @@ namespace jsdal_server_core
             return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
 
+        public static bool RestartWorker(Worker worker)
+        {
+            if (worker.IsRunning) return false;
+
+            var winThread = new Thread(new ThreadStart(worker.Run));
+
+            worker.SetWinThread(winThread);
+
+            winThread.Start();
+
+            return true;
+        }
+
         public static List<Worker> workerList
         {
             get
             {
                 return WorkSpawner._workerList;
             }
-        }
-
-        public static void Stop()
-        {
-
         }
 
         public static void Start()

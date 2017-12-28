@@ -68,9 +68,9 @@ namespace jsdal_server_core.Controllers
 
                 if (worker != null)
                 {
-                    //!worker.Start();
-                    //return ApiResponse.Success();
-                    return ApiResponse.ExclamationModal("TODO: START");
+                    WorkSpawner.RestartWorker(worker);
+
+                    return ApiResponse.Success();
                 }
                 else
                 {
@@ -90,11 +90,11 @@ namespace jsdal_server_core.Controllers
             {
                 var worker = WorkSpawner.getWorkerById(id);
 
-                if (worker == null)
+                if (worker != null)
                 {
-                    //!worker.stop();
-                    //return ApiResponse.Success();
-                    return ApiResponse.ExclamationModal("TODO: STOP");
+                    worker.Stop();
+                    
+                    return ApiResponse.Success();
                 }
                 else
                 {

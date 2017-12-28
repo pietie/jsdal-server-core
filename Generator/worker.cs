@@ -79,6 +79,8 @@ namespace jsdal_server_core
                 }
                 this.winThread = null;
             }
+
+            Hubs.WorkerMonitor.Instance.NotifyObservers();
         }
 
         public void SetWinThread(Thread thread)
@@ -153,8 +155,8 @@ namespace jsdal_server_core
                             catch (Exception oex)
                             {
                                 this.Status = "Failed to open connection to database: " + oex.Message;
-                                this.log.Exception(oex, con.ConnectionString);
-                                SessionLog.Exception(oex, con.ConnectionString);
+                                this.log.Exception(oex, connectionStringRef);
+                                SessionLog.Exception(oex, connectionStringRef);
                                 connectionErrorCnt++;
 
                                 int waitMS = Math.Min(3000 + (connectionErrorCnt * 3000), 300000/*Max 5mins between tries*/);
@@ -267,6 +269,8 @@ namespace jsdal_server_core
 
             using (var reader = cmdSprocGenGetRoutineList.ExecuteReader())
             {
+                if (!this.IsRunning) return;
+
                 var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ParameterCount", "ObjectId", "JsonMetadata" };
 
                 // maps column ordinals to proper names 
@@ -278,6 +282,7 @@ namespace jsdal_server_core
 
                 while (reader.Read())
                 {
+                    if (!this.IsRunning) break;
                     //!this.progress("genGetRoutineListStream row...");
 
                     if (changesCount == 1)
