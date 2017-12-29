@@ -10,6 +10,7 @@ using System.Text;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using jsdal_plugin;
+using jsdal_server_core.Performance;
 
 namespace jsdal_server_core
 {
@@ -134,7 +135,8 @@ namespace jsdal_server_core
                string dbConnectionGuid,
                Dictionary<string, string> inputParameters,
                int commandTimeOutInSeconds,
-               out Dictionary<string, dynamic> outputParameterDictionary
+               out Dictionary<string, dynamic> outputParameterDictionary,
+               RoutineExecution execRoutineQueryMetric
            )
         {
             SqlConnection con = null;
@@ -142,8 +144,11 @@ namespace jsdal_server_core
 
             try
             {
+                var s1 = execRoutineQueryMetric.BeginChildStage("Lookup cached routine");
+
                 var routineCache = dbSource.cache;
                 var cachedRoutine = routineCache.FirstOrDefault(r => r.equals(schemaName, routineName));
+
 
                 outputParameterDictionary = new Dictionary<string, dynamic>();
 
@@ -152,6 +157,10 @@ namespace jsdal_server_core
                     // TODO: Return 404 rather?
                     throw new Exception($"The routine[{ schemaName }].[{routineName}] was not found.");
                 }
+
+                s1.End();
+
+                var s2 = execRoutineQueryMetric.BeginChildStage("Process metadata");
 
                 string metaResp = null;
 
@@ -166,13 +175,25 @@ namespace jsdal_server_core
                     return new ExecutionResult() { userError = metaResp };
                 }
 
+                s2.End();
+
+                var s3 = execRoutineQueryMetric.BeginChildStage("Open connection");
+
                 var cs = dbSource.getSqlConnection(dbConnectionGuid);
                 con = new SqlConnection(cs.ConnectionStringDecrypted);
 
                 con.Open();
 
+                s3.End();
+
+
+                var s4 = execRoutineQueryMetric.BeginChildStage("Process plugins");
                 // PLUGINS
                 processPlugins(dbSource, inputParameters, con);
+
+                s4.End();
+
+                var prepareCmdMetric = execRoutineQueryMetric.BeginChildStage("Prepare command");
 
                 cmd = new SqlCommand();
                 cmd.Connection = con;
@@ -283,11 +304,15 @@ namespace jsdal_server_core
 
                     }
 
+                    prepareCmdMetric.End();
+
                     DataSet ds = null;
                     object scalarVal = null;
 
                     if (type == Controllers.ExecController.ExecType.Query)
                     {
+                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
+
                         var da = new SqlDataAdapter(cmd);
                         ds = new DataSet();
 
@@ -330,14 +355,19 @@ namespace jsdal_server_core
 
                         } // $select
 
+                        execStage.End();
                     }
                     else if (type == Controllers.ExecController.ExecType.NonQuery)
                     {
+                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
                         cmd.ExecuteNonQuery();
+                        execStage.End();
                     }
                     else if (type == Controllers.ExecController.ExecType.Scalar)
                     {
+                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
                         scalarVal = cmd.ExecuteScalar();
+                        execStage.End();
                     }
                     else
                     {
@@ -372,7 +402,7 @@ namespace jsdal_server_core
                     return new ExecutionResult() { DataSet = ds, ScalarValue = scalarVal };
 
                 }
-            
+
             }
             finally
             {
@@ -387,8 +417,6 @@ namespace jsdal_server_core
                 }
 
             }
-
-            return null;
         } // execRoutine
 
         private static void processPlugins(DatabaseSource dbSource, Dictionary<string, string> queryString, SqlConnection con)

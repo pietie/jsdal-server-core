@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using jsdal_server_core.Performance;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.Authorization;
@@ -60,13 +61,16 @@ namespace jsdal_server_core.Controllers
             var debugInfo = "";
             var res = this.Response;
             var req = this.Request;
-            
+
             string appTitle = null;
 
             DatabaseSource dbSource = null;
 
+            var routineExecutionMetric = ExecTracker.Begin("Routine execution");
+
             try
             {
+
                 appTitle = req.Headers["App-Title"];
 
                 // always start off not caching whatever we send back
@@ -114,6 +118,8 @@ namespace jsdal_server_core.Controllers
                     inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
                 }
 
+                var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
+
                 // DB call
                 var executionResult = OrmDAL.execRoutineQuery(req, res,
                     execOptions.Type,
@@ -123,8 +129,13 @@ namespace jsdal_server_core.Controllers
                     execOptions.dbConnectionGuid,
                     inputParameters,
                     commandTimeOutInSeconds,
-                    out outputParameters
+                    out outputParameters,
+                    execRoutineQueryMetric
                 );
+
+                execRoutineQueryMetric.End();
+
+                var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
 
                 if (!string.IsNullOrEmpty(executionResult.userError))
                 {
@@ -188,11 +199,15 @@ namespace jsdal_server_core.Controllers
                     }
                 }
 
+                prepareResultsMetric.End();
+                routineExecutionMetric.End();
 
                 return Ok(ret);
             }
             catch (Exception ex)
             {
+                routineExecutionMetric.Exception(ex);
+
                 if (!string.IsNullOrWhiteSpace(execOptions.dbConnectionGuid) && dbSource != null)
                 {
                     var dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
