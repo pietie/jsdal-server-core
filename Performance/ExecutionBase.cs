@@ -18,7 +18,6 @@ namespace jsdal_server_core.Performance
         public ExecutionBase(string name)
         {
             _stopwatch =  Stopwatch.StartNew();
-            this.IsOpen = true;
             this.Name = name;
             //this.StartedUtc = DateTime.UtcNow;
         }

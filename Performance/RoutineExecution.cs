@@ -11,7 +11,7 @@ namespace jsdal_server_core.Performance
 
         private List<RoutineExecution> _childStages;
 
-        private RoutineExecution(string name) : base(name)
+        public RoutineExecution(string name) : base(name)
         {
             this._childStages = new List<RoutineExecution>();
         }
