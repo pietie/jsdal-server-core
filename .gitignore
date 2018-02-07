@@ -17,6 +17,8 @@ cache
 wwwroot
 data
 
+plugins/*.dll
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

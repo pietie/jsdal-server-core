@@ -134,6 +134,7 @@ namespace jsdal_server_core
                DatabaseSource dbSource,
                string dbConnectionGuid,
                Dictionary<string, string> inputParameters,
+               List<jsDALPlugin> plugins,
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
                RoutineExecution execRoutineQueryMetric
@@ -189,7 +190,7 @@ namespace jsdal_server_core
 
                 var s4 = execRoutineQueryMetric.BeginChildStage("Process plugins");
                 // PLUGINS
-                processPlugins(dbSource, inputParameters, con);
+                ProcessPlugins(plugins, con);
 
                 s4.End();
 
@@ -419,39 +420,23 @@ namespace jsdal_server_core
             }
         } // execRoutine
 
-        private static void processPlugins(DatabaseSource dbSource, Dictionary<string, string> queryString, SqlConnection con)
+
+        private static void ProcessPlugins(List<jsDALPlugin> pluginList, SqlConnection con)
         {
-            if (Program.PluginAssemblies != null && dbSource.Plugins != null)
+            foreach (var plugin in pluginList)
             {
-                foreach (string pluginGuid in dbSource.Plugins)
+                try
                 {
-                    var plugin = Program.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
-
-                    if (plugin != null)
-                    {
-                        try
-                        {
-                            var concrete = (jsDALPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
-
-                            var initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);//TODO: thie method signature can be cached?
-
-                            initPluginMethod.Invoke(concrete, new object[] { queryString });
-
-
-                            concrete.OnConnectionOpened(con);
-                        }
-                        catch (Exception ex)
-                        {
-                            SessionLog.Error("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
-                            SessionLog.Exception(ex);
-                        }
-                    }
-                    else
-                    {
-                        SessionLog.Warning("The specified plugin GUID '{0}' was not found in the list of loaded plugins.", pluginGuid);
-                    }
+                    plugin.OnConnectionOpened(con);
                 }
+                catch (Exception ex)
+                {
+                    SessionLog.Error("Plugin {0} OnConnectionOpened failed", plugin.Name);
+                    SessionLog.Exception(ex);
+                }
+
             }
+
         }
 
         private static object convertParameterValue(SqlDbType sqlType, string value)
@@ -479,12 +464,24 @@ namespace jsdal_server_core
                 case SqlDbType.UniqueIdentifier:
                     return new Guid((string)value);
                 case SqlDbType.DateTime:
-                    return value; // TODO:!!??!?!
+
+
+
+
+                    //string text = "2013-07-03T02:16:03.000+01:00";
+                    // we expect ISO 8601 format (with time offset included)
+                    if (DateTime.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", null, System.Globalization.DateTimeStyles.None, out DateTime dt))
+                    {
+                        return dt;
+                    }
+                    return null; // TODO: consider just returning the original value and hope for the best?
+                                 //return value; 
                 case SqlDbType.Bit:
                     return ConvertToSqlBit(value);
                 case SqlDbType.VarBinary:
                     return ConvertToSqlVarbinary(value);
-
+                case SqlDbType.Time:
+                    return value;
 
                 default:
                     return value;

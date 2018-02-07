@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using jsdal_plugin;
 using jsdal_server_core.Performance;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
@@ -68,6 +71,8 @@ namespace jsdal_server_core.Controllers
 
             var routineExecutionMetric = ExecTracker.Begin("Routine execution");
 
+            List<jsDALPlugin> pluginList = null;
+
             try
             {
 
@@ -118,6 +123,13 @@ namespace jsdal_server_core.Controllers
                     inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
                 }
 
+                // PLUGINS
+                var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
+
+                pluginList = InitPlugins(dbSource, inputParameters);
+
+                pluginsInitMetric.End();
+
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
                 // DB call
@@ -128,6 +140,7 @@ namespace jsdal_server_core.Controllers
                     dbSource,
                     execOptions.dbConnectionGuid,
                     inputParameters,
+                    pluginList,
                     commandTimeOutInSeconds,
                     out outputParameters,
                     execRoutineQueryMetric
@@ -208,9 +221,11 @@ namespace jsdal_server_core.Controllers
             {
                 routineExecutionMetric.Exception(ex);
 
+                Connection dbConn = null;
+
                 if (!string.IsNullOrWhiteSpace(execOptions.dbConnectionGuid) && dbSource != null)
                 {
-                    var dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
+                    dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
 
                     if (debugInfo == null) debugInfo = "";
 
@@ -225,10 +240,101 @@ namespace jsdal_server_core.Controllers
 
                 }
 
-                return BadRequest(ApiResponse.Exception(ex, debugInfo, appTitle));
+                var exceptionResponse = ApiResponse.Exception(ex, debugInfo, appTitle);
+
+                if (pluginList != null)
+                {
+                    string externalRef;
+
+                    if (dbConn != null)
+                    {
+                        using (var con = new SqlConnection(dbConn.ConnectionStringDecrypted))
+                        {
+                            try
+                            {
+                                con.Open();
+                                ProcessPluginExectionExceptionHandlers(pluginList, con, ex, out externalRef);
+                                ((dynamic)exceptionResponse.Data).ExternalRef = externalRef;
+                            }
+                            catch (Exception e)
+                            {
+                                SessionLog.Exception(e);
+                            }
+
+                        }
+                    } // else: TODO: Log fact that we dont have a proper connection string.. or should plugins handle that?
+                }
+
+
+
+                // return it as "200 (Ok)" because the exception has been handled
+                return Ok(exceptionResponse);
+                //return BadRequest(exceptionResponse);
             }
         }
 
+        private static void ProcessPluginExectionExceptionHandlers(List<jsDALPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef)
+        {
+            externalRef = null;
+            if (pluginList == null) return;
+            foreach (var plugin in pluginList)
+            {
+                try
+                {
+                    string msg = null;
+                    string externalRefTmp = null;
+
+                    plugin.OnExecutionException(con, ex, out externalRefTmp, out msg);
+
+                    if (!string.IsNullOrWhiteSpace(externalRefTmp))
+                    {
+                        externalRef = externalRefTmp;
+                    }
+                }
+                catch (Exception e)
+                {
+                    SessionLog.Error("Plugin {0} OnExecutionException failed", plugin.Name);
+                    SessionLog.Exception(e);
+                }
+            }
+        }
+
+        private static MethodInfo initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static List<jsDALPlugin> InitPlugins(DatabaseSource dbSource, Dictionary<string, string> queryString)
+        {
+            var plugins = new List<jsDALPlugin>();
+
+            if (Program.PluginAssemblies != null && dbSource.Plugins != null)
+            {
+                foreach (string pluginGuid in dbSource.Plugins)
+                {
+                    var plugin = Program.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
+
+                    if (plugin != null)
+                    {
+                        try
+                        {
+                            var concrete = (jsDALPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
+
+                            initPluginMethod.Invoke(concrete, new object[] { queryString });
+
+                            plugins.Add(concrete);
+                        }
+                        catch (Exception ex)
+                        {
+                            SessionLog.Error("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
+                            SessionLog.Exception(ex);
+                        }
+                    }
+                    else
+                    {
+                        SessionLog.Warning("The specified plugin GUID '{0}' was not found in the list of loaded plugins.", pluginGuid);
+                    }
+                }
+            }
+
+            return plugins;
+        }
 
 
         public static SqlDbType GetSqlDbTypeFromParameterType(string parameterDataType)
@@ -239,6 +345,9 @@ namespace jsdal_server_core.Controllers
                     return SqlDbType.Date;
                 case "datetime":
                     return SqlDbType.DateTime;
+                case "time":
+                    return SqlDbType.VarChar; // send as a simple string and let SQL take care of it
+                                              //return SqlDbType.Time;
                 case "smalldatetime":
                     return SqlDbType.SmallDateTime;
                 case "int":

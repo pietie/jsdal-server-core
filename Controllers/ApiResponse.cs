@@ -52,6 +52,8 @@ namespace jsdal_server_core
 
             ret.Message = $"Error ref: {id}";
             ret.Type = ApiResponseType.Exception;
+            ret.Data = new System.Dynamic.ExpandoObject();
+            ((dynamic)ret.Data).Ref = id;
 
             return ret;
         }
