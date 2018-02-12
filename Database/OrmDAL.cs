@@ -137,7 +137,7 @@ namespace jsdal_server_core
                List<jsDALPlugin> plugins,
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
-               RoutineExecution execRoutineQueryMetric
+               ExecutionBase execRoutineQueryMetric
            )
         {
             SqlConnection con = null;

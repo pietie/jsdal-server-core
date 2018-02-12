@@ -1,11 +1,21 @@
+using System.Collections.Generic;
+
 namespace jsdal_server_core.Performance
 {
 
     public class ExecTracker
     {
-        public static RoutineExecution Begin(string name)
+        // keep a list of currently running executions (for live tracking!)
+
+        // TODO: Come up with a much smarter structure to use
+        public static List<RoutineExecution> ExecutionList = new List<RoutineExecution>();
+        public static RoutineExecution Begin(string dbSourceKey, string schema, string routine)
         {
-            return new RoutineExecution(name);
+            var ret = new RoutineExecution(dbSourceKey, schema, routine);
+
+            ExecutionList.Add(ret);
+
+            return ret;
         }
     }
 }

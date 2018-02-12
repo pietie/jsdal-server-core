@@ -1,31 +1,22 @@
 using System;
-using System.Collections.Generic;
+
 
 namespace jsdal_server_core.Performance
 {
     public class RoutineExecution : ExecutionBase
     {
         public string Schema { get; set; }
-        public string Routine { get; set; }
+        public string DbSourceKey { get; set; }
         public ExecutionRoutineType ExecutionRoutineType { get; set; }
 
-        private List<RoutineExecution> _childStages;
+// TODO: public for now so we can expose it to frontend for testing
+        
 
-        public RoutineExecution(string name) : base(name)
+        public RoutineExecution(string dbSourceKey, string schema, string routine) : base(routine)
         {
-            this._childStages = new List<RoutineExecution>();
-        }
-
-        public RoutineExecution BeginChildStage(string name)
-        {
-            if (!this.IsOpen) return null;
-
-            var re = new RoutineExecution(name);
-
-            this._childStages.Add(re);
-
-            return re;
-        }
+            this.Schema = schema;
+            this.DbSourceKey = dbSourceKey;
+        }   
 
     }
 

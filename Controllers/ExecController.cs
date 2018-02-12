@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using jsdal_plugin;
 using jsdal_server_core.Performance;
@@ -25,6 +26,7 @@ namespace jsdal_server_core.Controllers
             public string schema;
             public string routine;
             public ExecType Type;
+            public Dictionary<string, string> OverridingInputParameters { get; set; }
         }
 
         public enum ExecType
@@ -59,6 +61,145 @@ namespace jsdal_server_core.Controllers
             return exec(new ExecOptions() { dbSourceGuid = dbSourceGuid, dbConnectionGuid = dbConnectionGuid, schema = schema, routine = routine, Type = ExecType.Scalar });
         }
 
+        private class BatchData
+        {
+            public int Ix { get; set; }
+            public BatchDataRoutine Routine { get; set; }
+        }
+
+        private class BatchDataRoutine
+        {
+            public string dbSource { get; set; }
+            public string dbConnection { get; set; }
+            public string schema { get; set; }
+            public string routine { get; set; }
+
+            [JsonProperty("params")]
+            public Dictionary<string, string> parameters { get; set; }
+
+
+        }
+
+        [AllowAnonymous]
+        [HttpPost("/api/batch/{dbConnectionGuid}")]
+        public IActionResult Batch([FromRoute] string dbConnectionGuid)
+        {
+            var res = this.Response;
+            var req = this.Request;
+
+            try
+            {
+                // TODO: Add batch metrics? Or just note on exec that it was part of a batch?
+
+                string body = null;
+                Dictionary<string, dynamic> bodyParams = null;
+
+                int commandTimeOutInSeconds = 60;
+
+                using (var sr = new StreamReader(req.Body))
+                {
+                    body = sr.ReadToEnd();
+
+                    bodyParams = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(body);
+
+                    // look for any other parameters sent through
+                    var allOtherKeys = bodyParams.Keys.Where(k=>!k.Equals("batch-data")).ToList();
+
+                    var baseInputParams = bodyParams.Where((kv)=> !kv.Key.Equals("batch-data"));
+
+                    BatchData[] batchDataCollection = JsonConvert.DeserializeObject<BatchData[]>(bodyParams["batch-data"].ToString());
+
+                    var leftTodo = batchDataCollection.Length;
+
+                    var responses = new Dictionary<int, ApiResponse>();
+
+                    using (ManualResetEvent waitToCompleteEvent = new ManualResetEvent(false))
+                    {
+                        foreach (BatchData batchItem in batchDataCollection)
+                        {
+                            ThreadPool.QueueUserWorkItem((state) =>
+                            {
+                                try
+                                {
+                                    var inputParameters = new Dictionary<string, string>();
+
+                                    foreach(var kv in baseInputParams)
+                                    {
+                                        inputParameters.Add(kv.Key, kv.Value);
+                                    }
+
+                                    if (batchItem.Routine.parameters != null)
+                                    {
+                                        foreach(var kv in batchItem.Routine.parameters)
+                                        {
+                                            if (inputParameters.ContainsKey(kv.Key))
+                                            {
+                                                inputParameters[kv.Key] = kv.Value;
+                                            }
+                                            else
+                                            {
+                                                inputParameters.Add(kv.Key, kv.Value);
+                                            }
+                                        }
+                                    }
+
+                                    var ret = exec(new ExecOptions()
+                                    {
+                                        dbSourceGuid = batchItem.Routine.dbSource,
+                                        dbConnectionGuid = dbConnectionGuid,
+                                        schema = batchItem.Routine.schema,
+                                        routine = batchItem.Routine.routine,
+                                        OverridingInputParameters = inputParameters,
+                                        Type = ExecType.Query
+
+                                    }) as Microsoft.AspNetCore.Mvc.ObjectResult;
+
+                                    if (ret != null)
+                                    {
+                                        var apiResponse = ret.Value as ApiResponse;
+
+                                        lock (responses)
+                                        {
+                                            responses.Add(batchItem.Ix, apiResponse);
+                                        }
+                                    }
+                                }
+                                catch (Exception execEx)
+                                {
+                                    // TODO: handle by pushing this as the respone?
+                                    responses.Add(batchItem.Ix, ApiResponse.Exception(execEx));
+                                }
+                                finally
+                                {
+                                    if (Interlocked.Decrement(ref leftTodo) == 0)
+                                    {
+                                        waitToCompleteEvent.Set();
+                                    }
+                                }
+
+                            });
+                        } // foreach
+
+                        // TODO: Make timeout configurable?
+                        if (!waitToCompleteEvent.WaitOne(TimeSpan.FromSeconds(60*6)))
+                        {
+                            // TODO: Report timeout error?
+                            return BadRequest("Response(s) was not received in time.");
+                        }
+
+                        return Ok(ApiResponse.Payload(responses));
+
+
+                    } // using ManualResetEvent                
+                } // using StreamReader
+
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
+            }
+        }
+
         private IActionResult exec(ExecOptions execOptions)
         {
             var debugInfo = "";
@@ -69,7 +210,7 @@ namespace jsdal_server_core.Controllers
 
             DatabaseSource dbSource = null;
 
-            var routineExecutionMetric = ExecTracker.Begin("Routine execution");
+            var routineExecutionMetric = ExecTracker.Begin(execOptions.dbSourceGuid, execOptions.schema, execOptions.routine);
 
             List<jsDALPlugin> pluginList = null;
 
@@ -109,19 +250,28 @@ namespace jsdal_server_core.Controllers
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
 
-                if (isPOST)
+                if (execOptions.OverridingInputParameters != null)
                 {
-                    using (var sr = new StreamReader(req.Body))
-                    {
-                        body = sr.ReadToEnd();
-
-                        inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
-                    }
+                    inputParameters = execOptions.OverridingInputParameters;
                 }
                 else
                 {
-                    inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
+                    if (isPOST)
+                    {
+                        using (var sr = new StreamReader(req.Body))
+                        {
+                            body = sr.ReadToEnd();
+
+                            inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
+                        }
+                    }
+                    else
+                    {
+                        inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
+                    }
                 }
+
+                if (inputParameters == null) inputParameters = new Dictionary<string, string>();
 
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
