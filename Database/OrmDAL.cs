@@ -137,11 +137,14 @@ namespace jsdal_server_core
                List<jsDALPlugin> plugins,
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
-               ExecutionBase execRoutineQueryMetric
+               ExecutionBase execRoutineQueryMetric,
+               out int rowsAffected
            )
         {
             SqlConnection con = null;
             SqlCommand cmd = null;
+
+            rowsAffected = 0;
 
             try
             {
@@ -319,7 +322,15 @@ namespace jsdal_server_core
 
                         cmd.CommandTimeout = commandTimeOutInSeconds;
 
-                        da.Fill(ds);
+                        var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
+
+                        if (ds.Tables.Count > 0)
+                        {
+                            foreach (DataTable t in ds.Tables)
+                            {
+                                rowsAffected += t.Rows.Count;
+                            }
+                        }
 
                         if (inputParameters.ContainsKey("$select") && ds.Tables.Count > 0)
                         {
@@ -361,7 +372,7 @@ namespace jsdal_server_core
                     else if (type == Controllers.ExecController.ExecType.NonQuery)
                     {
                         var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
-                        cmd.ExecuteNonQuery();
+                        rowsAffected = cmd.ExecuteNonQuery();
                         execStage.End();
                     }
                     else if (type == Controllers.ExecController.ExecType.Scalar)

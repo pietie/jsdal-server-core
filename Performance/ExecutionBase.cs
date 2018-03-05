@@ -34,6 +34,8 @@ namespace jsdal_server_core.Performance
 
             this.DurationInMS = this._stopwatch.ElapsedMilliseconds;
             //!?this.EndedUtc = DateTime.UtcNow;
+
+            Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
         }
 
         public void Exception(Exception e)

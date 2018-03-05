@@ -209,7 +209,7 @@ namespace jsdal_server_core.Controllers
             string appTitle = null;
 
             DatabaseSource dbSource = null;
-
+// record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             var routineExecutionMetric = ExecTracker.Begin(execOptions.dbSourceGuid, execOptions.schema, execOptions.routine);
 
             List<jsDALPlugin> pluginList = null;
@@ -282,6 +282,8 @@ namespace jsdal_server_core.Controllers
 
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
+                int rowsAffected;
+
                 // DB call
                 var executionResult = OrmDAL.execRoutineQuery(req, res,
                     execOptions.Type,
@@ -293,10 +295,14 @@ namespace jsdal_server_core.Controllers
                     pluginList,
                     commandTimeOutInSeconds,
                     out outputParameters,
-                    execRoutineQueryMetric
+                    execRoutineQueryMetric,
+                    out rowsAffected
                 );
 
                 execRoutineQueryMetric.End();
+                
+                routineExecutionMetric.RowsAffected = rowsAffected;
+                
 
                 var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
 

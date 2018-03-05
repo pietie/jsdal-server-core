@@ -94,9 +94,9 @@ namespace jsdal_server_core
             app.UseWebSockets();
             app.UseSignalR(routes =>
             {
-                routes.MapHub<Sample.Chat>("chat");
                 routes.MapHub<Hubs.HomeDashboardHub>("main-stats");
                 routes.MapHub<Hubs.WorkerDashboardHub>("worker-hub");
+                routes.MapHub<Hubs.Performance.RealtimeHub>("performance-realtime-hub");
             });
 
             if (env.IsDevelopment())

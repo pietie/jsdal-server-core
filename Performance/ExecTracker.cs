@@ -15,6 +15,8 @@ namespace jsdal_server_core.Performance
 
             ExecutionList.Add(ret);
 
+            Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
+
             return ret;
         }
     }
