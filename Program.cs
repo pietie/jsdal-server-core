@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using jsdal_plugin;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
+using System.Diagnostics;
 
 namespace jsdal_server_core
 {
@@ -29,40 +30,58 @@ namespace jsdal_server_core
         // TODO: Move somewhere else?
         public static Dictionary<Assembly, List<PluginInfo>> PluginAssemblies { get; private set; }
 
-        public static string Bash(string cmd)
+        static StreamWriter consoleWriter;
+        static FileStream fs;
+
+        public static void OverrideStdout()
         {
-            var escapedArgs = cmd.Replace("\"", "\\\"");
-
-            var process = new System.Diagnostics.Process()
+            try
             {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
+                var logDir = Path.GetFullPath("./log");
+
+                if (!Directory.Exists(logDir))
                 {
-
-                    FileName = "sc",
-                    Arguments = $"query state=all",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
+                    Directory.CreateDirectory(logDir);
                 }
-            };
-            process.Start();
-            string result = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
 
-            var x = result.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                        .Where(l => l.Contains("SERVICE_NAME:"))
-                        .Where(l => l.ToLower().Contains("net"))
-                        .Select(l => l.Replace("SERVICE_NAME: ", "").Trim()).ToList();
+                var filename = string.Format("{0:yyyy-MM-dd}.txt", DateTime.Now);
 
-            return result;
+                fs = new FileStream(Path.Combine(logDir, filename), FileMode.Append);
+
+                consoleWriter = new LogWriter(fs);
+
+                consoleWriter.AutoFlush = true;
+
+                Console.SetOut(consoleWriter);
+                Console.SetError(consoleWriter);
+                //    Console.WriteLine("Test: {0}{1}{2}{3}{4}{5}",1,2,3,4,5,6);
+                //Console.WriteLine("Test: {0}{1}{2}{3}{4}{5}",1,2,3,4,5,6);
+
+            }
+            catch (Exception)
+            {
+                // Ignore?
+            }
+
         }
-
         public static void Main(string[] args)
         {
             try
             {
-               //! Program.Bash("");
+                var pathToContentRoot = Directory.GetCurrentDirectory();
+                //OverrideStdout();
+                if (Debugger.IsAttached)
+                {
+                    var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
+                    pathToContentRoot = Path.GetDirectoryName(pathToExe);
+                }
+                else
+                {
+                    OverrideStdout();
+                }
 
+                Console.WriteLine("=================================");
+                Console.WriteLine("Application started.");
 
                 UserManagement.loadUsersFromFile();
                 ExceptionLogger.Init();
@@ -77,9 +96,9 @@ namespace jsdal_server_core
                 CompileListOfAvailablePlugins();
 
                 _startDate = DateTime.Now;
-                BuildWebHost(args).Run();
+                var host = BuildWebHost(pathToContentRoot, args);
 
-
+                host.Run();
             }
             catch (Exception ex)
             {
@@ -88,26 +107,48 @@ namespace jsdal_server_core
             }
         }
 
-        public static IWebHost BuildWebHost(string[] args) =>
-            WebHost.CreateDefaultBuilder(args)
-                  //.UseContentRoot(Directory.GetCurrentDirectory())
+        public static IWebHost BuildWebHost(string pathToContentRoot, string[] args)
+        {
+            Console.WriteLine("pathToContentRoot: {0}", pathToContentRoot);
+
+            var certPath = "cert.pfx"; // TODO: get from config
+            var certPass = "L00k@tm3";
+
+            return WebHost.CreateDefaultBuilder(args)
+                  .UseContentRoot(pathToContentRoot)
                   .UseKestrel(options =>
                   {
                       options.AddServerHeader = false;
-                      options.Listen(System.Net.IPAddress.Any, 44312, listenOptions =>
+
+                      if (File.Exists(certPath))
                       {
-                          listenOptions.UseHttps("cert.pfx", "L00k@tm3");
-                      });
+                          // TODO: Get port from config
+                          options.Listen(System.Net.IPAddress.Any, 44312, listenOptions =>
+                          {
+                              try
+                              {
+                                  listenOptions.UseHttps(certPath, certPass);
+                              }
+                              catch (System.Exception ex)
+                              {
+                                  Console.WriteLine(ex.ToString());
+                                  throw;
+                              }
+                          });
+                      }
+                      else
+                      {
+                          Console.WriteLine("Cannot start HTTPS listener: The cert file '{0}' does not exists.", certPath);
+                      }
 
                       options.Listen(System.Net.IPAddress.Any, 9086); // http
 
-                      //!options.UseHttps("localhost.pfx", "password");
                   })
                 .UseStartup<Startup>()
                 //     .UseUrls("http://localhost:9086", "https://*:4430")
                 .Build();
 
-
+        }
 
         private static void CompileListOfAvailablePlugins()
         {
@@ -137,7 +178,14 @@ namespace jsdal_server_core
                 var netstandardAssembly = Assembly.Load("netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51");
                 var collectionsAssemlby = Assembly.Load("System.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
 
-                var pluginBaseRef = MetadataReference.CreateFromFile("./../jsdal-plugin/bin/Debug/netstandard2.0/jsdal-plugin.dll");
+                var pluginBasePath = "jsdal-plugin.dll";
+
+                if (Debugger.IsAttached)
+                {
+                    pluginBasePath = "./../jsdal-plugin/bin/Debug/netstandard2.0/jsdal-plugin.dll";
+                }
+
+                var pluginBaseRef = MetadataReference.CreateFromFile(pluginBasePath);
 
                 var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
 

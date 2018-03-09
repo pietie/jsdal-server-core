@@ -5,16 +5,16 @@
    "version": "0.2.0",
    "configurations": [
         {
-            "name": ".NET Core Launch (web)",
+            "name": "jsdal-SERVER (web)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-project",
-            // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/bin/Debug/netcoreapp2.0/jsdal-server-core.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart",
+            "console": "externalTerminal",
             "launchBrowser": {
                 "enabled": true,
                 "args": "${auto-detect-url}",

@@ -23,27 +23,22 @@ namespace jsdal_server_core
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public IConfiguration Configuration { get; private set; }
+        public IHostingEnvironment HostingEnvironment { get; private set; }
+
+        public Startup(IConfiguration configuration, IHostingEnvironment env)
         {
             Configuration = configuration;
+            HostingEnvironment = env;
+
+            Console.WriteLine($"WebRootPath: {env.WebRootPath}; ");
         }
 
-        public IConfiguration Configuration { get; }
+
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
-            // Add service and create Policy with options
-            // services.AddCors(options =>
-            // {
-            //     options.AddPolicy("CorsPolicy",
-            //         builder => builder.AllowAnyOrigin()
-            //         .AllowAnyMethod()
-            //         .AllowAnyHeader()
-            //         .AllowCredentials());
-            // });
-
             var policy = new Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicy();
             policy.Headers.Add("*");
             policy.Methods.Add("*");
@@ -62,11 +57,19 @@ namespace jsdal_server_core
                     cfg.RequireHttpsMetadata = false;
                     cfg.SaveToken = true;
                     cfg.IncludeErrorDetails = false;
+
+                    var issuer = Configuration["Tokens:Issuer"];
+                    var key = Configuration["Tokens:Key"];
+
+                    Console.WriteLine("Issuer: {0}, Key: {1}", issuer, key);
+
+                    var symKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+
                     cfg.TokenValidationParameters = new TokenValidationParameters()
                     {
-                        ValidIssuer = Configuration["Tokens:Issuer"],
-                        ValidAudience = Configuration["Tokens:Issuer"],
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Tokens:Key"]))
+                        ValidIssuer = issuer,
+                        ValidAudience = issuer,
+                        IssuerSigningKey = symKey
                     };
 
                 });
@@ -76,12 +79,12 @@ namespace jsdal_server_core
 
             var dataProtectionKeyPath = new System.IO.DirectoryInfo(System.IO.Directory.GetCurrentDirectory());
             services.AddDataProtection()
-                .PersistKeysToFileSystem(dataProtectionKeyPath)
-                .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration
-                {
-                    EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
-                    ValidationAlgorithm = ValidationAlgorithm.HMACSHA512
-                });
+                    .PersistKeysToFileSystem(dataProtectionKeyPath)
+                    .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration
+                    {
+                        EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
+                        ValidationAlgorithm = ValidationAlgorithm.HMACSHA512
+                    });
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)

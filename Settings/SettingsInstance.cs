@@ -38,7 +38,11 @@ namespace jsdal_server_core.Settings
         {
             try
             {
-                if (!File.Exists(SettingsInstance.settingsFilePath)) return false;
+                if (!File.Exists(SettingsInstance.settingsFilePath))
+                {
+                    Console.WriteLine("WARN! Settings file not found: {0}", SettingsInstance.settingsFilePath);
+                    return false;
+                }
 
                 var data = File.ReadAllText(SettingsInstance.settingsFilePath, System.Text.Encoding.UTF8);
 
