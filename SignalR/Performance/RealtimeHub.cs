@@ -15,17 +15,7 @@ namespace jsdal_server_core.Hubs.Performance
 
         public List<RealtimeInfo> Init()
         {
-            return ExecTracker.ExecutionList.Select(e =>
-                {
-                    return new RealtimeInfo()
-                    {
-                        name = $"[{e.Schema}].[{e.Name}]",
-                        createdEpoch = e.CreateDate.ToEpochMS(),
-                        durationMS = e.DurationInMS,
-                        rowsAffected = e.RowsAffected
-
-                    };
-                }).ToList();
+            return RealtimeTracker.RealtimeItems;
         }
 
         public IObservable<List<RealtimeInfo>> StreamRealtimeList()

@@ -5,7 +5,6 @@ namespace jsdal_server_core.Performance
 
     public class ExecTracker
     {
-        // keep a list of currently running executions (for live tracking!)
 
         // TODO: Come up with a much smarter structure to use
         public static List<RoutineExecution> ExecutionList = new List<RoutineExecution>();
@@ -15,7 +14,7 @@ namespace jsdal_server_core.Performance
 
             ExecutionList.Add(ret);
 
-            Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
+            RealtimeTracker.Add(ret);
 
             return ret;
         }

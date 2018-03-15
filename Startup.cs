@@ -100,6 +100,7 @@ namespace jsdal_server_core
                 routes.MapHub<Hubs.HomeDashboardHub>("main-stats");
                 routes.MapHub<Hubs.WorkerDashboardHub>("worker-hub");
                 routes.MapHub<Hubs.Performance.RealtimeHub>("performance-realtime-hub");
+                routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("heartbeat");
             });
 
             if (env.IsDevelopment())

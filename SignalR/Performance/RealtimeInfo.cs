@@ -1,12 +1,37 @@
+using System;
+using jsdal_server_core.Performance;
+
 namespace jsdal_server_core.Hubs
 {
     public class RealtimeInfo
     {
-        public string name { get; set; }
-        public long? createdEpoch { get; set; }
-        public long? durationMS { get; set; }
+        public RealtimeInfo(RoutineExecution re)
+        {
+            this.created = DateTime.Now;
+            this.routineExecution = re;
+        }
 
-        public int rowsAffected { get;set; }
+        private DateTime created;
+        private RoutineExecution routineExecution;
+
+        public DateTime? RoutineExectionEndedUtc()
+        {
+            return this.routineExecution?.EndedUtc;
+        }
+
+        public string name
+        {
+            get
+            {
+                if (this.routineExecution == null) return null;
+                return $"[{this.routineExecution.Name}].[{this.routineExecution.Schema}]";
+            }
+        }
+
+        public long? createdEpoch { get { return this.routineExecution?.CreateDate.ToEpochMS(); } }
+        public long? durationMS { get { return this.routineExecution?.DurationInMS; } }
+
+        public int? rowsAffected { get { return this.routineExecution?.RowsAffected; } }
     }
 
 }

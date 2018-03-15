@@ -3,36 +3,27 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using jsdal_server_core;
-using jsdal_server_core.Performance;
 
-namespace jsdal_server_core.Hubs.Performance
+namespace jsdal_server_core.Hubs.HeartBeat
 {
-    public class RealtimeMonitor : IObservable<List<RealtimeInfo>>
+    public class HeartBeatMonitor : IObservable<int>
     {
-        private static RealtimeMonitor _singleton;
-        List<IObserver<List<RealtimeInfo>>> observers;
+        private static HeartBeatMonitor _singleton;
+        List<IObserver<int>> observers;
 
-        public static RealtimeMonitor Instance
+        public static HeartBeatMonitor Instance { get { if (_singleton == null) _singleton = new HeartBeatMonitor(); return _singleton; } }
+
+        private HeartBeatMonitor()
         {
-            get
-            {
-                if (_singleton == null) _singleton = new RealtimeMonitor();
-
-                return _singleton;
-            }
-        }
-
-        private RealtimeMonitor()
-        {
-            observers = new List<IObserver<List<RealtimeInfo>>>();
+            observers = new List<IObserver<int>>();
         }
 
         private class Unsubscriber : IDisposable
         {
-            private List<IObserver<List<RealtimeInfo>>> _observers;
-            private IObserver<List<RealtimeInfo>> _observer;
+            private List<IObserver<int>> _observers;
+            private IObserver<int> _observer;
 
-            public Unsubscriber(List<IObserver<List<RealtimeInfo>>> observers, IObserver<List<RealtimeInfo>> observer)
+            public Unsubscriber(List<IObserver<int>> observers, IObserver<int> observer)
             {
                 this._observers = observers;
                 this._observer = observer;
@@ -44,7 +35,7 @@ namespace jsdal_server_core.Hubs.Performance
             }
         }
 
-        public IDisposable Subscribe(IObserver<List<RealtimeInfo>> observer)
+        public IDisposable Subscribe(IObserver<int> observer)
         {
             if (!observers.Contains(observer))
                 observers.Add(observer);
@@ -54,15 +45,13 @@ namespace jsdal_server_core.Hubs.Performance
 
         public void NotifyObservers()
         {
-            var packet = RealtimeTracker.RealtimeItems;
-            
             foreach (var observer in observers.ToArray())
             {
                 if (observer != null)
                 {
                     try
                     {
-                        observer.OnNext(packet);
+                        observer.OnNext(Environment.TickCount);
                     }
                     catch (System.OperationCanceledException)
                     {

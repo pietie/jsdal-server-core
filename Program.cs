@@ -72,8 +72,8 @@ namespace jsdal_server_core
                 //OverrideStdout();
                 if (Debugger.IsAttached)
                 {
-                    var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
-                    pathToContentRoot = Path.GetDirectoryName(pathToExe);
+                   // var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
+                  //  pathToContentRoot = Path.GetDirectoryName(pathToExe);
                 }
                 else
                 {

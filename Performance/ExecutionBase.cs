@@ -11,7 +11,7 @@ namespace jsdal_server_core.Performance
         public DateTime? CreateDate { get; set; }
         protected bool IsOpen { get { return this._stopwatch?.IsRunning ?? false; } }
         //?public DateTime StartedUtc { get; protected set; }
-        //?public DateTime EndedUtc { get; protected set; }
+        public DateTime? EndedUtc { get; protected set; }
 
         private Stopwatch _stopwatch;
 
@@ -33,7 +33,7 @@ namespace jsdal_server_core.Performance
             this._stopwatch.Stop();
 
             this.DurationInMS = this._stopwatch.ElapsedMilliseconds;
-            //!?this.EndedUtc = DateTime.UtcNow;
+            this.EndedUtc = DateTime.UtcNow;
 
             Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
         }
