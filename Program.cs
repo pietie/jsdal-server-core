@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using jsdal_plugin;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using System.Diagnostics;
+using Microsoft.AspNetCore.Server.HttpSys;
 
 namespace jsdal_server_core
 {
@@ -72,8 +73,8 @@ namespace jsdal_server_core
                 //OverrideStdout();
                 if (Debugger.IsAttached)
                 {
-                   // var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
-                  //  pathToContentRoot = Path.GetDirectoryName(pathToExe);
+                    // var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
+                    //  pathToContentRoot = Path.GetDirectoryName(pathToExe);
                 }
                 else
                 {
@@ -111,39 +112,138 @@ namespace jsdal_server_core
         {
             Console.WriteLine("pathToContentRoot: {0}", pathToContentRoot);
 
-            var certPath = "cert.pfx"; // TODO: get from config
-            var certPass = "L00k@tm3";
+            var webServerSettings = SettingsInstance.Instance.Settings.WebServer;
+
+            // var certPath = "cert.pfx";
+            // var certPassPath = Path.GetFullPath("cert.pass");
+
+            // if (!File.Exists(certPassPath))
+            // {
+            //     throw new Exception($"Unable to find cert path file: {certPassPath}");
+            // }
+
+            // var certPass = System.IO.File.ReadAllText(certPassPath);
 
             return WebHost.CreateDefaultBuilder(args)
                   .UseContentRoot(pathToContentRoot)
-                  .UseKestrel(options =>
+                  .UseWebRoot(Path.Combine(pathToContentRoot, "wwwroot"))
+                  .UseHttpSys(options =>
                   {
-                      options.AddServerHeader = false;
+                      options.Authentication.Schemes = AuthenticationSchemes.None;
+                      options.Authentication.AllowAnonymous = true;
+                      options.MaxConnections = null;
+                      options.MaxRequestBodySize = 30000000;
 
-                      if (File.Exists(certPath))
+
+                      int interfaceCnt = 0;
+
+                      if ((webServerSettings.EnableSSL ?? false)
+                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsServerHostname)
+                      && webServerSettings.HttpsServerPort.HasValue
+                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsCertHash))
                       {
-                          // TODO: Get port from config
-                          options.Listen(System.Net.IPAddress.Any, 44312, listenOptions =>
+                          try
                           {
-                              try
+                              var httpsUrl = $"https://{webServerSettings.HttpsServerHostname}:{webServerSettings.HttpsServerPort.Value}";
+
+                              if (NetshWrapper.ValidateSSLCertBinding(webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
                               {
-                                  listenOptions.UseHttps(certPath, certPass);
+                                  if (NetshWrapper.ValidateUrlAcl(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
+                                  {
+                                      options.UrlPrefixes.Add(httpsUrl);
+                                      interfaceCnt++;
+                                  }
+                                  else
+                                  {
+                                      SessionLog.Error($"The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                      Console.WriteLine($"ERROR: The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                  }
                               }
-                              catch (System.Exception ex)
+                              else
                               {
-                                  Console.WriteLine(ex.ToString());
-                                  throw;
+                                    SessionLog.Error($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
+                                    Console.WriteLine($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
                               }
-                          });
-                      }
-                      else
-                      {
-                          Console.WriteLine("Cannot start HTTPS listener: The cert file '{0}' does not exists.", certPath);
+
+
+                          }
+                          catch (Exception ex)
+                          {
+                              SessionLog.Exception(ex);
+                          }
                       }
 
-                      options.Listen(System.Net.IPAddress.Any, 9086); // http
+                      if (webServerSettings.EnableBasicHttp ?? false)
+                      {
+                          try
+                          {
+                              var httpUrl = $"http://{webServerSettings.HttpServerHostname}:{webServerSettings.HttpServerPort}";
+
+                              if (NetshWrapper.ValidateUrlAcl(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
+                              {
+                                  options.UrlPrefixes.Add(httpUrl);
+                                  interfaceCnt++;
+                              }
+                              else
+                              {
+                                  SessionLog.Error($"The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                  Console.WriteLine($"ERROR: The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                              }
+                          }
+                          catch (Exception ex)
+                          {
+                              SessionLog.Exception(ex);
+                          }
+                      }
+
+                      if (interfaceCnt == 0)
+                      {
+                          Console.WriteLine("No valid interface (http or https) found so defaulting to localhost:9086");
+                          options.UrlPrefixes.Add("http://localhost:9086");
+                      }
+
+
 
                   })
+                //   .UseKestrel(options =>
+                //   {
+                //       options.AddServerHeader = false;
+
+                //       // TODO: Allow more config here, especially the limits
+                //       //!options.Limits.MaxConcurrentConnections
+
+
+                //       if (webServerSettings.EnableSSL ?? false)
+                //       {
+
+                //           if (File.Exists(certPath))
+                //           {
+                //               options.Listen(System.Net.IPAddress.Any, webServerSettings.HttpsServerPort ?? 44312, listenOptions =>
+                //               {
+                //                   try
+                //                   {
+                //                       listenOptions.UseHttps(certPath, certPass);
+                //                   }
+                //                   catch (System.Exception ex)
+                //                   {
+                //                       SessionLog.Exception(ex);
+                //                       Console.WriteLine(ex.ToString());
+                //                       throw;
+                //                   }
+                //               });
+                //           }
+                //           else
+                //           {
+                //               Console.WriteLine("Cannot start HTTPS listener: The cert file '{0}' does not exists.", certPath);
+                //           }
+                //       }
+
+                //       if (webServerSettings.EnableBasicHttp ?? false)
+                //       {
+                //           options.Listen(System.Net.IPAddress.Any, webServerSettings.HttpServerPort ?? 9086); // http
+                //       }
+
+                //   })
                 .UseStartup<Startup>()
                 //     .UseUrls("http://localhost:9086", "https://*:4430")
                 .Build();
@@ -188,9 +288,6 @@ namespace jsdal_server_core
                 var pluginBaseRef = MetadataReference.CreateFromFile(pluginBasePath);
 
                 var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
-
-                Console.WriteLine(trustedAssembliesPaths);
-
 
 
                 string assemblyName = Path.GetRandomFileName();

@@ -8,6 +8,8 @@ namespace jsdal_server_core.Settings.ObjectModel
         public bool? EnableSSL = false;
         public string HttpsServerHostname;
         public int? HttpsServerPort;
+
+        public string HttpsCertHash;
 /*****
         public static WebServerSettings createFromJson(rawJson: any)
         {

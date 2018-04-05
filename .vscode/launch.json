@@ -15,6 +15,9 @@
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart",
             "console": "externalTerminal",
+            "logging": {
+                "engineLogging": false
+            },
             "launchBrowser": {
                 "enabled": true,
                 "args": "${auto-detect-url}",
