@@ -50,6 +50,21 @@ namespace jsdal_server_core
             Console.WriteLine("!!!\t{0}", output);
         }
 
+        public static bool AddUrlToACL(bool isHttps, string hostname, int port)
+        {
+            var protocol = "http" + (isHttps ? "s" : "");
+            var proc = CreateNewProcess($"http add urlacl url={protocol}://{hostname}:{port}/ user=Users");
+
+            proc.Start();
+            proc.WaitForExit();
+            var consoleOutput = proc.StandardError.ReadToEnd();
+            var output = proc.StandardOutput.ReadToEnd();
+
+            Console.WriteLine("!!!\t{0}", output);
+
+            return output?.ToLower().Contains("url reservation successfully added") ?? false;
+        }
+
         public static string ShowUrlAcl(bool isHttps, string hostname, int port)
         {
             var protocol = "http" + (isHttps ? "s" : "");
@@ -84,7 +99,7 @@ namespace jsdal_server_core
                 var output = ShowSslCert(hostname, port);
 
                 if (output == null) return false;
-                
+
                 output = output.ToLower();
 
                 if (output.Contains("the system cannot find the file specified")) return false;

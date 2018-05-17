@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.SignalR;
+using System.Threading.Channels;
 
 namespace jsdal_server_core.Hubs
 {
@@ -20,7 +21,7 @@ namespace jsdal_server_core.Hubs
                     return new WorkerInfo()
                     {
                         id = wl.ID,
-                        name = wl.DBSource.Name,
+                        name = wl.Endpoint.Pedigree,
                         desc = wl.Description,
                         status = wl.Status,
                         /*lastProgress = wl.lastProgress,
@@ -31,9 +32,9 @@ namespace jsdal_server_core.Hubs
                 }).ToList();
         }
 
-        public IObservable<List<WorkerInfo>> StreamWorkerDetail()
+        public ChannelReader<List<WorkerInfo>> StreamWorkerDetail()
         {
-            return WorkerMonitor.Instance;
+            return WorkerMonitor.Instance.WorkerInfoChannel.Reader;
         }
     }
 

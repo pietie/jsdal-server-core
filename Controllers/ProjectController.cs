@@ -17,8 +17,7 @@ namespace jsdal_server_core.Controllers
     [Authorize(Roles = "admin")]
     public class ProjectController : Controller
     {
-        [HttpGet]
-        [Route("/api/project")]
+        [HttpGet("/api/project")]
         public ApiResponse Get()
         {
             return ApiResponse.Payload(SettingsInstance.Instance.ProjectList.Select(p =>
@@ -26,14 +25,13 @@ namespace jsdal_server_core.Controllers
                 return new
                 {
                     Name = p.Name,
-                    NumberOfDatabaseSources = p.DatabaseSources.Count
+                    NumberOfDatabaseSources = p.Applications.Count
                 };
             }));
         }
 
-        [HttpPost]
-        [Route("/api/project")]
-        public ApiResponse AddNew([FromBody] string name)
+        [HttpPost("/api/project")]
+        public ApiResponse CreateNewProject([FromBody] string name)
         {
             var ret = SettingsInstance.Instance.AddProject(name);
 

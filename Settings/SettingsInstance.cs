@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace jsdal_server_core.Settings
 {
@@ -34,7 +35,7 @@ namespace jsdal_server_core.Settings
             }
         }
 
-        public static bool loadSettingsFromFile()
+        public static bool LoadSettingsFromFile()
         {
             try
             {
@@ -48,11 +49,10 @@ namespace jsdal_server_core.Settings
 
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 
-                settingsInst.ProjectList.ForEach(p => p.DatabaseSources.ForEach(dbs =>
-                                {
-                                    dbs.loadCache();
-                                }));
-
+                settingsInst.ProjectList.ForEach(p=>p.UpdateParentReferences());
+                settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
+                            .ToList()
+                            .ForEach(ep => ep.LoadCache());
 
                 SettingsInstance._instance = settingsInst;
                 return true;

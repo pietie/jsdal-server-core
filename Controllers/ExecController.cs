@@ -23,6 +23,12 @@ namespace jsdal_server_core.Controllers
         {
             public string dbSourceGuid;
             public string dbConnectionGuid;
+
+            public string project; // TODO: !!!
+            public string dbSource; // TODO: !! need better name
+            public string endpoint; // TODO:!!!
+
+
             public string schema;
             public string routine;
             public ExecType Type;
@@ -208,7 +214,8 @@ namespace jsdal_server_core.Controllers
 
             string appTitle = null;
 
-            DatabaseSource dbSource = null;
+            Application dbSource = null;
+            Endpoint endpoint = null;
 // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             var routineExecutionMetric = ExecTracker.Begin(execOptions.dbSourceGuid, execOptions.schema, execOptions.routine);
 
@@ -228,12 +235,15 @@ namespace jsdal_server_core.Controllers
 
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
-                var dbSources = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources);
+                var dbSources = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications);
                 //var dbSourcesFlat = [].concat.apply([], dbSources); // flatten the array of arrays
 
-                dbSource = dbSources.FirstOrDefault(dbs => dbs.CacheKey == execOptions.dbSourceGuid);
+                dbSource = dbSources.FirstOrDefault(dbs => dbs.Name == execOptions.dbSourceGuid);
 
                 if (dbSource == null) throw new Exception($"The specified DB source \"{execOptions.dbSourceGuid}\" was not found.");
+
+                // TODO: !!!!
+                 endpoint = new Endpoint();
 
                 // make sure the source domain/IP is allowed access
                 var mayAccess = dbSource.mayAccessDbSource(this.Request);
@@ -289,7 +299,7 @@ namespace jsdal_server_core.Controllers
                     execOptions.Type,
                     execOptions.schema,
                     execOptions.routine,
-                    dbSource,
+                    endpoint,
                     execOptions.dbConnectionGuid,
                     inputParameters,
                     pluginList,
@@ -381,7 +391,8 @@ namespace jsdal_server_core.Controllers
 
                 if (!string.IsNullOrWhiteSpace(execOptions.dbConnectionGuid) && dbSource != null)
                 {
-                    dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
+                    // TODO: Fix!
+                    //!!!!dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
 
                     if (debugInfo == null) debugInfo = "";
 
@@ -456,7 +467,7 @@ namespace jsdal_server_core.Controllers
         }
 
         private static MethodInfo initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static List<jsDALPlugin> InitPlugins(DatabaseSource dbSource, Dictionary<string, string> queryString)
+        private static List<jsDALPlugin> InitPlugins(Application dbSource, Dictionary<string, string> queryString)
         {
             var plugins = new List<jsDALPlugin>();
 

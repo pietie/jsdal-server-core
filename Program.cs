@@ -89,7 +89,7 @@ namespace jsdal_server_core
 
                 Settings.ObjectModel.ConnectionStringSecurity.init();
 
-                if (SettingsInstance.loadSettingsFromFile())
+                if (SettingsInstance.LoadSettingsFromFile())
                 {
                     WorkSpawner.Start();
                 }
@@ -97,9 +97,8 @@ namespace jsdal_server_core
                 CompileListOfAvailablePlugins();
 
                 _startDate = DateTime.Now;
-                var host = BuildWebHost(pathToContentRoot, args);
-
-                host.Run();
+                
+                BuildWebHost(pathToContentRoot, args).Build().Run();
             }
             catch (Exception ex)
             {
@@ -108,7 +107,7 @@ namespace jsdal_server_core
             }
         }
 
-        public static IWebHost BuildWebHost(string pathToContentRoot, string[] args)
+        public static IWebHostBuilder BuildWebHost(string pathToContentRoot, string[] args)
         {
             Console.WriteLine("pathToContentRoot: {0}", pathToContentRoot);
 
@@ -123,6 +122,8 @@ namespace jsdal_server_core
             // }
 
             // var certPass = System.IO.File.ReadAllText(certPassPath);
+
+             
 
             return WebHost.CreateDefaultBuilder(args)
                   .UseContentRoot(pathToContentRoot)
@@ -155,14 +156,22 @@ namespace jsdal_server_core
                                   }
                                   else
                                   {
-                                      SessionLog.Error($"The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
-                                      Console.WriteLine($"ERROR: The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                      if (NetshWrapper.AddUrlToACL(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
+                                      {
+                                          options.UrlPrefixes.Add(httpsUrl);
+                                          interfaceCnt++;
+                                      }
+                                      else
+                                      {
+                                          SessionLog.Error($"The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                          Console.WriteLine($"ERROR: The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                      }
                                   }
                               }
                               else
                               {
-                                    SessionLog.Error($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
-                                    Console.WriteLine($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
+                                  SessionLog.Error($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
+                                  Console.WriteLine($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
                               }
 
 
@@ -186,8 +195,16 @@ namespace jsdal_server_core
                               }
                               else
                               {
-                                  SessionLog.Error($"The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
-                                  Console.WriteLine($"ERROR: The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                  if (NetshWrapper.AddUrlToACL(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
+                                  {
+                                      options.UrlPrefixes.Add(httpUrl);
+                                      interfaceCnt++;
+                                  }
+                                  else
+                                  {
+                                      SessionLog.Error($"The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                      Console.WriteLine($"ERROR: The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                  }
                               }
                           }
                           catch (Exception ex)
@@ -244,9 +261,9 @@ namespace jsdal_server_core
                 //       }
 
                 //   })
-                .UseStartup<Startup>()
+                .UseStartup<Startup>();
                 //     .UseUrls("http://localhost:9086", "https://*:4430")
-                .Build();
+                
 
         }
 

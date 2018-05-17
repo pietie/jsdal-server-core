@@ -2,13 +2,17 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Channels;
 
 namespace jsdal_server_core.Hubs
 {
-    public class WorkerMonitor : IObservable<List<WorkerInfo>>
+    public class WorkerMonitor 
     {
         private static WorkerMonitor _singleton;
-        List<IObserver<List<WorkerInfo>>> observers;
+
+        private Channel<List<WorkerInfo>> workerInfoChannel; // TODO: Instead of a List, can we reduce this to single worker info updates -- initially get a list and then just update, or add all new ones to a list
+
+        public Channel<List<WorkerInfo>> WorkerInfoChannel { get { return this.workerInfoChannel; }}
 
         public static WorkerMonitor Instance
         {
@@ -22,43 +26,7 @@ namespace jsdal_server_core.Hubs
 
         private WorkerMonitor()
         {
-            observers = new List<IObserver<List<WorkerInfo>>>();
-
-            /*
-                        ThreadPool.QueueUserWorkItem((state) =>
-                        {
-                            while (true)
-                            {
-                                this.NotifyObservers();
-                                // TODO: Provide way to exit this thread?
-                                Thread.Sleep(2000);
-                            }
-                        }); */
-        }
-
-        private class Unsubscriber : IDisposable
-        {
-            private List<IObserver<List<WorkerInfo>>> _observers;
-            private IObserver<List<WorkerInfo>> _observer;
-
-            public Unsubscriber(List<IObserver<List<WorkerInfo>>> observers, IObserver<List<WorkerInfo>> observer)
-            {
-                this._observers = observers;
-                this._observer = observer;
-            }
-
-            public void Dispose()
-            {
-                if (!(_observer == null)) _observers.Remove(_observer);
-            }
-        }
-
-        public IDisposable Subscribe(IObserver<List<WorkerInfo>> observer)
-        {
-            if (!observers.Contains(observer))
-                observers.Add(observer);
-
-            return new Unsubscriber(observers, observer);
+            workerInfoChannel = Channel.CreateUnbounded<List<WorkerInfo>>();
         }
 
         public void NotifyObservers()
@@ -68,7 +36,7 @@ namespace jsdal_server_core.Hubs
                     return new WorkerInfo()
                     {
                         id = wl.ID,
-                        name = wl.DBSource.Name,
+                        name = wl.Endpoint.Pedigree,
                         desc = wl.Description,
                         status = wl.Status,
                         /*lastProgress = wl.lastProgress,
@@ -78,20 +46,7 @@ namespace jsdal_server_core.Hubs
                     };
                 }).ToList();
 
-            foreach (var observer in observers.ToArray())
-            {
-                if (observer != null)
-                {
-                    try
-                    {
-                        observer.OnNext(packet);
-                    }
-                    catch (System.OperationCanceledException)
-                    {
-                        // ignore the case where the Observer has been cancelled since
-                    }
-                }
-            }
+            workerInfoChannel.Writer.WriteAsync(packet);
         }
     }
 

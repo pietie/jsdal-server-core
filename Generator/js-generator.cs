@@ -32,11 +32,11 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void generateJsFile(DatabaseSource dbSource, JsFile jsFile)
+        public static void generateJsFile(Endpoint endpoint, JsFile jsFile)
         {
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
-            var jsNamespace = dbSource.JsNamespace;
-            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = dbSource.MetadataConnection.initialCatalog;
+            string jsNamespace = null;//endpoint.JsNamespace;
+            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.initialCatalog;
 
             var typeScriptParameterAndResultTypesSB = new StringBuilder();
 
@@ -44,9 +44,9 @@ namespace jsdal_server_core
             var routineTemplate = WorkSpawner.TEMPLATE_Routine;
             var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
 
-            dbSource.applyRules(jsFile);
+            endpoint.ApplyRules(jsFile);
 
-            var includedRoutines = (from row in dbSource.cache
+            var includedRoutines = (from row in endpoint.cache
                                     where !row.IsDeleted && (row.RuleInstructions[jsFile]?.Included ?? false == true)
                                     orderby row.FullName
                                     select row).ToList();
@@ -278,7 +278,7 @@ namespace jsdal_server_core
                             }
                             else
                             {
-                                SessionLog.Warning($"Cannot generate UDF method stub because the parameters collection is empty. Does the object still exist? Data source= {dbSource.Name} ({dbSource.CacheKey}), Routine={r.FullName}");
+                                SessionLog.Warning($"Cannot generate UDF method stub because the parameters collection is empty. Does the object still exist? Endpoint = {endpoint.Name} ({endpoint.Id}), Routine={r.FullName}");
                             }
 
                         }
@@ -342,8 +342,10 @@ namespace jsdal_server_core
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
                 .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
                 .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
-                .Replace("<<DB_SOURCE_GUID>>", dbSource.CacheKey.ToString());
+                .Replace("<<DB_SOURCE_GUID>>", endpoint.Id); // TODO: fix placeholder name...or change to something more appropriate?
             ;
+
+            //throw new NotImplementedException(); // for fixing above TODO
 
             var finalTypeScriptSB = new StringBuilder();
 
@@ -361,13 +363,12 @@ namespace jsdal_server_core
 
             var typescriptDefinitionsOutput = finalTypeScriptSB.ToString();
 
-
             var finalOutput = finalSB.ToString();
 
-            var outputDir = dbSource.outputDir;
-            var filePath = dbSource.outputFilePath(jsFile);
-            var minfiedFilePath = dbSource.minifiedOutputFilePath(jsFile);
-            var tsTypingsFilePath = dbSource.outputTypeScriptTypingsFilePath(jsFile);
+            var outputDir = endpoint.OutputDir;
+            var filePath = endpoint.OutputFilePath(jsFile);
+            var minfiedFilePath = endpoint.MinifiedOutputFilePath(jsFile);
+            var tsTypingsFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
 
             var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
 

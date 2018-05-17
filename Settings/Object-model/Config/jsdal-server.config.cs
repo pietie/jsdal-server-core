@@ -55,6 +55,8 @@ namespace jsdal_server_core.Settings
         {
             if (this.ProjectList == null) this.ProjectList = new List<Project>();
 
+            // TODO: Add more validation rules - mostly around having valid URL-friendly chars only - or make sure Project/App/Endpoint names are valid to be used as sub dirs
+
             if (string.IsNullOrWhiteSpace(name))
             {
                 return CommonReturnValue.userError("Please provide a valid project name.");

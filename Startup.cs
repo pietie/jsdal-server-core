@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 
+
 namespace jsdal_server_core
 {
     public class Startup
@@ -39,13 +40,25 @@ namespace jsdal_server_core
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var policy = new Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicy();
-            policy.Headers.Add("*");
-            policy.Methods.Add("*");
-            policy.Origins.Add("*");
-            policy.SupportsCredentials = true;
 
-            services.AddCors(x => x.AddPolicy("CorsPolicy", policy));
+            services.AddCors(options => options.AddPolicy("CorsPolicy",
+                    builder => builder
+                        .SetIsOriginAllowedToAllowWildcardSubdomains()
+                        .AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowCredentials()
+                        .AllowAnyHeader()
+                        .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
+                        .Build()));
+            //             var policy = new Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicy();
+
+            //             policy.Headers.Add("*");
+            //             policy.Methods.Add("*");
+            //             policy.Origins.Add("*");
+            //             policy.SupportsCredentials = true;
+
+            // policy.PreflightMaxAge = TimeSpan.FromSeconds(600);
+            //             services.AddCors(x => x.AddPolicy("CorsPolicy", policy));
 
             services.AddAuthentication(o =>
             {
@@ -74,8 +87,16 @@ namespace jsdal_server_core
 
                 });
 
-            services.AddSignalR(s => s.JsonSerializerSettings.ContractResolver = new DefaultContractResolver());
-            services.AddMvc().AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver());
+            services.AddSignalR()
+                .AddJsonProtocol(options =>
+                {
+                    options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver();
+                });
+
+            services.AddMvc()
+            .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
+            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            ;
 
             var dataProtectionKeyPath = new System.IO.DirectoryInfo(System.IO.Directory.GetCurrentDirectory());
             services.AddDataProtection()
@@ -87,28 +108,50 @@ namespace jsdal_server_core
                     });
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
+            //       loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+            //     loggerFactory.AddDebug();
+
+
+
+
+
+            // app.Use(async (httpContext, next) =>
+            // {
+            //     //if (httpContext.Request.Path.Value.Contains("api/") && httpContext.Request.Method == "OPTIONS")
+            //     if (httpContext.Request.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
+            //     {
+            //         httpContext.Response.Headers.Add("Access-Control-Max-Age", "600");
+            //        // return;
+            //     }
+            //     await next();
+            // });
+
             app.UseCors("CorsPolicy");
+
             app.UseDefaultFiles();
             app.UseStaticFiles();
-            app.UseAuthentication();
 
-            app.UseWebSockets();
             app.UseSignalR(routes =>
             {
-                routes.MapHub<Hubs.HomeDashboardHub>("main-stats");
-                routes.MapHub<Hubs.WorkerDashboardHub>("worker-hub");
-                routes.MapHub<Hubs.Performance.RealtimeHub>("performance-realtime-hub");
-                routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("heartbeat");
+                routes.MapHub<Hubs.HomeDashboardHub>("/main-stats");
+                routes.MapHub<Hubs.WorkerDashboardHub>("/worker-hub");
+                routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
+                routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
             });
+
+            app.UseAuthentication();
+            app.UseWebSockets();
+            app.UseCookiePolicy();
+
 
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
 
-            //app.UseMvc();
+
             app.UseMvc(routes =>
             {
                 routes.MapRoute(

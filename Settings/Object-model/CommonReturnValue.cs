@@ -19,14 +19,14 @@ namespace jsdal_server_core.Settings.ObjectModel
 
     public class CommonReturnValueWithDbSource : CommonReturnValue
     {
-        public DatabaseSource dbSource;
+        public Application dbSource;
 
-        public static CommonReturnValueWithDbSource success(DatabaseSource dbs)
+        public static CommonReturnValueWithDbSource success(Application app)
         {
             var ret = new CommonReturnValueWithDbSource();
 
             ret.successVal = true;
-            ret.dbSource = dbs;
+            ret.dbSource = app;
 
             return ret;
         }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
+using System.Threading.Channels;
 
 namespace jsdal_server_core.Hubs
 {
@@ -11,16 +12,6 @@ namespace jsdal_server_core.Hubs
         private MainStatsMonitor mainStatsObs;
         public HomeDashboardHub()
         {
-            mainStatsObs = new MainStatsMonitor();
-            // ThreadPool.QueueUserWorkItem((state) =>
-            // {
-            //     while (true)
-            //     {
-            //         mainStatsObs.OnNext(new MainStats());
-            //         // TODO: Provide way to exit this thread?
-            //         Thread.Sleep(2000);
-            //     }
-            // });
         }
 
         public MainStats Init()
@@ -28,99 +19,37 @@ namespace jsdal_server_core.Hubs
             return new MainStats();
         }
 
-        public IObservable<MainStats> StreamMainStats()
+        public ChannelReader<MainStats> StreamMainStats()
         {
-            return mainStatsObs;
+            return MainStatsMonitor.Instance.MainStatsChannel.Reader;
         }
     }
 
-    public class MainStatsMonitor : IObservable<MainStats>
+    public class MainStatsMonitor
     {
         List<IObserver<MainStats>> observers;
+        private Channel<MainStats> channel;
 
-        public MainStatsMonitor()
+        public Channel<MainStats> MainStatsChannel { get { return this.channel; } }
+
+        private MainStatsMonitor()
         {
-            observers = new List<IObserver<MainStats>>();
+            channel = Channel.CreateUnbounded<MainStats>();
 
             ThreadPool.QueueUserWorkItem((state) =>
             {
                 while (true)
                 {
-                    this.NotifyObservers();
+                    this.channel.Writer.WriteAsync(new MainStats());
                     // TODO: Provide way to exit this thread?
                     Thread.Sleep(2000);
                 }
             });
         }
 
-        private class Unsubscriber : IDisposable
-        {
-            private List<IObserver<MainStats>> _observers;
-            private IObserver<MainStats> _observer;
+        private static MainStatsMonitor _instance;
+        public static MainStatsMonitor Instance { get { if (_instance == null) _instance = new MainStatsMonitor(); return _instance; } }
 
-            public Unsubscriber(List<IObserver<MainStats>> observers, IObserver<MainStats> observer)
-            {
-                this._observers = observers;
-                this._observer = observer;
-            }
-
-            public void Dispose()
-            {
-                if (!(_observer == null)) _observers.Remove(_observer);
-            }
-        }
-
-        public IDisposable Subscribe(IObserver<MainStats> observer)
-        {
-            if (!observers.Contains(observer))
-                observers.Add(observer);
-
-            return new Unsubscriber(observers, observer);
-        }
-
-        public void NotifyObservers()
-        {
-            var stats = new MainStats();
-
-            foreach (var observer in observers.ToArray())
-            {
-                if (observer != null)
-                {
-                    try
-                    {
-                        observer.OnNext(stats);
-                    }
-                    catch (System.OperationCanceledException)
-                    {
-                        // ignore the case where the Observer has been cancelled since
-                    }
-                }
-            }
-
-            // foreach (var temp in temps)
-            // {
-            //     System.Threading.Thread.Sleep(2500);
-            //     if (temp.HasValue)
-            //     {
-            //         if (start || (Math.Abs(temp.Value - previous.Value) >= 0.1m))
-            //         {
-
-            //             previous = temp;
-            //             if (start) start = false;
-            //         }
-            //     }
-            //     // else
-            //     // {
-            //     //     foreach (var observer in observers.ToArray())
-            //     //     {
-            //     //         if (observer != null) observer.OnCompleted();
-            //     //     }
-
-            //     observers.Clear();
-            //     break;
-            // }
-
-        }
     }
 
     public class MainStats

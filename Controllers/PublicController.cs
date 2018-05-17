@@ -43,7 +43,7 @@ namespace jsdal_server_core.Controllers
         {
             var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
             // TODO: throw if project does not exist
-            var ret = project.DatabaseSources.Select(db => new { Guid = db.CacheKey, db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Guid, f.Version }) }).ToList<dynamic>();
+            var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Guid, f.Version }) }).ToList<dynamic>();
 
             return ret;
         }
@@ -59,7 +59,7 @@ namespace jsdal_server_core.Controllers
                 return NotFound($"The Project {projectGuid} does not exist.");
             }
 
-            var dbSources = project.DatabaseSources.Select(db => new { db.Name, Guid = db.CacheKey }).ToList<dynamic>();
+            var dbSources = project.Applications.Select(db => new { db.Name }).ToList<dynamic>();
 
             return Ok(dbSources);
         }
@@ -68,7 +68,8 @@ namespace jsdal_server_core.Controllers
         [HttpGet("api/jsdal/files")]
         public IActionResult GetOutputFiles([FromQuery] string dbSourceGuid)
         {
-            var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).FirstOrDefault(db => db.CacheKey.Equals(dbSourceGuid, StringComparison.OrdinalIgnoreCase));
+            // TODO: Review all of this
+            var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).FirstOrDefault(db => db.Name.Equals(dbSourceGuid, StringComparison.OrdinalIgnoreCase));
 
             if (dbSource == null)
             {
@@ -125,7 +126,7 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-
+/*  15/05/2018, PL: Commented out..now sure where this is used..if at all... TODO: check jsdal-cli
         [HttpGet("api/meta")]
         public List<dynamic> GetMetadataUpdates([FromQuery] string dbSourceGuid, [FromQuery] long maxRowver)
         {
@@ -167,6 +168,7 @@ namespace jsdal_server_core.Controllers
                 return null;
             }
         }
+        */
 
         private static string ComputeETag(byte[] data)
         {
@@ -182,19 +184,21 @@ namespace jsdal_server_core.Controllers
             {
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-                var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
+                var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
 
                 if (jsFile == null) return NotFound();
 
-                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).First(db => db.JsFiles.Contains(jsFile));
+                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).First(db => db.JsFiles.Contains(jsFile));
 
                 if (tsd) // typescript definition
                 {
                     return ServeTypescriptDefinition(jsFile, dbSource);
                 }
 
+throw new NotImplementedException();
+Endpoint endpoint = null; // TODO: !!!!!
 
-                var path = min ? dbSource.minifiedOutputFilePath(jsFile) : dbSource.outputFilePath(jsFile);
+                var path = min ? endpoint.MinifiedOutputFilePath(jsFile) : endpoint.OutputFilePath(jsFile);
 
                 if (!System.IO.File.Exists(path))
                 {
@@ -264,16 +268,17 @@ namespace jsdal_server_core.Controllers
             {
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).FirstOrDefault(db => db.CacheKey.Equals(guid));
+// TODO: review all of this
+                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).FirstOrDefault(db => db.Name.Equals(guid));
 
                 // if the specified Guid is not a DBSource try looking for a file
                 if (dbSource == null)
                 {
-                    var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(guid));
+                    var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(guid));
 
                     if (jsFile == null) return NotFound();
 
-                    dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).First(db => db.JsFiles.Contains(jsFile));
+                    dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).First(db => db.JsFiles.Contains(jsFile));
 
                     return ServeTypescriptDefinition(jsFile, dbSource);
 
@@ -297,7 +302,7 @@ namespace jsdal_server_core.Controllers
             return he?.HostName;
         }
 
-        private IActionResult ServeTypescriptDefinition(JsFile jsFile, DatabaseSource dbSource)
+        private IActionResult ServeTypescriptDefinition(JsFile jsFile, Application dbSource)
         {
             if (jsFile == null && dbSource != null)
             {
@@ -320,7 +325,9 @@ namespace jsdal_server_core.Controllers
                 return Ok(content);
             }
 
-            var tsdFilePath = dbSource.outputTypeScriptTypingsFilePath(jsFile);
+throw new NotImplementedException();
+Endpoint endpoint = null; // TODO:!!!
+            var tsdFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
 
             if (!System.IO.File.Exists(tsdFilePath)) return NotFound();
 

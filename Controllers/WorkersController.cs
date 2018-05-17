@@ -24,7 +24,7 @@ namespace jsdal_server_core.Controllers
                     return new
                     {
                         id = wl.ID,
-                        name = wl.DBSource.Name,
+                        name = wl.Endpoint.Name,
                         desc = wl.Description,
                         status = wl.Status,
                         /*lastProgress = wl.lastProgress,
@@ -46,8 +46,7 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/workers/{id}")]
         public ApiResponse getWorkerLog([FromRoute] string id)
         {
-            var workerName = id;
-            var worker = WorkSpawner.getWorker(workerName);
+            var worker = WorkSpawner.GetWorker(id);
 
             if (worker != null)
             {
@@ -64,7 +63,7 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var worker = WorkSpawner.getWorkerById(id);
+                var worker = WorkSpawner.GetWorkerById(id);
 
                 if (worker != null)
                 {
@@ -88,7 +87,7 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var worker = WorkSpawner.getWorkerById(id);
+                var worker = WorkSpawner.GetWorkerById(id);
 
                 if (worker != null)
                 {

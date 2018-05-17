@@ -16,14 +16,14 @@ namespace jsdal_server_core
     public class Worker
     {
         public string ID { get; private set; }
-        
+
         private MemoryLog log;
 
-        public DatabaseSource DBSource { get; private set; }
+        public Endpoint Endpoint { get; private set; }
+
         public string Description
         {
-
-            get { if (this.DBSource == null) return null; return $"{ this.DBSource.dataSource}; { this.DBSource.initialCatalog} "; }
+            get { if (this.Endpoint == null) return null; return $"{ this.Endpoint.MetadataConnection?.dataSource}; { this.Endpoint.MetadataConnection?.initialCatalog} "; }
         }
 
         private Thread winThread;
@@ -51,7 +51,8 @@ namespace jsdal_server_core
 
         public List<LogEntry> LogEntries
         {
-            get {
+            get
+            {
                 return log?.Entries;
             }
         }
@@ -59,10 +60,10 @@ namespace jsdal_server_core
         private DateTime? last0Cnt;
 
 
-        public Worker(DatabaseSource dbSource)
+        public Worker(Endpoint endpoint)
         {
             this.ID = ShortId.Generate();
-            this.DBSource = dbSource;
+            this.Endpoint = endpoint;
             this.log = new MemoryLog();
         }
 
@@ -97,7 +98,7 @@ namespace jsdal_server_core
         {
             try
             {
-                Thread.CurrentThread.Name = "WorkerThread " + this.DBSource.Name;
+                Thread.CurrentThread.Name = "WorkerThread " + this.Endpoint.Pedigree;
 
                 this.Status = "Started";
 
@@ -107,7 +108,7 @@ namespace jsdal_server_core
 
                 DateTime lastSavedDate = DateTime.Now;
 
-                var cache = this.DBSource.cache;
+                var cache = this.Endpoint.cache;
 
                 if (cache != null && cache.Count > 0)
                 {
@@ -117,10 +118,10 @@ namespace jsdal_server_core
                 int connectionErrorCnt = 0;
 
 
-                if (this.DBSource?.MetadataConnection.ConnectionStringDecrypted == null)
+                if (this.Endpoint?.MetadataConnection?.ConnectionStringDecrypted == null)
                 {
                     this.IsRunning = false;
-                    this.Status = $"Data source '{this.DBSource?.Name ?? "(null)"}' does not have valid connection configured.";
+                    this.Status = $"Endpoint '{this.Endpoint?.Name ?? "(null)"}' does not have valid connection configured.";
                     this.log.Error(this.Status);
                     SessionLog.Error(this.Status);
                     return;
@@ -134,7 +135,7 @@ namespace jsdal_server_core
 
                     try
                     {
-                        if (!DBSource.IsOrmInstalled)
+                        if (!Endpoint.IsOrmInstalled)
                         {
                             // try again in 3 seconds
                             this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Waiting for ORM to be installed";
@@ -142,10 +143,10 @@ namespace jsdal_server_core
                             continue;
                         }
 
-                        var csb = new SqlConnectionStringBuilder(this.DBSource.MetadataConnection.ConnectionStringDecrypted);
+                        var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
                         connectionStringRef = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
 
-                        using (var con = new SqlConnection(this.DBSource.MetadataConnection.ConnectionStringDecrypted))
+                        using (var con = new SqlConnection(this.Endpoint.MetadataConnection.ConnectionStringDecrypted))
                         {
                             try
                             {
@@ -163,13 +164,13 @@ namespace jsdal_server_core
 
                                 this.Status = $"Attempt: #{connectionErrorCnt + 1} (waiting for {waitMS}ms). " + this.Status;
 
-                                 Hubs.WorkerMonitor.Instance.NotifyObservers();
+                                Hubs.WorkerMonitor.Instance.NotifyObservers();
 
                                 Thread.Sleep(waitMS);
                                 continue;
                             }
 
-                            Process(con, this.DBSource.MetadataConnection.ConnectionStringDecrypted);
+                            Process(con, this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
                         } // using connection
 
                         if (isIterationDirty)
@@ -188,7 +189,7 @@ namespace jsdal_server_core
 
                 } // while IsRunning
             }
-            catch(ThreadAbortException)
+            catch (ThreadAbortException)
             {
                 // ignore TAEs
             }
@@ -211,7 +212,7 @@ namespace jsdal_server_core
             {
                 last0Cnt = null;
 
-                SessionLog.Info($"{ DBSource.Name}\t{ changesCount} change(s) found using row date { this.MaxRowDate}");
+                SessionLog.Info($"{ Endpoint.Pedigree }\t{ changesCount} change(s) found using row date { this.MaxRowDate}");
                 //!this._log.info($"{ DBSource.Name}\t{ changesCount} change(s) found using row date ${ this.MaxRowDate}");
                 this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount} change(s) found using rowdate { this.MaxRowDate}";
 
@@ -221,8 +222,8 @@ namespace jsdal_server_core
 
                 {
                     // call save for final changes 
-                    DBSource.saveCache();
-                    this.generateOutputFiles(DBSource);
+                    this.Endpoint.SaveCache();
+                    this.generateOutputFiles(this.Endpoint);
                 }
 
             }// if changeCount > 0
@@ -307,7 +308,7 @@ namespace jsdal_server_core
                     if (!string.IsNullOrWhiteSpace(jsonMetadata))
                     {
                         try
-                        { 
+                        {
                             newCachedRoutine.jsDALMetadata = JsonConvert.DeserializeObject<jsDALMetadata>(jsonMetadata);
                         }
                         catch (Exception ex)
@@ -330,7 +331,7 @@ namespace jsdal_server_core
                     curRow++;
                     var perc = ((double)curRow / (double)changesCount) * 100.0;
 
-                    this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd, HH:mm:ss")} - { DBSource.Name } - Overall progress: {curRow} of { changesCount } ({ perc.ToString("##0.00")}%) - [{ newCachedRoutine.Schema }].[{ newCachedRoutine.Routine }]";
+                    this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd, HH:mm:ss")} - Overall progress: {curRow} of { changesCount } ({ perc.ToString("##0.00")}%) - [{ newCachedRoutine.Schema }].[{ newCachedRoutine.Routine }]";
 
                     if (curRow % 10 == 0)
                     {
@@ -402,13 +403,13 @@ namespace jsdal_server_core
                         }
                     } // !IsDeleted
 
-                    DBSource.addToCache(newCachedRoutine.RowVer, newCachedRoutine);
+                    Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine);
 
                     // TODO: Make saving gap configurable?
                     if (DateTime.Now.Subtract(lastSavedDate).TotalSeconds >= 20)
                     {
                         lastSavedDate = DateTime.Now;
-                        DBSource.saveCache();
+                        Endpoint.SaveCache();
                     }
 
                     if (!this.MaxRowDate.HasValue || newCachedRoutine.RowVer > this.MaxRowDate.Value)
@@ -450,17 +451,23 @@ namespace jsdal_server_core
             public List<RoutineParameter> Parameters { get; set; }
         }
 
-        private void generateOutputFiles(DatabaseSource dbSource)
+        private void generateOutputFiles(Endpoint endpoint)
         {
             try
             {
-                dbSource.JsFiles.ForEach(jsFile =>
+                endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    JsFileGenerator.generateJsFile(dbSource, jsFile);
+                    // generate a file for every endpoint
+                    //dbSource.Endpoints.ForEach(endpoint =>
+                    //{
+                        JsFileGenerator.generateJsFile(endpoint, jsFile);
 
-                    this.IsRulesDirty = false;
-                    this.IsOutputFilesDirty = false;
-                    dbSource.LastUpdateDate = DateTime.Now;
+                        this.IsRulesDirty = false;
+                        this.IsOutputFilesDirty = false;
+                        
+                        endpoint.LastUpdateDate = DateTime.Now;
+                    //});
+
                 });
             }
             catch (Exception ex)

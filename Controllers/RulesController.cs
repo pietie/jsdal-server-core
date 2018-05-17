@@ -17,7 +17,7 @@ namespace jsdal_server_core.Controllers
     {
 
         [HttpPost("/api/rule")]
-        public ApiResponse Post([FromQuery] string projectName, [FromQuery(Name = "dbSource")] string dbSourceName, [FromQuery] string jsFilenameGuid, [FromQuery] string json)
+        public ApiResponse CreateRule([FromQuery] string projectName, [FromQuery(Name = "dbSource")] string dbSourceName, [FromQuery] string jsFilenameGuid, [FromQuery] string json)
         {
             try
             {
@@ -81,7 +81,7 @@ namespace jsdal_server_core.Controllers
 
 
         [HttpDelete("/api/rule")]
-        public ApiResponse Delete([FromQuery] string projectName, [FromQuery(Name = "dbSource")] string dbSourceName, [FromQuery] string jsFilenameGuid, [FromQuery] string ruleGuid)
+        public ApiResponse DeleteRule([FromQuery] string projectName, [FromQuery(Name = "dbSource")] string dbSourceName, [FromQuery] string jsFilenameGuid, [FromQuery] string ruleGuid)
         {
             try
             {
@@ -135,19 +135,21 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpGet("/api/rule/routineList")]
-        public ApiResponse GetRoutineList([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string jsFilenameGuid)
+        public ApiResponse GetRoutineList([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string endpoint, [FromQuery] string jsFilenameGuid)
         {
             try
             {
-                var proj = SettingsInstance.Instance.getProject(projectName);
+                if (!ControllerHelper.GetProjectAndApp(projectName, dbSource, out var proj, out var dbs, out var resp))
+                {
+                    return resp;
+                }
 
-                if (proj == null) return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
+                if (!dbs.GetEndpoint(endpoint, out var ep, out var resp2))
+                {
+                    return ApiResponse.ExclamationModal(resp2.userErrorVal);
+                }
 
-                var dbs = proj.getDatabaseSource(dbSource);
-
-                if (dbs == null) return ApiResponse.ExclamationModal($"The data source \"{dbSource}\" does not exist.");
-
-                var cache = dbs.cache;
+                var cache = ep.cache;
 
                 if (cache == null)
                 {
@@ -217,19 +219,21 @@ namespace jsdal_server_core.Controllers
 
 
         [HttpGet("/api/rule/ruleList")]
-        public ApiResponse GetRuleList([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string jsFilenameGuid)
+        public ApiResponse GetRuleList([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string endpoint, [FromQuery] string jsFilenameGuid)
         {
             try
             {
-                var proj = SettingsInstance.Instance.getProject(projectName);
+                if (!ControllerHelper.GetProjectAndApp(projectName, dbSource, out var proj, out var dbs, out var resp))
+                {
+                    return resp;
+                }
 
-                if (proj == null) return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
+                if (!dbs.GetEndpoint(endpoint, out var ep, out var resp2))
+                {
+                    return ApiResponse.ExclamationModal(resp2.userErrorVal);
+                }
 
-                var dbs = proj.getDatabaseSource(dbSource);
-
-                if (dbSource == null) return ApiResponse.ExclamationModal($"The data source \"{dbSource}\" does not exist.");
-
-                var cachedRoutines = dbs.cache;
+                var cachedRoutines = ep.cache;
 
                 if (jsFilenameGuid == null)
                 { // DB-level

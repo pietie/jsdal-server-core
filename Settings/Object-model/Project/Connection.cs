@@ -24,18 +24,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         private SqlConnectionStringBuilder _connectionStringBuilder;
 
-        // public toJSON()
-        // {
-        //     return {
-        //     Name: this.Name,
-        //         Guid: this.Guid,
-        //         ConnectionString: this.ConnectionString,
-        //         Unsafe: this.Unsafe,
-        //         port: this.port,
-        //         instanceName: this.instanceName
-        //     };
-        // }
-
         [JsonIgnore]
         public string userID
         {
@@ -85,20 +73,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 return this._connectionStringBuilder.IntegratedSecurity;
             }
         }
-
-        /*    public static createFromJson(rawJson: any): Connection {
-
-                let connection = new Connection();
-
-            connection.Name = rawJson.Name;
-                connection.Guid = rawJson.Guid;
-                connection.ConnectionString = rawJson.ConnectionString;
-                connection.Unsafe = !!rawJson.Unsafe;
-                connection.port = rawJson.port != null ? rawJson.port : 1433;
-        connection.instanceName = rawJson.instanceName;
-
-                return connection;
-            }*/
 
         private string _descryptedConnectionString;
 

@@ -24,18 +24,19 @@ namespace jsdal_server_core
         // };
         //}
 
-        public static void resetMaxRowDate(DatabaseSource dbSource)
-        {
-            var worker = WorkSpawner._workerList.FirstOrDefault(wl => wl.DBSource.CacheKey == dbSource.CacheKey);
+        // public static void resetMaxRowDate(Application app)
+        // {
+        //     // TODO: Do not match on name alone? (Was .CacheKey before)
+        //     var worker = WorkSpawner._workerList.FirstOrDefault(wl => wl.DBSource == app);
 
-            if (worker != null) worker.ResetMaxRowDate();
-        }
+        //     if (worker != null) worker.ResetMaxRowDate();
+        // }
 
-        public static Worker getWorker(string name)
+        public static Worker GetWorker(string id)
         {
-            return WorkSpawner._workerList.FirstOrDefault(wl => wl.DBSource.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.Ordinal));
         }
-        public static Worker getWorkerById(string id)
+        public static Worker GetWorkerById(string id)
         {
             return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
@@ -65,7 +66,7 @@ namespace jsdal_server_core
         {
             try
             {
-                var dbSources = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).ToList();
+                var endpoints = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(app=>app.Endpoints).ToList();
 
                 WorkSpawner.TEMPLATE_RoutineContainer = File.ReadAllText("./resources/RoutineContainerTemplate.txt");
                 WorkSpawner.TEMPLATE_Routine = File.ReadAllText("./resources/RoutineTemplate.txt");
@@ -78,14 +79,14 @@ namespace jsdal_server_core
                 // TODO: handle items (project/sources) that were deleted
 
                 //async.each(dbSources, (source) => {
-                dbSources.ForEach(source =>
+                endpoints.ForEach(endpoint =>
                 {
 
                     try
                     {
-                        var worker = new Worker(source);
+                        var worker = new Worker(endpoint);
 
-                        Console.WriteLine($"Spawning new worker for { source.Name}");
+                        Console.WriteLine($"Spawning new worker for { endpoint.Pedigree }");
 
                         WorkSpawner._workerList.Add(worker);
 
@@ -107,23 +108,24 @@ namespace jsdal_server_core
 
         } // Start
 
-        public static void RemoveDatabaseSource(DatabaseSource dbSource)
+        public static void RemoveApplication(Application app)
         {
             try
             {
-                var workers = _workerList.Where(w => w.DBSource == dbSource);
+                //! TODO: fix up
+                // var workers = _workerList.Where(w => w.App == app);
 
-                if (workers.Count() > 0)
-                {
-                    foreach (var w in workers)
-                    {
-                        w.Stop();
-                    }
+                // if (workers.Count() > 0)
+                // {
+                //     foreach (var w in workers)
+                //     {
+                //         w.Stop();
+                //     }
 
-                    _workerList.RemoveAll(w => workers.Contains(w));
+                //     _workerList.RemoveAll(w => workers.Contains(w));
 
-                    Hubs.WorkerMonitor.Instance.NotifyObservers();
-                }
+                //     Hubs.WorkerMonitor.Instance.NotifyObservers();
+                // }
 
             }
             catch (Exception ex)
@@ -132,35 +134,35 @@ namespace jsdal_server_core
             }
         }
 
-        public static void AddDatabaseSource(DatabaseSource dbSource)
-        {
-            try
-            {
-                var existing = _workerList.FirstOrDefault(w => w.DBSource == dbSource);
+        // public static void AddDatabaseSource(Application app)
+        // {
+        //     try
+        //     {
+        //         var existing = _workerList.FirstOrDefault(w => w.App == app);
 
-                if (existing == null)
-                {
-                    var worker = new Worker(dbSource);
+        //         if (existing == null)
+        //         {
+        //             var worker = new Worker(app);
 
-                    Console.WriteLine($"Spawning new worker for { dbSource.Name}");
+        //             Console.WriteLine($"Spawning new worker for { app.Name}");
 
-                    WorkSpawner._workerList.Add(worker);
+        //             WorkSpawner._workerList.Add(worker);
 
-                    var winThread = new Thread(new ThreadStart(worker.Run));
+        //             var winThread = new Thread(new ThreadStart(worker.Run));
 
-                    winThread.Start();
+        //             winThread.Start();
 
-                    Hubs.WorkerMonitor.Instance.NotifyObservers();
-                }
+        //             Hubs.WorkerMonitor.Instance.NotifyObservers();
+        //         }
 
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-            }
-        }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         SessionLog.Exception(ex);
+        //     }
+        // }
 
-        public static void UpdateDatabaseSource(DatabaseSource oldDbSource, DatabaseSource newDbSource)
+        public static void UpdateDatabaseSource(Application oldDbSource, Application newDbSource)
         {
             try
             {// TODO: !!!!

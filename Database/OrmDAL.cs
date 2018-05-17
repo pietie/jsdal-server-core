@@ -131,7 +131,7 @@ namespace jsdal_server_core
                Controllers.ExecController.ExecType type,
                string schemaName,
                string routineName,
-               DatabaseSource dbSource,
+               Endpoint endpoint,
                string dbConnectionGuid,
                Dictionary<string, string> inputParameters,
                List<jsDALPlugin> plugins,
@@ -150,7 +150,7 @@ namespace jsdal_server_core
             {
                 var s1 = execRoutineQueryMetric.BeginChildStage("Lookup cached routine");
 
-                var routineCache = dbSource.cache;
+                var routineCache = endpoint.cache;
                 var cachedRoutine = routineCache.FirstOrDefault(r => r.equals(schemaName, routineName));
 
 
@@ -183,7 +183,7 @@ namespace jsdal_server_core
 
                 var s3 = execRoutineQueryMetric.BeginChildStage("Open connection");
 
-                var cs = dbSource.getSqlConnection(dbConnectionGuid);
+                var cs = endpoint.GetSqlConnection();
                 con = new SqlConnection(cs.ConnectionStringDecrypted);
 
                 con.Open();
