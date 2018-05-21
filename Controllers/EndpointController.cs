@@ -56,19 +56,19 @@ namespace jsdal_server_core.Controllers
                     endpoint.IsOrmInstalled,
                     MetadataConnection = new
                     {
-                        InitialCatalog = endpoint.MetadataConnection?.initialCatalog,
-                        DataSource = endpoint.MetadataConnection?.dataSource,
-                        UserID = endpoint.MetadataConnection?.userID,
-                        IntegratedSecurity = endpoint.MetadataConnection?.integratedSecurity,
-                        Port = endpoint.MetadataConnection?.port
+                        InitialCatalog = endpoint.MetadataConnection?.InitialCatalog,
+                        DataSource = endpoint.MetadataConnection?.DataSource,
+                        UserID = endpoint.MetadataConnection?.UserID,
+                        IntegratedSecurity = endpoint.MetadataConnection?.IntegratedSecurity,
+                        Port = endpoint.MetadataConnection?.Port
                     },
                     ExecutionConnection = new
                     {
-                        InitialCatalog = endpoint.ExecutionConnection?.initialCatalog,
-                        DataSource = endpoint.ExecutionConnection?.dataSource,
-                        UserID = endpoint.ExecutionConnection?.userID,
-                        IntegratedSecurity = endpoint.ExecutionConnection?.integratedSecurity,
-                        Port = endpoint.ExecutionConnection?.port
+                        InitialCatalog = endpoint.ExecutionConnection?.InitialCatalog,
+                        DataSource = endpoint.ExecutionConnection?.DataSource,
+                        UserID = endpoint.ExecutionConnection?.UserID,
+                        IntegratedSecurity = endpoint.ExecutionConnection?.IntegratedSecurity,
+                        Port = endpoint.ExecutionConnection?.Port
                     }
                 });
             }

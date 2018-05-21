@@ -132,7 +132,6 @@ namespace jsdal_server_core
                string schemaName,
                string routineName,
                Endpoint endpoint,
-               string dbConnectionGuid,
                Dictionary<string, string> inputParameters,
                List<jsDALPlugin> plugins,
                int commandTimeOutInSeconds,
@@ -321,6 +320,7 @@ namespace jsdal_server_core
                         ds = new DataSet();
 
                         cmd.CommandTimeout = commandTimeOutInSeconds;
+
 
                         var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
 

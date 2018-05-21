@@ -21,13 +21,9 @@ namespace jsdal_server_core.Controllers
     {
         private struct ExecOptions
         {
-            public string dbSourceGuid;
-            public string dbConnectionGuid;
-
-            public string project; // TODO: !!!
-            public string dbSource; // TODO: !! need better name
-            public string endpoint; // TODO:!!!
-
+            public string project;
+            public string application;
+            public string endpoint;
 
             public string schema;
             public string routine;
@@ -43,28 +39,28 @@ namespace jsdal_server_core.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("/api/execnq/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        [HttpPost("/api/execnq/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        public IActionResult execNonQuery([FromRoute] string dbSourceGuid, [FromRoute] string dbConnectionGuid, [FromRoute] string schema, [FromRoute] string routine)
+        [HttpGet("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { dbSourceGuid = dbSourceGuid, dbConnectionGuid = dbConnectionGuid, schema = schema, routine = routine, Type = ExecType.NonQuery });
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.NonQuery });
         }
 
         [AllowAnonymous]
-        [HttpGet("/api/exec/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        [HttpPost("/api/exec/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        public IActionResult execQuery([FromRoute] string dbSourceGuid, [FromRoute] string dbConnectionGuid, [FromRoute] string schema, [FromRoute] string routine)
+        [HttpGet("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { dbSourceGuid = dbSourceGuid, dbConnectionGuid = dbConnectionGuid, schema = schema, routine = routine, Type = ExecType.Query });
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.Query });
         }
 
 
         [AllowAnonymous]
-        [HttpGet("/api/execScalar/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        [HttpPost("/api/execScalar/{dbSourceGuid}/{dbConnectionGuid}/{schema}/{routine}")]
-        public IActionResult Scalar([FromRoute] string dbSourceGuid, [FromRoute] string dbConnectionGuid, [FromRoute] string schema, [FromRoute] string routine)
+        [HttpGet("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { dbSourceGuid = dbSourceGuid, dbConnectionGuid = dbConnectionGuid, schema = schema, routine = routine, Type = ExecType.Scalar });
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.Scalar });
         }
 
         private class BatchData
@@ -75,8 +71,9 @@ namespace jsdal_server_core.Controllers
 
         private class BatchDataRoutine
         {
-            public string dbSource { get; set; }
-            public string dbConnection { get; set; }
+            public string project { get; set; }
+            public string application { get; set; }
+            public string endpoint { get; set; }
             public string schema { get; set; }
             public string routine { get; set; }
 
@@ -109,9 +106,9 @@ namespace jsdal_server_core.Controllers
                     bodyParams = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(body);
 
                     // look for any other parameters sent through
-                    var allOtherKeys = bodyParams.Keys.Where(k=>!k.Equals("batch-data")).ToList();
+                    var allOtherKeys = bodyParams.Keys.Where(k => !k.Equals("batch-data")).ToList();
 
-                    var baseInputParams = bodyParams.Where((kv)=> !kv.Key.Equals("batch-data"));
+                    var baseInputParams = bodyParams.Where((kv) => !kv.Key.Equals("batch-data"));
 
                     BatchData[] batchDataCollection = JsonConvert.DeserializeObject<BatchData[]>(bodyParams["batch-data"].ToString());
 
@@ -129,14 +126,14 @@ namespace jsdal_server_core.Controllers
                                 {
                                     var inputParameters = new Dictionary<string, string>();
 
-                                    foreach(var kv in baseInputParams)
+                                    foreach (var kv in baseInputParams)
                                     {
                                         inputParameters.Add(kv.Key, kv.Value);
                                     }
 
                                     if (batchItem.Routine.parameters != null)
                                     {
-                                        foreach(var kv in batchItem.Routine.parameters)
+                                        foreach (var kv in batchItem.Routine.parameters)
                                         {
                                             if (inputParameters.ContainsKey(kv.Key))
                                             {
@@ -151,8 +148,9 @@ namespace jsdal_server_core.Controllers
 
                                     var ret = exec(new ExecOptions()
                                     {
-                                        dbSourceGuid = batchItem.Routine.dbSource,
-                                        dbConnectionGuid = dbConnectionGuid,
+                                        project = batchItem.Routine.project,
+                                        application = batchItem.Routine.application,
+                                        endpoint = batchItem.Routine.endpoint,
                                         schema = batchItem.Routine.schema,
                                         routine = batchItem.Routine.routine,
                                         OverridingInputParameters = inputParameters,
@@ -187,7 +185,7 @@ namespace jsdal_server_core.Controllers
                         } // foreach
 
                         // TODO: Make timeout configurable?
-                        if (!waitToCompleteEvent.WaitOne(TimeSpan.FromSeconds(60*6)))
+                        if (!waitToCompleteEvent.WaitOne(TimeSpan.FromSeconds(60 * 6)))
                         {
                             // TODO: Report timeout error?
                             return BadRequest("Response(s) was not received in time.");
@@ -214,15 +212,24 @@ namespace jsdal_server_core.Controllers
 
             string appTitle = null;
 
-            Application dbSource = null;
+            Project project = null;
+            Application app = null;
             Endpoint endpoint = null;
-// record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
-            var routineExecutionMetric = ExecTracker.Begin(execOptions.dbSourceGuid, execOptions.schema, execOptions.routine);
 
             List<jsDALPlugin> pluginList = null;
 
+            // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
+            RoutineExecution routineExecutionMetric = null;
+
             try
             {
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(execOptions.project, execOptions.application, execOptions.endpoint
+                , out project, out app, out endpoint, out var resp))
+                {
+                    return Ok(resp);
+                }
+
+                routineExecutionMetric = ExecTracker.Begin(endpoint.Id, execOptions.schema, execOptions.routine);
 
                 appTitle = req.Headers["App-Title"];
 
@@ -235,18 +242,8 @@ namespace jsdal_server_core.Controllers
 
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
-                var dbSources = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications);
-                //var dbSourcesFlat = [].concat.apply([], dbSources); // flatten the array of arrays
-
-                dbSource = dbSources.FirstOrDefault(dbs => dbs.Name == execOptions.dbSourceGuid);
-
-                if (dbSource == null) throw new Exception($"The specified DB source \"{execOptions.dbSourceGuid}\" was not found.");
-
-                // TODO: !!!!
-                 endpoint = new Endpoint();
-
                 // make sure the source domain/IP is allowed access
-                var mayAccess = dbSource.mayAccessDbSource(this.Request);
+                var mayAccess = app.mayAccessDbSource(this.Request);
 
                 if (!mayAccess.isSuccess)
                 {
@@ -286,7 +283,7 @@ namespace jsdal_server_core.Controllers
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
 
-                pluginList = InitPlugins(dbSource, inputParameters);
+                pluginList = InitPlugins(app, inputParameters);
 
                 pluginsInitMetric.End();
 
@@ -300,7 +297,6 @@ namespace jsdal_server_core.Controllers
                     execOptions.schema,
                     execOptions.routine,
                     endpoint,
-                    execOptions.dbConnectionGuid,
                     inputParameters,
                     pluginList,
                     commandTimeOutInSeconds,
@@ -310,9 +306,9 @@ namespace jsdal_server_core.Controllers
                 );
 
                 execRoutineQueryMetric.End();
-                
+
                 routineExecutionMetric.RowsAffected = rowsAffected;
-                
+
 
                 var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
 
@@ -381,28 +377,35 @@ namespace jsdal_server_core.Controllers
                 prepareResultsMetric.End();
                 routineExecutionMetric.End();
 
+
+                // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter)
+                this.Response.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
+
                 return Ok(ret);
             }
             catch (Exception ex)
             {
-                routineExecutionMetric.Exception(ex);
+                if (routineExecutionMetric != null)
+                {
+                    routineExecutionMetric.Exception(ex);
+                }
 
                 Connection dbConn = null;
 
-                if (!string.IsNullOrWhiteSpace(execOptions.dbConnectionGuid) && dbSource != null)
+                if (endpoint != null)
                 {
                     // TODO: Fix!
-                    //!!!!dbConn = dbSource.getSqlConnection(execOptions.dbConnectionGuid);
+                    dbConn = endpoint.GetSqlConnection();
 
                     if (debugInfo == null) debugInfo = "";
 
                     if (dbConn != null)
                     {
-                        debugInfo = $"{ dbSource.Name } - { dbConn.initialCatalog } - { debugInfo }";
+                        debugInfo = $"{ endpoint.Pedigree } - { dbConn.InitialCatalog } - { debugInfo }";
                     }
                     else
                     {
-                        debugInfo = $"{ dbSource.Name } - (no connection) - { debugInfo }";
+                        debugInfo = $"{ endpoint.Pedigree } - (no connection) - { debugInfo }";
                     }
 
                 }
@@ -467,13 +470,13 @@ namespace jsdal_server_core.Controllers
         }
 
         private static MethodInfo initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static List<jsDALPlugin> InitPlugins(Application dbSource, Dictionary<string, string> queryString)
+        private static List<jsDALPlugin> InitPlugins(Application app, Dictionary<string, string> queryString)
         {
             var plugins = new List<jsDALPlugin>();
 
-            if (Program.PluginAssemblies != null && dbSource.Plugins != null)
+            if (Program.PluginAssemblies != null && app.Plugins != null)
             {
-                foreach (string pluginGuid in dbSource.Plugins)
+                foreach (string pluginGuid in app.Plugins)
                 {
                     var plugin = Program.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 

@@ -48,6 +48,32 @@ namespace jsdal_server_core
 
         }
 
+        public static bool GetProjectAndAppAndEndpoint(string projectName, string appName, string endpointName, out Project project, out Application app, out Endpoint endpoint, out ApiResponse resp)
+        {
+            project = null;
+            app = null;
+            endpoint = null;
+            resp = null;
+
+            if (!ControllerHelper.GetProject(projectName, out project, out resp))
+            {
+                return false;
+            }
+
+            if (!ControllerHelper.GetApplication(project, appName, out app, out resp))
+            {
+                return false;
+            }
+
+            if (!app.GetEndpoint(endpointName, out endpoint, out var retVal))
+            {
+                resp = ApiResponse.ExclamationModal($"Failed to retrive an endpoint from {projectName ?? "(null)"}/{appName ?? "(null)"}/{endpointName ?? "(null)"}");
+            }
+
+
+            return endpoint != null;
+        }
+
         /*
 
 

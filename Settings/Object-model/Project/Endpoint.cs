@@ -119,7 +119,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (this.MetadataConnection == null) this.MetadataConnection = new Connection();
 
-            this.MetadataConnection.update("TODO:Remove name?", dataSource, catalog, username, password, port, null);
+            this.MetadataConnection.update(dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithDbSource.success(null);
 
@@ -129,7 +129,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (this.ExecutionConnection == null) this.ExecutionConnection = new Connection();
 
-            this.ExecutionConnection.update("TODO:Remove name?", dataSource, catalog, username, password, port, null);
+            this.ExecutionConnection.update(dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithDbSource.success(null);
 

@@ -28,6 +28,31 @@ namespace jsdal_server_core.Performance
             //this.StartedUtc = DateTime.UtcNow;
         }
 
+        public string ToServerTimingEntry(string ix)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("v");
+            sb.Append(ix);
+            sb.Append(";dur=");
+            sb.Append(this.DurationInMS);
+            sb.Append(";desc=");
+            sb.Append(ix);
+            sb.Append(".");
+            sb.Append(this.Name.Replace(" ", "_"));
+
+            if (this._childStages != null)
+            {
+                for (var i = 0; i < this._childStages.Count; i++)
+                {
+                    sb.Append(',');
+                    sb.Append(this._childStages[i].ToServerTimingEntry(ix + "." + i));
+                }
+            }
+
+
+            return sb.ToString();
+        }
+
         public void End()
         {
             this._stopwatch.Stop();
@@ -42,6 +67,32 @@ namespace jsdal_server_core.Performance
         {
             this.End();
             // TODO: Record error
+        }
+
+        public string GetServerTimeHeader()
+        {
+            if (this._childStages == null || this._childStages.Count == 0) return null;
+            //"meh;dur=123.4;desc=1.Some%20description,anot;dur=345.32;desc=2.Explain"
+            var sb = new System.Text.StringBuilder();
+
+            for (var i = 0; i < this._childStages.Count; i++)
+            {
+                var stage = this._childStages[i];
+                if (sb.Length > 0) sb.Append(',');
+
+                sb.Append(stage.ToServerTimingEntry(i.ToString()));
+                // sb.Append("v");
+                // sb.Append(i);
+                // sb.Append(";dur=");
+                // sb.Append(stage.DurationInMS);
+                // sb.Append(";desc=");
+                // sb.Append(i);
+                // sb.Append(".");
+                // sb.Append(stage.Name.Replace(" ", "_"));
+
+            };
+
+            return sb.ToString();
         }
 
         public ExecutionBase BeginChildStage(string name)

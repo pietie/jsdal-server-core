@@ -23,7 +23,7 @@ namespace jsdal_server_core
 
         public string Description
         {
-            get { if (this.Endpoint == null) return null; return $"{ this.Endpoint.MetadataConnection?.dataSource}; { this.Endpoint.MetadataConnection?.initialCatalog} "; }
+            get { if (this.Endpoint == null) return null; return $"{ this.Endpoint.MetadataConnection?.DataSource}; { this.Endpoint.MetadataConnection?.InitialCatalog} "; }
         }
 
         private Thread winThread;
@@ -337,7 +337,6 @@ namespace jsdal_server_core
                     {
                         Hubs.WorkerMonitor.Instance.NotifyObservers();
                     }
-
 
                     if (!newCachedRoutine.IsDeleted)
                     {

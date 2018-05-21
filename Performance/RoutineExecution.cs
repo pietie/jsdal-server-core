@@ -6,7 +6,7 @@ namespace jsdal_server_core.Performance
     public class RoutineExecution : ExecutionBase
     {
         public string Schema { get; set; }
-        public string DbSourceKey { get; set; }
+        public string EndpointId { get; set; }
         public ExecutionRoutineType ExecutionRoutineType { get; set; }
 
         public int RowsAffected { get;set; }
@@ -14,10 +14,10 @@ namespace jsdal_server_core.Performance
 // TODO: public for now so we can expose it to frontend for testing
         
 
-        public RoutineExecution(string dbSourceKey, string schema, string routine) : base(routine)
+        public RoutineExecution(string endpointId, string schema, string routine) : base(routine)
         {
             this.Schema = schema;
-            this.DbSourceKey = dbSourceKey;
+            this.EndpointId = endpointId;
         }   
 
     }

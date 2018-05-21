@@ -11,21 +11,17 @@ namespace jsdal_server_core.Settings.ObjectModel
 {
     public class Connection
     {
-        public string Name;
-        public string Guid;
         public string ConnectionString;
 
-        [JsonIgnore]
-        public int port;
-        [JsonIgnore]
-        public string instanceName;
+        
+        //[JsonIgnore] public string instanceName;
 
         public bool Unsafe = false; // if set true it means the ConnectionString is not encrypted
 
         private SqlConnectionStringBuilder _connectionStringBuilder;
 
         [JsonIgnore]
-        public string userID
+        public string UserID
         {
             get
             {
@@ -34,7 +30,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
         [JsonIgnore]
-        public string password
+        public string Password
         {
             get
             {
@@ -44,7 +40,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         [JsonIgnore]
-        public string dataSource
+        public string DataSource
         {
             get
             {
@@ -55,7 +51,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         [JsonIgnore]
-        public string initialCatalog
+        public string InitialCatalog
         {
             get
             {
@@ -65,12 +61,26 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         [JsonIgnore]
-        public bool integratedSecurity
+        public bool IntegratedSecurity
         {
             get
             {
                 if (this._connectionStringBuilder == null) this._connectionStringBuilder = new SqlConnectionStringBuilder(this.ConnectionStringDecrypted);
                 return this._connectionStringBuilder.IntegratedSecurity;
+            }
+        }
+
+         [JsonIgnore]
+        public int Port
+        {
+            get
+            {
+                if (this._connectionStringBuilder == null) this._connectionStringBuilder = new SqlConnectionStringBuilder(this.ConnectionStringDecrypted);
+                
+                var elems = this._connectionStringBuilder.DataSource.Split(',');
+
+                if (elems.Length == 2) return int.Parse(elems[1]);
+                else return 1433;
             }
         }
 
@@ -120,12 +130,12 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        public void update(string name, string dataSource, string catalog, string username, string password, int port, string instanceName)
+        public void update(string dataSource, string catalog, string username, string password, int port, string instanceName)
         {
             string connectionString = null;
 
-            this.port = port;
-            this.instanceName = instanceName;
+            //this.Port = port;
+            //this.instanceName = instanceName;
 
             if (!string.IsNullOrWhiteSpace(username))
             {
@@ -136,8 +146,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 // use windows auth
                 connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
             }
-
-            this.Name = name;
 
             this._descryptedConnectionString = null;
             this._connectionStringBuilder = null;

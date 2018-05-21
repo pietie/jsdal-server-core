@@ -36,7 +36,7 @@ namespace jsdal_server_core
         {
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;
-            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.initialCatalog;
+            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
             var typeScriptParameterAndResultTypesSB = new StringBuilder();
 
@@ -365,14 +365,13 @@ namespace jsdal_server_core
 
             var finalOutput = finalSB.ToString();
 
-            var outputDir = endpoint.OutputDir;
             var filePath = endpoint.OutputFilePath(jsFile);
             var minfiedFilePath = endpoint.MinifiedOutputFilePath(jsFile);
             var tsTypingsFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
 
             var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
 
-            if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+            if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
 
 
             File.WriteAllText(filePath, finalOutput);

@@ -49,7 +49,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (this.Endpoints != null)
             {
-                this.Endpoints.ForEach(ep=>ep.UpdateParentReferences(this));
+                this.Endpoints.ForEach(ep => ep.UpdateParentReferences(this));
             }
         }
 
@@ -393,22 +393,29 @@ namespace jsdal_server_core.Settings.ObjectModel
                 return CommonReturnValue.userError("No access list exists.");
             }
 
-            var referer = req.Headers["Referer"];
-            var host = req.Host.Host;
+            var referer = req.Headers["Referer"].FirstOrDefault();
+            //var host = req.Host.Host;
             var whitelistedIPs = this.WhitelistedDomainsCsv.Split(',');
 
-            foreach (string en in whitelistedIPs)
+            if (referer != null)
             {
-                if (en.Equals(host, StringComparison.OrdinalIgnoreCase))
+                if (System.Uri.TryCreate(referer, UriKind.RelativeOrAbsolute, out var refererUri))
                 {
-                    return CommonReturnValue.success();
+                    
+                    foreach (string en in whitelistedIPs)
+                    {
+                        if (en.Equals(refererUri.Host, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return CommonReturnValue.success();
+                        }
+                    }
                 }
-            };
+            }
 
-            return CommonReturnValue.userError($"The host({ host}) is not allowed to access this resource.");
+            return CommonReturnValue.userError($"The host ({ referer }) is not allowed to access this resource.");
         }
 
 
-     
+
     }
 }
