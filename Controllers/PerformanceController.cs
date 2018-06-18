@@ -12,8 +12,7 @@ namespace jsdal_server_core.Controllers
     public class PerformanceController : Controller
     {
         [Authorize(Roles = "admin")]
-        [HttpGet]
-        [Route("api/performance/tmp-executionlist")]
+        [HttpGet("/api/performance/tmp-executionlist")]
         public ApiResponse TmpGetRawExecutionList()
         {
             return ApiResponse.Payload(ExecTracker.ExecutionList);

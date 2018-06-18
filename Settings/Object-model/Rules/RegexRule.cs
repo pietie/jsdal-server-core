@@ -27,6 +27,11 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public new int RuleProcessOrder { get { return 2; } }
         public override string ToString() { return this.Match; }
+
+        public override void Update(string txt)
+        {
+            this.Match = txt;
+        }
     }
 
 }

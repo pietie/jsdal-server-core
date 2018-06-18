@@ -1,15 +1,16 @@
 using System;
+using System.Collections.Generic;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core
 {
-    public class ControllerHelper
+    public static class ControllerHelper
     {
 
         public static bool GetProject(string projectName, out Project project, out ApiResponse resp)
         {
-            project = SettingsInstance.Instance.getProject(projectName);
+            project = SettingsInstance.Instance.GetProject(projectName);
             resp = null;
 
             if (project == null)
@@ -22,7 +23,7 @@ namespace jsdal_server_core
 
         public static bool GetApplication(Project project, string appName, out Application app, out ApiResponse resp)
         {
-            app = project.getDatabaseSource(appName);
+            app = project.GetApplication(appName);
             resp = null;
 
             if (app == null)
@@ -74,12 +75,19 @@ namespace jsdal_server_core
             return endpoint != null;
         }
 
-        /*
+        public static bool GetUnifiedCacheListWithApiResponse(this Application app, out List<CachedRoutine> allRoutines, out ApiResponse resp)
+        {
+            allRoutines = app.GetUnifiedCacheList();
+            resp = null;
 
+            if (allRoutines == null || allRoutines.Count == 0)
+            {
+                resp = ApiResponse.ExclamationModal("Routine cache does not exist. Make sure the worker thread is running and that it is able to access the database.");
+                return false;
+            }
 
-            
-
-         */
+            return true;
+        }
 
     }
 }

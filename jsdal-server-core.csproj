@@ -11,13 +11,31 @@
   <ProjectReference Include="./../jsdal-plugin/jsdal-plugin.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="MirrorSharp.Common">
+    <HintPath>Refs\MirrorSharp.Common.dll</HintPath>
+  </Reference>
+  </ItemGroup>
+  <ItemGroup>
+   
     <PackageReference Include="Microsoft.AspNetCore.All" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="2.1.0-rc1-final" />
     <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel.Https" Version="2.1.0-rc1-final" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.0.0-rc1-final" />
     
     <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.1.0-rc1-final" />
-     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="2.8.0" />
+    
+    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.1.0" />
+    
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="2.8.2" />
+    
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.8.2" />
+    
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="2.8.2" />
+    
+    <PackageReference Include="Microsoft.CodeAnalysis.Features" Version="2.8.2" />
+    
+    
+     
      <PackageReference Include="NUglify" Version="1.5.11" />
      <PackageReference Include="System.Reactive.Linq" Version="3.1.1" />
      <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />

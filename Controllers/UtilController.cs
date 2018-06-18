@@ -8,6 +8,8 @@ using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 
 namespace jsdal_server_core.Controllers
 {
@@ -100,5 +102,44 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Exception(ex);
             }
         }
+
+        [HttpPost("/api/util/test-compile")]
+        public async Task<ApiResponse> TestConnection(dynamic bodyIgnored)
+        {
+            try
+            {
+                // var s = bodyIgnored.GetType();
+                // var t = bodyIgnored.Type;
+                
+                using (var sr = new System.IO.StreamReader(this.Request.Body))
+                {
+                    var code  = sr.ReadToEnd();
+
+                    try
+                    {
+                    var x = await CSharpScript.EvaluateAsync(code);
+
+                    int n =0;
+                    }
+                    catch(CompilationErrorException ce)
+                    {
+                            return ApiResponse.Payload(new { Error = ce.Message });
+                    }
+// CSharpScript
+  //                  var csharp = new CSharpLanguage();
+
+                    
+                }
+
+               
+
+                return ApiResponse.Success();
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
+        }
+
     }
 }

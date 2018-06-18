@@ -94,7 +94,7 @@ namespace jsdal_server_core.Controllers
                 if (ret.isSuccess)
                 {
                     //!WorkSpawner.UpdateDatabaseSource(dbSource, ret.dbSource); TODO: Spin up a new worker
-                    SettingsInstance.saveSettingsToFile();
+                    SettingsInstance.SaveSettingsToFile();
                     return ApiResponse.Success();
                 }
                 else
@@ -121,7 +121,7 @@ namespace jsdal_server_core.Controllers
             if (ret.isSuccess)
             {
                 // TODO: Update existing worker?
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
             }
             else
@@ -154,7 +154,7 @@ namespace jsdal_server_core.Controllers
 
                     //!WorkSpawner.resetMaxRowDate(cs);
 
-                    SettingsInstance.saveSettingsToFile();
+                    SettingsInstance.SaveSettingsToFile();
 
                     return ApiResponse.Success();
                 }
@@ -182,7 +182,7 @@ namespace jsdal_server_core.Controllers
                 if (ret.isSuccess)
                 {
                     // TODO: Stop existing worker
-                    SettingsInstance.saveSettingsToFile();
+                    SettingsInstance.SaveSettingsToFile();
                     return ApiResponse.Success();
                 }
                 else
@@ -218,7 +218,7 @@ namespace jsdal_server_core.Controllers
 
                 endpoint.IsOrmInstalled = missingDeps == null;
 
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Payload(missingDeps);
             }
@@ -254,7 +254,7 @@ namespace jsdal_server_core.Controllers
                 if (success)
                 {
                     endpoint.IsOrmInstalled = false;
-                    SettingsInstance.saveSettingsToFile();
+                    SettingsInstance.SaveSettingsToFile();
 
                     return ApiResponse.Success();
                 }
@@ -326,7 +326,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
                 }
 
-                CommonReturnValueWithDbSource ret = null;
+                CommonReturnValueWithApplication ret = null;
 
                 if (isMetadata) ret = ep.UpdateMetadataConnection(dataSource, catalog, username, password, port.Value);
                 else ret = ep.UpdateExecConnection(dataSource, catalog, username, password, port.Value);
@@ -338,7 +338,7 @@ namespace jsdal_server_core.Controllers
 
                 // TODO: Update worker thread appropriately?!
 
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();
             }
@@ -413,7 +413,7 @@ namespace jsdal_server_core.Controllers
 
 
                 ep.ClearCache();
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();
             }

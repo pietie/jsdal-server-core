@@ -19,6 +19,16 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 
+using MirrorSharp.Owin;
+using Microsoft.CodeAnalysis;
+using System.Collections.Immutable;
+
+
+using System.Reflection;
+
+using Microsoft.CodeAnalysis.CSharp;
+using MirrorSharp.Advanced;
+using System.IO;
 
 namespace jsdal_server_core
 {
@@ -94,9 +104,11 @@ namespace jsdal_server_core
                 });
 
             services.AddMvc()
-            .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
-            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+                    .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
+                    .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
             ;
+
+
 
             var dataProtectionKeyPath = new System.IO.DirectoryInfo(System.IO.Directory.GetCurrentDirectory());
             services.AddDataProtection()
@@ -128,6 +140,52 @@ namespace jsdal_server_core
             //     await next();
             // });
 
+            var webSocketOptions = new WebSocketOptions()
+            {
+                KeepAliveInterval = TimeSpan.FromSeconds(120),
+                ReceiveBufferSize = 4 * 1024
+            };
+            app.UseWebSockets(webSocketOptions);
+
+            var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
+
+            MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                                        //?MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "mscorlib.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
+                                        //MetadataReference.CreateFromFile(typeof(System.Collections.ArrayList).Assembly.Location),
+                                        //MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<string,string>).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location),
+                                        Microsoft.CodeAnalysis.MetadataReference.CreateFromFile("./plugins/jsdal-plugin.dll")
+            };
+
+
+            var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+            //            generalDiagnosticOption: ReportDiagnostic.Suppress 
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+                                            {
+                                            { "CS1701", ReportDiagnostic.Suppress }, // Binding redirects
+                                            { "CS1702", ReportDiagnostic.Suppress },
+                                            { "CS1705", ReportDiagnostic.Suppress }
+                                            }
+            );
+
+            var mirrorSharpOptions = new MirrorSharp.MirrorSharpOptions()
+            {
+                SelfDebugEnabled = true,
+                IncludeExceptionDetails = true,
+                CSharp = {
+                            MetadataReferences = ImmutableList.Create<MetadataReference>(all),
+                            CompilationOptions = compilationOptions
+                         }
+            };
+ 
+
+            app.UseMirrorSharp(mirrorSharpOptions);
+
             app.UseCors("CorsPolicy");
 
             app.UseDefaultFiles();
@@ -153,11 +211,11 @@ namespace jsdal_server_core
 
 
             app.UseMvc(routes =>
-            {
-                routes.MapRoute(
-                    name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
-            });
+                        {
+                            routes.MapRoute(
+                                name: "default",
+                                template: "{controller=Home}/{action=Index}/{id?}");
+                        });
         }
     }
 

@@ -16,18 +16,18 @@ namespace jsdal_server_core.Settings
             }
         }
 
-        public static string settingsFilePath
+        public static string SettingsFilePath
         {
             get { return "./jsdal-server.json"; }
         }
 
-        public static void saveSettingsToFile()
+        public static void SaveSettingsToFile()
         {
             try
             {
                 var json = JsonConvert.SerializeObject(SettingsInstance._instance);
 
-                File.WriteAllText(SettingsInstance.settingsFilePath, json, System.Text.Encoding.UTF8);
+                File.WriteAllText(SettingsInstance.SettingsFilePath, json, System.Text.Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -39,13 +39,13 @@ namespace jsdal_server_core.Settings
         {
             try
             {
-                if (!File.Exists(SettingsInstance.settingsFilePath))
+                if (!File.Exists(SettingsInstance.SettingsFilePath))
                 {
-                    Console.WriteLine("WARN! Settings file not found: {0}", SettingsInstance.settingsFilePath);
+                    Console.WriteLine("WARN! Settings file not found: {0}", SettingsInstance.SettingsFilePath);
                     return false;
                 }
 
-                var data = File.ReadAllText(SettingsInstance.settingsFilePath, System.Text.Encoding.UTF8);
+                var data = File.ReadAllText(SettingsInstance.SettingsFilePath, System.Text.Encoding.UTF8);
 
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 

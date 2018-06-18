@@ -95,7 +95,7 @@ namespace jsdal_server_core.Controllers
                     NetshWrapper.Register(ws.HttpsServerHostname, ws.HttpsServerPort.Value, ws.HttpsCertHash);
                 }
 
-                Settings.SettingsInstance.saveSettingsToFile();
+                Settings.SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();
             }

@@ -13,9 +13,12 @@ namespace jsdal_server_core.Settings
         public CommonSettings Settings { get; private set; }
         public List<Project> ProjectList { get; private set; }
 
+        [JsonProperty("InlinePlugins")] public List<BasePlugin> InlinePlugins { get; set; }
+
         public JsDalServerConfig()
         {
             this.ProjectList = new List<Project>();
+            this.InlinePlugins = new List<BasePlugin>();
         }
 
         /*public static createFromJson(rawJson: any): JsDalServerConfig {
@@ -35,7 +38,7 @@ namespace jsdal_server_core.Settings
 
     }*/
 
-        private bool exists(string projectName)
+        private bool Exists(string projectName)
         {
             if (this.ProjectList == null) return false;
 
@@ -44,7 +47,7 @@ namespace jsdal_server_core.Settings
             return existing != null;
         }
 
-        public Project getProject(string name)
+        public Project GetProject(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
 
@@ -62,7 +65,7 @@ namespace jsdal_server_core.Settings
                 return CommonReturnValue.userError("Please provide a valid project name.");
             }
 
-            if (this.exists(name))
+            if (this.Exists(name))
             {
                 return CommonReturnValue.userError($"A project with the name \"{name}\" already exists.");
             }
@@ -85,11 +88,11 @@ namespace jsdal_server_core.Settings
                 return CommonReturnValue.userError("Please provide a valid project name.");
             }
 
-            if (this.exists(newName))
+            if (this.Exists(newName))
             {
                 return CommonReturnValue.userError($"A project with the name \"{newName}\" already exists.");
             }
-            if (!this.exists(currentName))
+            if (!this.Exists(currentName))
             {
                 return CommonReturnValue.userError($"The project \"{newName}\" does not exist so the update operation cannot continue");
             }
@@ -105,7 +108,7 @@ namespace jsdal_server_core.Settings
         {
             if (this.ProjectList == null) this.ProjectList = new List<Project>();
 
-            if (!this.exists(name))
+            if (!this.Exists(name))
             {
                 return CommonReturnValue.userError($"The project \"{name}\" does not exist.");
             }
@@ -113,6 +116,49 @@ namespace jsdal_server_core.Settings
             var existing = this.ProjectList.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
             this.ProjectList.Remove(existing);
+
+            return CommonReturnValue.success();
+        }
+
+        public CommonReturnValue AddInlinePlugin(BasePlugin plugin)
+        {
+            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
+
+            if (this.InlinePlugins.Exists(p => p.PluginGuid.Equals(plugin.PluginGuid, StringComparison.OrdinalIgnoreCase)))
+            {
+                return CommonReturnValue.userError($"A plugin with the Guid '{plugin.PluginGuid}' already exists");
+            }
+
+            this.InlinePlugins.Add(plugin);
+
+            return CommonReturnValue.success();
+        }
+
+        public CommonReturnValue DeleteInlinePlugin(string id)
+        {
+            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
+
+            var existing = this.InlinePlugins.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
+
+            if (existing == null)
+            {
+                return CommonReturnValue.userError($"A plugin with the Id '{id}' does not exist");
+            }
+
+            this.InlinePlugins.Remove(existing);
+
+            try
+            {
+                if (System.IO.File.Exists(existing.Path))
+                {
+                    System.IO.File.Delete(existing.Path);
+                }
+            }
+            catch(Exception e)
+            {
+                SessionLog.Warning("Failed to delete file of plugin: {0}, {1}", existing.Name, existing.Id);
+                SessionLog.Exception(e);
+            }
 
             return CommonReturnValue.success();
         }

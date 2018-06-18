@@ -13,27 +13,18 @@ namespace jsdal_server_core.Controllers
     [Authorize(Roles = "admin")]
     public class JsFileController : Controller
     {
-        [HttpGet]
-        [Route("/api/database/jsFiles")]
-        public ApiResponse GetJsFiles([FromQuery] string projectName, [FromQuery] string dbSource)
+
+        [HttpGet("/api/app/{name}/file")]
+        public ApiResponse GetJsFiles([FromQuery] string project, [FromRoute] string name)
         {
             try
             {
-                var proj = SettingsInstance.Instance.getProject(projectName);
-
-                if (proj == null)
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
                 {
-                    return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
+                    return resp;
                 }
 
-                var cs = proj.getDatabaseSource(dbSource);
-
-                if (cs == null)
-                {
-                    return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not contain a datasource called \"'{dbSource}\"");
-                }
-
-                var q = cs.JsFiles.Select(j => { return new { Filename = j.Filename, Guid = j.Guid }; }).OrderBy(j => j.Filename);
+                var q = app.JsFiles.Select(j => { return new { Filename = j.Filename, Id = j.Id }; }).OrderBy(j => j.Filename);
 
                 return ApiResponse.Payload(q);
             }
@@ -43,37 +34,21 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-
-
-        [HttpPost]
-        [Route("/api/database/addJsfile")]
-        public ApiResponse AddJsFile([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string jsFileName) // TODO: Change from jsFilename to jsFileGuid?
+        [HttpPost("/api/app/{name}/file")]
+        public ApiResponse AddJsFile([FromQuery] string project, [FromRoute] string name, [FromQuery] string jsFileName) // TODO: Change from jsFilename to jsFileGuid?
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(jsFileName))
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
                 {
-                    return ApiResponse.ExclamationModal("Please provide a valid file name.");
+                    return resp;
                 }
 
-                if (!jsFileName.ToLower().EndsWith(".js")) jsFileName += ".js";
-
-                var proj = SettingsInstance.Instance.getProject(projectName);
-
-                if (proj == null) return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
-
-                var cs = proj.getDatabaseSource(dbSource);
-
-                if (cs == null)
-                {
-                    return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not contain a datasource called \"'{dbSource}\"");
-                }
-
-                var ret = cs.addJsFile(jsFileName);
+                var ret = app.AddJsFile(jsFileName);
 
                 if (ret.isSuccess)
                 {
-                    SettingsInstance.saveSettingsToFile();
+                    SettingsInstance.SaveSettingsToFile();
                     //?!GeneratorThreadDispatcher.SetOutputFilesDirty(cs);
                     return ApiResponse.Success();
                 }
@@ -91,46 +66,35 @@ namespace jsdal_server_core.Controllers
         }
 
 
-        [HttpPut]
-        [Route("/api/database/updateJsFile")]
-        public ApiResponse UpdateJsFile([FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string oldName, [FromQuery] string newName)
+        [HttpPut("/api/app/{name}/file")]
+        public ApiResponse UpdateJsFile([FromQuery] string project, [FromRoute] string name, [FromQuery] string oldName, [FromQuery] string newName)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(newName))
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
                 {
-                    return ApiResponse.ExclamationModal("Please provide a valid file name.");
+                    return resp;
                 }
 
-                if (!newName.ToLower().EndsWith(".js")) newName += ".js";
+                //!if (!newName.ToLower().EndsWith(".js")) newName += ".js";
 
-                var proj = SettingsInstance.Instance.getProject(projectName);
-
-                if (proj == null) return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
-
-                var cs = proj.getDatabaseSource(dbSource);
-
-                if (cs == null)
-                {
-                    return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not contain a datasource called \"'{dbSource}\"");
-                }
-
-                var existing = cs.JsFiles.FirstOrDefault(js => js.Filename.Equals(oldName, StringComparison.OrdinalIgnoreCase));
+                // TODO: All validation needs to be move OM API
+                var existing = app.JsFiles.FirstOrDefault(js => js.Filename.Equals(oldName, StringComparison.OrdinalIgnoreCase));
 
                 if (existing == null)
                 {
-                    return ApiResponse.ExclamationModal($"The output file \"{oldName}\" does not exist in \"{projectName}/{dbSource}\"");
+                    return ApiResponse.ExclamationModal($"The output file \"{oldName}\" does not exist in \"{project}/{name}\"");
                 }
 
-                var existingNewName = cs.JsFiles.FirstOrDefault(js => js.Filename.Equals(newName, StringComparison.OrdinalIgnoreCase));
+                var existingNewName = app.JsFiles.FirstOrDefault(js => js.Filename.Equals(newName, StringComparison.OrdinalIgnoreCase));
 
                 if (existingNewName != null)
                 {
-                    return ApiResponse.ExclamationModal($"The output file \"{newName}\" already exists in \"{projectName}/{dbSource}\"");
+                    return ApiResponse.ExclamationModal($"The output file \"{newName}\" already exists in \"{project}/{name}\"");
                 }
 
                 existing.Filename = newName;
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
 
                 //!GeneratorThreadDispatcher.SetOutputFilesDirty(cs);
 
@@ -143,33 +107,26 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpDelete("/api/jsfile/{jsFilenameGuid}")]
-        public ApiResponse DeleteJsFile([FromQuery] string projectName, [FromQuery] string dbSource, [FromRoute] string jsFilenameGuid)
+        [HttpDelete("/api/app/{name}/file/{id}")]
+        public ApiResponse DeleteJsFile([FromQuery] string project, [FromRoute] string name, [FromRoute] string file)
         {
             try
             {
-                var proj = SettingsInstance.Instance.getProject(projectName);
-
-                if (proj == null) return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not exist.");
-
-                var cs = proj.getDatabaseSource(dbSource);
-
-                if (cs == null)
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
                 {
-                    return ApiResponse.ExclamationModal($"The project \"{projectName}\" does not contain a datasource called \"'{dbSource}\"");
+                    return resp;
                 }
 
-                var existing = cs.JsFiles.FirstOrDefault(js => js.Guid.Equals(jsFilenameGuid, StringComparison.OrdinalIgnoreCase));
+                var existing = app.GetJsFile(file);
 
                 if (existing == null)
                 {
-                    return ApiResponse.ExclamationModal($"The output file \"{jsFilenameGuid}\" does not exist in \"{projectName}/{dbSource}\"");
+                    return ApiResponse.ExclamationModal($"The output file \"{file}\" does not exist in \"{project}/{name}\"");
                 }
 
-                //cs.JsFiles.splice(cs.JsFiles.indexOf(existing));
-                cs.JsFiles.Remove(existing);
+                app.JsFiles.Remove(existing);
 
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
 
                 //!GeneratorThreadDispatcher.SetOutputFilesDirty(cs);
 

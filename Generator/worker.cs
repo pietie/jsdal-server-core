@@ -62,7 +62,7 @@ namespace jsdal_server_core
 
         public Worker(Endpoint endpoint)
         {
-            this.ID = ShortId.Generate();
+            this.ID = ShortId.Generate(useNumbers: true, useSpecial:false, length: 6);
             this.Endpoint = endpoint;
             this.log = new MemoryLog();
         }
@@ -459,7 +459,7 @@ namespace jsdal_server_core
                     // generate a file for every endpoint
                     //dbSource.Endpoints.ForEach(endpoint =>
                     //{
-                        JsFileGenerator.generateJsFile(endpoint, jsFile);
+                        JsFileGenerator.GenerateJsFile(endpoint, jsFile);
 
                         this.IsRulesDirty = false;
                         this.IsOutputFilesDirty = false;

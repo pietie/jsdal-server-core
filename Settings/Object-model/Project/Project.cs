@@ -10,8 +10,10 @@ namespace jsdal_server_core.Settings.ObjectModel
     {
         public string Name { get; set; }
         public string Guid { get; set; } // TODO: Remove!
-        
+
         [JsonProperty("Apps")] public List<Application> Applications { get; set; }
+
+        
 
         public Project()
         {
@@ -22,44 +24,62 @@ namespace jsdal_server_core.Settings.ObjectModel
         { // this cannot be done during JSON deserialization without adding ugly ref tags to the JSON
             if (this.Applications != null)
             {
-                this.Applications.ForEach(app=>app.UpdateParentReferences(this));
+                this.Applications.ForEach(app => app.UpdateParentReferences(this));
             }
         }
 
-        public Application getDatabaseSource(string logicalName)
+        public Application GetApplication(string logicalName)
         {
             if (this.Applications == null) return null;
             return this.Applications.FirstOrDefault(dbs => dbs.Name.Equals(logicalName, StringComparison.OrdinalIgnoreCase));
         }
 
-        public void removeConnectionString(Application dbSource)
+        public CommonReturnValueWithApplication AddApplication(string name, string jsNamespace, int defaultRuleMode)
         {
-            this.Applications.Remove(dbSource);
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return CommonReturnValueWithApplication.userError("Application names may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+            }
+
+            if (this.Applications == null) this.Applications = new List<Application>();
+
+            var app = new Application();
+
+            app.Name = name;
+            app.JsNamespace = jsNamespace;
+            app.DefaultRuleMode = defaultRuleMode;
+
+            this.Applications.Add(app);
+
+            return CommonReturnValueWithApplication.success(app);
         }
 
-        // // public CommonReturnValueWithDbSource addMetadataConnectionString(string name, string dataSource,
-        // //     string catalog, string username,
-        // //     string password, string jsNamespace,
-        // //     int defaultRoleMode,
-        // //     int port, string instanceName)/*: { success: boolean, userError ?: string, dbSource ?: DatabaseSource }*/
-        // // {
-        // //     if (this.DatabaseSources == null) this.DatabaseSources = new List<DatabaseSource>();
+        public CommonReturnValueWithApplication UpdateApplication(string name, string jsNamespace, int defaultRuleMode)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return CommonReturnValueWithApplication.userError("Application names may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+            }
 
-        // //     var cs = new DatabaseSource();
+            if (this.Applications == null) this.Applications = new List<Application>();
 
-        // //     cs.Name = name;
-        // //     cs.DefaultRuleMode = defaultRoleMode;
+            var app = new Application();
 
-        // //     var ret = cs.addUpdateDatabaseConnection(true/*isMetadataConnection*/, null, name, dataSource, catalog, username, password, port, instanceName);
+            app.Name = name;
+            app.JsNamespace = jsNamespace;
+            app.DefaultRuleMode = defaultRuleMode;
 
-        // //     if (!ret.isSuccess) return ret;
+            this.Applications.Add(app);
 
-        // //     cs.JsNamespace = jsNamespace;
+            return CommonReturnValueWithApplication.success(app);
+        }
 
-        // //     this.DatabaseSources.Add(cs);
+        public bool DeleteApplication(Application app)
+        {
+            return this.Applications.Remove(app);
+        }
 
-        // //     return CommonReturnValueWithDbSource.success(cs);
-        // // }
+       
 
     }
 }

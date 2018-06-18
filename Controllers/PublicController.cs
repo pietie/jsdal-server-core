@@ -13,14 +13,14 @@ namespace jsdal_server_core.Controllers
     [AllowAnonymous]
     public class PublicController : Controller
     {
-        [HttpGet("api/jsdal/ping")]
+        [HttpGet("/api/jsdal/ping")]
         public string Ping()
         {
             return "1.0"; // TODO: Version?
         }
 
 
-        [HttpGet("api/jsdal/projects")]
+        [HttpGet("/api/jsdal/projects")]
         public List<dynamic> ListProjects()
         {// TODO: Handle No Projects exist
             try
@@ -37,19 +37,17 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpGet]
-        [Route("api/jsdal/outputs")]
+        [HttpGet("/api/jsdal/outputs")]
         public List<dynamic> GetOutputDetail([FromQuery] string projectGuid)
         {
             var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
             // TODO: throw if project does not exist
-            var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Guid, f.Version }) }).ToList<dynamic>();
+            var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }) }).ToList<dynamic>();
 
             return ret;
         }
 
-        [HttpGet]
-        [Route("api/jsdal/dbsources")]
+        [HttpGet("/api/jsdal/dbsources")]
         public IActionResult GetDbSources([FromQuery] string projectGuid)
         {
             var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
@@ -76,7 +74,7 @@ namespace jsdal_server_core.Controllers
                 return NotFound($"The DB Source {dbSourceGuid} does not exist.");
             }
 
-            var jsFiles = dbSource.JsFiles.Select(f => new { f.Filename, f.Guid, f.Version }).ToList<dynamic>();
+            var jsFiles = dbSource.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }).ToList<dynamic>();
 
 
             return Ok(jsFiles);
@@ -87,7 +85,7 @@ namespace jsdal_server_core.Controllers
             // return ret;
         }
 
-        [HttpGet("api/thread/{dbSourceGuid}/status")]
+        [HttpGet("/api/thread/{dbSourceGuid}/status")]
         public IActionResult GetThreadStatus(Guid dbSourceGuid)
         {
             try
@@ -177,14 +175,14 @@ namespace jsdal_server_core.Controllers
             return "\"" + BitConverter.ToString(md5data).Replace("-", "").ToLower() + "\"";
         }
 
-        [HttpGet("api/js/{fileGuid}")] // TODO: support multiple ways api/js/quickRef .... api/js/projName/dbSourceName/fileName (e.g. api/js/vZero/IceV0_Audit/General.js)
+        [HttpGet("/api/js/{fileGuid}")] // TODO: support multiple ways api/js/quickRef .... api/js/projName/dbSourceName/fileName (e.g. api/js/vZero/IceV0_Audit/General.js)
         public IActionResult ServeFile(string fileGuid, [FromQuery] long v = 0, [FromQuery] bool min = false, [FromQuery] bool tsd = false)
         {
             try
             {
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-                var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
+                var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Id.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
 
                 if (jsFile == null) return NotFound();
 
@@ -244,7 +242,7 @@ Endpoint endpoint = null; // TODO: !!!!!
         }
 
 
-        [HttpGet("api/tsd/common")]
+        [HttpGet("/api/tsd/common")]
         public IActionResult ServeCommonTSD()
         {
             try
@@ -261,7 +259,7 @@ Endpoint endpoint = null; // TODO: !!!!!
         }
 
 
-        [HttpGet("api/tsd/{guid}")] // {guid} can be either a JsFile Guid or a DB source guid - if it's a DB Source then we return DBSource/all.d.ts
+        [HttpGet("/api/tsd/{guid}")] // {guid} can be either a JsFile Guid or a DB source guid - if it's a DB Source then we return DBSource/all.d.ts
         public IActionResult ServeFileTypings(Guid guid)
         {
             try
@@ -274,7 +272,7 @@ Endpoint endpoint = null; // TODO: !!!!!
                 // if the specified Guid is not a DBSource try looking for a file
                 if (dbSource == null)
                 {
-                    var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Guid.Equals(guid));
+                    var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Id.Equals(guid));
 
                     if (jsFile == null) return NotFound();
 
@@ -295,7 +293,7 @@ Endpoint endpoint = null; // TODO: !!!!!
         }
 
         [HttpGet]
-        [Route("api/hostname")]
+        [Route("/api/hostname")]
         public string HostName()
         {
             var he = System.Net.Dns.GetHostEntry("localhost");
@@ -307,7 +305,7 @@ Endpoint endpoint = null; // TODO: !!!!!
             if (jsFile == null && dbSource != null)
             {
                 // TODO: Get server ip/dns name???
-                var refs = dbSource.JsFiles.Select(f => $"/// <reference path=\"./api/tsd/{f.Guid}\" />").ToArray();
+                var refs = dbSource.JsFiles.Select(f => $"/// <reference path=\"./api/tsd/{f.Id}\" />").ToArray();
                 string content = "";
 
                 if (refs.Length > 0)

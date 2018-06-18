@@ -243,7 +243,7 @@ namespace jsdal_server_core.Controllers
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
                 // make sure the source domain/IP is allowed access
-                var mayAccess = app.mayAccessDbSource(this.Request);
+                var mayAccess = app.MayAccessDbSource(this.Request);
 
                 if (!mayAccess.isSuccess)
                 {

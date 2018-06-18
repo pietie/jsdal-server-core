@@ -18,7 +18,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
     public class Application
     {
-
         public string Name;
 
         public string WhitelistedDomainsCsv;
@@ -27,7 +26,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public int DefaultRuleMode;
 
-        public List<string> Plugins;
+        public List<string> Plugins; // TODO: Need to build this out for Access-list functionality of some sort? -->Specifically for the Server methods and SignalR loops and such?
+     //   public List<string> InlinePlugins;
 
         public List<JsFile> JsFiles;
         public List<BaseRule> Rules;
@@ -53,6 +53,26 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
+        public CommonReturnValue Update(string name, string jsNamespace, int? defaultRuleMode)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return CommonReturnValue.userError("Application names may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+            }
+
+            if (!defaultRuleMode.HasValue)
+            {
+                return CommonReturnValue.userError("Please specify the default rule mode.");
+            }
+
+
+            this.Name = name;
+            this.JsNamespace = jsNamespace;
+            this.DefaultRuleMode = defaultRuleMode.Value;
+
+            return CommonReturnValue.success();
+        }
+
 
         public CommonReturnValue AddEndpoint(string name)
         {
@@ -69,7 +89,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             return CommonReturnValue.success();
         }
-
         public CommonReturnValue UpdateEndpoint(string oldName, string newName)
         {
             if (string.IsNullOrWhiteSpace(newName)) return CommonReturnValue.userError("Please specify a valid endpoint name.");
@@ -107,148 +126,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             return CommonReturnValue.success();
         }
 
-
-
-        // // public CommonReturnValueWithDbSource addUpdateDatabaseConnection(bool isMetadataConnection, string dbConnectionGuid, string logicalName, string dataSource
-        // //     , string catalog, string username, string password, int port, string instanceName)
-        // // {
-        // //     if (string.IsNullOrWhiteSpace(logicalName)) return CommonReturnValueWithDbSource.userError("Please provide a name for this data source.");
-
-        // //     if (isMetadataConnection)
-        // //     {
-        // //         if (this.MetadataConnection == null) this.MetadataConnection = new Connection();
-
-        // //         this.MetadataConnection.update(logicalName, dataSource, catalog, username, password, port, instanceName);
-        // //     }
-        // //     else
-        // //     {
-        // //         if (this.ExecutionConnections == null) this.ExecutionConnections = new List<Connection>();
-
-        // //         if (dbConnectionGuid == null)
-        // //         {
-        // //             // add new
-        // //             var connection = new Connection();
-
-        // //             connection.update(logicalName, dataSource, catalog, username, password, port, instanceName);
-        // //             connection.Guid = ShortId.Generate(); // TODO: Needs to move into constructor of Connection or something like Connection.create(..).
-
-        // //             this.ExecutionConnections.Add(connection);
-        // //         }
-        // //         else
-        // //         { // update
-
-        // //             var existing = this.ExecutionConnections.FirstOrDefault(c => c.Guid == dbConnectionGuid);
-
-        // //             if (existing == null)
-        // //             {
-        // //                 return CommonReturnValueWithDbSource.userError("The specified connection does not exist and cannot be updated.");
-        // //             }
-
-        // //             existing.update(logicalName, dataSource, catalog, username, password, port, instanceName);
-
-        // //         }
-        // //     }
-
-        // //     return CommonReturnValueWithDbSource.success(null);
-        // // }
-
-        // // public CommonReturnValue deleteDatabaseConnection(string dbConnectionGuid)
-        // // {
-        // //     var existing = this.ExecutionConnections.FirstOrDefault(c => c.Guid == dbConnectionGuid);
-
-        // //     if (existing == null)
-        // //     {
-        // //         return CommonReturnValue.userError("The specified connection does not exist and cannot be updated.");
-        // //     }
-
-        // //     this.ExecutionConnections.Remove(existing);
-
-        // //     return CommonReturnValue.success();
-        // // }
-
-        // TODO: Cleanup. Remove items that have been moved down to Endpoint level.
-        // // public string checkForMissingOrmPreRequisitesOnDatabase()
-        // // {
-        // //     var sqlScript = File.ReadAllText("./resources/check-pre-requisites.sql", System.Text.Encoding.UTF8);
-
-        // //     using (SqlConnection con = new SqlConnection(this.MetadataConnection.ConnectionStringDecrypted))
-        // //     {
-        // //         SqlCommand cmd = new SqlCommand();
-
-        // //         cmd.Connection = con;
-        // //         cmd.CommandType = System.Data.CommandType.Text;
-        // //         cmd.CommandText = sqlScript;
-        // //         cmd.Parameters.Add("@err", System.Data.SqlDbType.VarChar, int.MaxValue).Direction = System.Data.ParameterDirection.Output;
-
-        // //         con.Open();
-
-        // //         cmd.ExecuteNonQuery();
-
-        // //         if (cmd.Parameters["@err"].Value == DBNull.Value)
-        // //         {
-        // //             // TODO: Can the validity be cached somehow?
-        // //             return null;
-        // //         }
-
-        // //         return (string)cmd.Parameters["@err"].Value;
-        // //     }
-
-        // // }
-        // // public bool InstallOrm()
-        // // {
-        // //     var missing = checkForMissingOrmPreRequisitesOnDatabase();
-
-        // //     if (string.IsNullOrEmpty(missing))
-        // //     {
-        // //         return true;
-        // //     }
-
-        // //     var installSqlScript = File.ReadAllText("./resources/install-orm.sql", System.Text.Encoding.UTF8);
-
-        // //     using (var con = new SqlConnection())
-        // //     {
-        // //         con.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
-        // //         con.Open();
-
-        // //         var cmd = new SqlCommand();
-
-        // //         cmd.Connection = con;
-        // //         cmd.CommandText = installSqlScript;
-        // //         cmd.CommandTimeout = 120;
-
-        // //         cmd.ExecuteNonQuery();
-
-        // //         con.Close();
-        // //     }
-
-        // //     return true;
-
-        // // }
-
-        // // public bool UnInstallOrm()
-        // // {
-        // //     using (var con = new SqlConnection())
-        // //     {
-        // //         con.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
-        // //         con.Open();
-
-        // //         var cmd = new SqlCommand();
-
-        // //         cmd.Connection = con;
-        // //         cmd.CommandText = "exec orm.Uninstall";
-        // //         cmd.CommandTimeout = 120;
-
-        // //         cmd.ExecuteNonQuery();
-
-        // //         con.Close();
-        // //     }
-
-        // //     return true;
-
-        // // }
-
-
-        public CommonReturnValue updatePluginList(dynamic pluginList)
+        public CommonReturnValue UpdatePluginList(dynamic pluginList)
         {
             this.Plugins = new List<string>();
             if (pluginList == null) return CommonReturnValue.success();
@@ -264,16 +142,23 @@ namespace jsdal_server_core.Settings.ObjectModel
             return CommonReturnValue.success();
         }
 
-        public bool isPluginIncluded(string guid)
+        public bool IsPluginIncluded(string guid)
         {
             if (this.Plugins == null) return false;
 
             return this.Plugins.FirstOrDefault(g => g.Equals(guid, StringComparison.OrdinalIgnoreCase)) != null;
         }
 
-        public CommonReturnValue addJsFile(string name)
+        public CommonReturnValue AddJsFile(string name)
         {
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            {
+                return CommonReturnValue.userError("Filenames may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+            }
+
             if (this.JsFiles == null) this.JsFiles = new List<JsFile>();
+
+            if (!name.ToLower().Trim().EndsWith(".js")) name = name.Trim() + ".js";
 
             var existing = this.JsFiles.FirstOrDefault(f => f.Filename.ToLower() == name.ToLower());
 
@@ -285,14 +170,14 @@ namespace jsdal_server_core.Settings.ObjectModel
             var jsfile = new JsFile();
 
             jsfile.Filename = name;
-            jsfile.Guid = ShortId.Generate();
+            jsfile.Id = ShortId.Generate();
 
             this.JsFiles.Add(jsfile);
 
             return CommonReturnValue.success();
         }
 
-        public CommonReturnValue addRule(RuleType ruleType, string txt)
+        public CommonReturnValue AddRule(RuleType ruleType, string txt)
         {
             BaseRule rule = null;
 
@@ -303,17 +188,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     break;
                 case RuleType.Specific:
                     {
-                        var parts = txt.Split('.');
-                        var schema = "dbo";
-                        var name = txt;
-
-                        if (parts.Length > 1)
-                        {
-                            schema = parts[0];
-                            name = parts[1];
-                        }
-
-                        rule = new SpecificRule(schema, name);
+                      rule = SpecificRule.FromFullname(txt);
                     }
                     break;
                 case RuleType.Regex:
@@ -333,34 +208,49 @@ namespace jsdal_server_core.Settings.ObjectModel
                     throw new Exception($"Unsupported rule type:${ ruleType}");
             }
 
-            rule.Guid = ShortId.Generate();
+            rule.Id = ShortId.Generate(useNumbers: true, useSpecial:true, length: 6);
 
             this.Rules.Add(rule);
 
             return CommonReturnValue.success();
         }
 
-        public CommonReturnValue deleteRule(string ruleGuid)
+        public CommonReturnValue UpdateRule(string ruleId, string txt)
         {
-            var existingRule = this.Rules.FirstOrDefault(r =>/*r!=null &&*/ r.Guid == ruleGuid);
+            var existingRule = this.Rules.FirstOrDefault(r => r?.Id?.Equals(ruleId, StringComparison.Ordinal) ?? false);
 
             if (existingRule == null)
             {
                 return CommonReturnValue.userError("The specified rule was not found.");
             }
 
-            //!this.Rules.splice(this.Rules.indexOf(existingRule), 1);
+            existingRule.Update(txt);
+            
+            return CommonReturnValue.success();
+        }
+
+
+        public CommonReturnValue DeleteRule(string ruleId)
+        {
+            var existingRule = this.Rules.FirstOrDefault(r => r?.Id?.Equals(ruleId, StringComparison.Ordinal) ?? false);
+
+            if (existingRule == null)
+            {
+                return CommonReturnValue.userError("The specified rule was not found.");
+            }
+
             this.Rules.Remove(existingRule);
 
             return CommonReturnValue.success();
         }
 
-        public void applyDbLevelRules()
+
+        public void ApplyDbLevelRules()
         {
-            this.applyRules(JsFile.DBLevel);
+            this.ApplyRules(JsFile.DBLevel);
         }
 
-        public void applyRules(JsFile jsFileContext)
+        public void ApplyRules(JsFile jsFileContext)
         {
             throw new NotImplementedException();
             //TODO: MOVE TO CORRECT LEVEL..END POINT??? dont think endpoint level but across files...ugh
@@ -386,7 +276,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             */
         }
 
-        public CommonReturnValue mayAccessDbSource(Microsoft.AspNetCore.Http.HttpRequest req)
+        public CommonReturnValue MayAccessDbSource(Microsoft.AspNetCore.Http.HttpRequest req)
         {
             if (this.WhitelistedDomainsCsv == null)
             {
@@ -401,7 +291,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             {
                 if (System.Uri.TryCreate(referer, UriKind.RelativeOrAbsolute, out var refererUri))
                 {
-                    
+
                     foreach (string en in whitelistedIPs)
                     {
                         if (en.Equals(refererUri.Host, StringComparison.OrdinalIgnoreCase))
@@ -413,6 +303,41 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
             return CommonReturnValue.userError($"The host ({ referer }) is not allowed to access this resource.");
+        }
+
+        // gets a distinct list of all routines across all endpoint cache's
+        public List<CachedRoutine> GetUnifiedCacheList()
+        {
+            if (this.Endpoints == null) return null;
+
+            var distinct = new Dictionary<string, CachedRoutine>();
+
+            this.Endpoints.SelectMany(ep => ep.cache ?? new List<CachedRoutine>())
+                .ToList()
+                .ForEach(routine =>
+                    {
+                        var fn = routine.FullName;
+
+                        if (!distinct.ContainsKey(fn))
+                        {
+                            distinct.Add(fn, routine);
+                        }
+
+                    });
+
+            return distinct.Values.ToList();
+        }
+
+        public JsFile GetJsFile(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            var jsfile = this.JsFiles.FirstOrDefault(f => f.Filename.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+            return jsfile;
         }
 
 

@@ -32,7 +32,7 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void generateJsFile(Endpoint endpoint, JsFile jsFile)
+        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile)
         {
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;

@@ -17,23 +17,23 @@ namespace jsdal_server_core.Settings.ObjectModel
         public bool isSuccess { get { return successVal ?? false; } }
     }
 
-    public class CommonReturnValueWithDbSource : CommonReturnValue
+    public class CommonReturnValueWithApplication : CommonReturnValue
     {
-        public Application dbSource;
+        public Application app;
 
-        public static CommonReturnValueWithDbSource success(Application app)
+        public static CommonReturnValueWithApplication success(Application app)
         {
-            var ret = new CommonReturnValueWithDbSource();
+            var ret = new CommonReturnValueWithApplication();
 
             ret.successVal = true;
-            ret.dbSource = app;
+            ret.app = app;
 
             return ret;
         }
 
-        public new static CommonReturnValueWithDbSource userError(string ue)
+        public new static CommonReturnValueWithApplication userError(string ue)
         {
-            return new CommonReturnValueWithDbSource() { successVal = false, userErrorMsg = ue };
+            return new CommonReturnValueWithApplication() { successVal = false, userErrorMsg = ue };
         }
     }
 }

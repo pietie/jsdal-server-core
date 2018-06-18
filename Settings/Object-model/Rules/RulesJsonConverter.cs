@@ -18,7 +18,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var sr = new SchemaRule();
 
                 if (target["Name"] != null) sr.Name = target["Name"].ToString();
-                if (target["Guid"] != null) sr.Guid = target["Guid"].ToString();
+                if (target["Id"] != null) sr.Id = target["Id"].ToString();
 
                 return sr;
             }
@@ -29,7 +29,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 if (target["Routine"] != null) sr.Routine = target["Routine"].ToString();
                 if (target["Schema"] != null) sr.Schema = target["Schema"].ToString();
                 if (target["Name"] != null) sr.Name = target["Name"].ToString();
-                if (target["Guid"] != null) sr.Guid = target["Guid"].ToString();
+                if (target["Id"] != null) sr.Id = target["Id"].ToString();
 
                 return sr;
             }
@@ -38,7 +38,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var rr = new RegexRule();
 
                 if (target["Name"] != null) rr.Name = target["Name"].ToString();
-                if (target["Guid"] != null) rr.Guid = target["Guid"].ToString();
+                if (target["Id"] != null) rr.Id = target["Id"].ToString();
                 if (target["Match"] != null) rr.Match = target["Match"].ToString();
 
                 return rr;

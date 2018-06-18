@@ -115,23 +115,23 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         }
 
-        public CommonReturnValueWithDbSource UpdateMetadataConnection(string dataSource, string catalog, string username, string password, int port)
+        public CommonReturnValueWithApplication UpdateMetadataConnection(string dataSource, string catalog, string username, string password, int port)
         {
             if (this.MetadataConnection == null) this.MetadataConnection = new Connection();
 
             this.MetadataConnection.update(dataSource, catalog, username, password, port, null);
 
-            return CommonReturnValueWithDbSource.success(null);
+            return CommonReturnValueWithApplication.success(null);
 
 
         }
-        public CommonReturnValueWithDbSource UpdateExecConnection(string dataSource, string catalog, string username, string password, int port)
+        public CommonReturnValueWithApplication UpdateExecConnection(string dataSource, string catalog, string username, string password, int port)
         {
             if (this.ExecutionConnection == null) this.ExecutionConnection = new Connection();
 
             this.ExecutionConnection.update(dataSource, catalog, username, password, port, null);
 
-            return CommonReturnValueWithDbSource.success(null);
+            return CommonReturnValueWithApplication.success(null);
 
 
         }

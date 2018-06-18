@@ -13,21 +13,22 @@ namespace jsdal_server_core.Settings.ObjectModel
 
 
         public string Filename { get; set; }
-        public string Guid { get; set; }
+
+        public string Id { get; set; }
         public int Version { get; set; }
         public List<BaseRule> Rules { get; set; }
 
-        public JsFile(string guid)
+        public JsFile(string id)
         {
             this.Rules = new List<BaseRule>();
-            this.Guid = guid;
+            this.Id = id;
             this.Version = 1;
         }
 
         public JsFile()
         {
             this.Rules = new List<BaseRule>();
-            this.Guid = ShortId.Generate();
+            this.Id = ShortId.Generate();
             this.Version = 1;
         }
 
@@ -35,22 +36,6 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             this.Version++;
         }
-
-        /**public static JsFile createFromJson(rawJson: any): JsFile {
-        let jsfile = new JsFile();
-
-        jsfile.Filename = rawJson.Filename;
-        jsfile.Guid = rawJson.Guid;
-        jsfile.Version = parseInt(rawJson.Version);
-
-        if (isNaN(jsfile.Version)) jsfile.Version = 1;
-
-        for (let i = 0; i<rawJson.Rules.length; i++) {
-            jsfile.Rules.push(BaseRule.createFromJson(rawJson.Rules[i]));
-        }
-
-        return jsfile;
-    }**/
 
         public CommonReturnValue addRule(RuleType ruleType, string txt)
         {
@@ -63,17 +48,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     break;
                 case RuleType.Specific:
                     {
-                        var parts = txt.Split('.');
-                        var schema = "dbo";
-                        var name = txt;
-
-                        if (parts.Length > 1)
-                        {
-                            schema = parts[0];
-                            name = parts[1];
-                        }
-
-                        rule = new SpecificRule(schema, name);
+                        rule = SpecificRule.FromFullname(txt);
                     }
                     break;
                 case RuleType.Regex:
@@ -94,16 +69,30 @@ namespace jsdal_server_core.Settings.ObjectModel
                     throw new Exception($"Unsupported rule type: ${ruleType}");
             }
 
-            rule.Guid = ShortId.Generate();
+            rule.Id = ShortId.Generate(useNumbers: true, useSpecial:true, length: 6);
 
             this.Rules.Add(rule);
 
             return CommonReturnValue.success();
         }
 
-        public CommonReturnValue deleteRule(string ruleGuid)
+        public CommonReturnValue UpdateRule(string ruleId, string txt)
         {
-            var existingRule = this.Rules.FirstOrDefault(r => r.Guid == ruleGuid);
+            var existingRule = this.Rules.FirstOrDefault(r => r?.Id?.Equals(ruleId, StringComparison.Ordinal) ?? false);
+
+            if (existingRule == null)
+            {
+                return CommonReturnValue.userError("The specified rule was not found.");
+            }
+
+            existingRule.Update(txt);
+
+            return CommonReturnValue.success();
+        }
+
+        public CommonReturnValue DeleteRule(string ruleId)
+        {
+            var existingRule = this.Rules.FirstOrDefault(r => r.Id.Equals(ruleId, StringComparison.Ordinal));
 
             if (existingRule == null)
             {

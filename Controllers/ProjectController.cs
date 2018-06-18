@@ -37,7 +37,7 @@ namespace jsdal_server_core.Controllers
 
             if (ret.isSuccess)
             {
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
             }
             else
@@ -53,7 +53,7 @@ namespace jsdal_server_core.Controllers
 
             if (ret.isSuccess)
             {
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
             }
             else
@@ -69,7 +69,7 @@ namespace jsdal_server_core.Controllers
 
             if (ret.isSuccess)
             {
-                SettingsInstance.saveSettingsToFile();
+                SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
             }
             else
