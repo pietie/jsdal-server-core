@@ -474,11 +474,11 @@ namespace jsdal_server_core.Controllers
         {
             var plugins = new List<jsDALPlugin>();
 
-            if (Program.PluginAssemblies != null && app.Plugins != null)
+            if (PluginManager.PluginAssemblies != null && app.Plugins != null)
             {
                 foreach (string pluginGuid in app.Plugins)
                 {
-                    var plugin = Program.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
+                    var plugin = PluginManager.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
                     if (plugin != null)
                     {

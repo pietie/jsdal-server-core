@@ -59,6 +59,8 @@ namespace jsdal_server_core.Controllers
                 }
 
 
+// TODO: if server-method is add or UPDATED we need to refresh/recompile a version in memory that is used when doing the actual execution
+// We also need to cache metadata for those
                 if (id == null)
                 {
                     var plugin = ServerMethodPlugin.Create(code, pluginName, pluginGuid, pluginDesc, true/*TODO:?!?!?!?!*/);

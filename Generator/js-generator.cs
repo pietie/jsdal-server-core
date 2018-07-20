@@ -7,6 +7,7 @@ using jsdal_server_core.Settings.ObjectModel;
 using NUglify;
 using jsdal_server_core;
 using System.Text.RegularExpressions;
+using jsdal_server_core.Settings;
 
 namespace jsdal_server_core
 {
@@ -59,6 +60,11 @@ namespace jsdal_server_core
 
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
             var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+
+            var serverMethodPlugins = SettingsInstance.Instance.InlinePlugins?
+                                            .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.PluginGuid));
+
+            // metadata?
 
             // TODO: use System.Threading.Tasks.Parallel.ForEach()
             includedRoutines.ForEach(r =>
