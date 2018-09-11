@@ -513,11 +513,14 @@ namespace jsdal_server_core
 
             if (str.StartsWith(blobRefPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                var key = Guid.Parse(str.Substring(blobRefPrefix.Length));
-
-                //!if (!BlobStore.Exists(key)) throw new Exception($"Invalid, non-existent or expired blob reference specified: '{str}'");
-                //!return BlobStore.Get(key);
-                throw new NotImplementedException("TODO: implement BlobStorage?");
+                var key = str.Substring(blobRefPrefix.Length);
+        
+                if (!BlobStore.Exists(key)) throw new Exception($"Invalid, non-existent or expired blob reference specified: '{str}'");
+                return BlobStore.Get(key);
+            }
+            else if (str.Equals("dbnull", StringComparison.OrdinalIgnoreCase))
+            {
+                return DBNull.Value;
             }
             else
             {
@@ -538,7 +541,7 @@ namespace jsdal_server_core
                     return "captcha-val header not specified";
                 }
 
-                if (jsdal_server_core.Settings.SettingsInstance.Instance.Settings.GoogleRecaptchaSecret != null)
+                if (jsdal_server_core.Settings.SettingsInstance.Instance.Settings.GoogleRecaptchaSecret == null)
                 {
                     return "The setting GoogleRecaptchaSecret is not configured on this jsDAL server.";
                 }

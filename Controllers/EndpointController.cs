@@ -427,15 +427,16 @@ namespace jsdal_server_core.Controllers
 
         [HttpGet]
         [Route("/api/endpoint/{endpoint}/cachedroutines")]
-        public ApiResponse GetCachedRoutines([FromRoute] string endpoint, [FromQuery] string projectName, [FromQuery] string dbSource, [FromQuery] string q, [FromQuery] string type
+        public ApiResponse GetCachedRoutines([FromRoute] string endpoint, [FromQuery] string project, [FromQuery] string dbSource, [FromQuery] string q, [FromQuery] string type
                 , [FromQuery] string status, [FromQuery] bool? hasMeta, [FromQuery] bool? isDeleted)
         {
             try
             {
-                if (!ControllerHelper.GetProjectAndApp(projectName, dbSource, out var proj, out var dbs, out var resp))
+                if (!ControllerHelper.GetProjectAndApp(project, dbSource, out var proj, out var dbs, out var resp))
                 {
                     return resp;
                 }
+               
 
                 if (!dbs.GetEndpoint(endpoint, out var ep, out var resp2))
                 {

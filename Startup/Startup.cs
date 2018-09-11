@@ -40,9 +40,16 @@ namespace jsdal_server_core
         public Startup(IConfiguration configuration, IHostingEnvironment env)
         {
             Configuration = configuration;
+            //  var configurationBuilder = new ConfigurationBuilder();
+                
+            //  configurationBuilder.AddJsonFile("./appsettings.json", false, true);
+
+            //  var c = configurationBuilder.Build();
+
             HostingEnvironment = env;
 
-            Console.WriteLine($"WebRootPath: {env.WebRootPath}; ");
+            Console.WriteLine($"WebRootPath: {env.WebRootPath}");
+            Console.WriteLine($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)"); 
         }
 
 
@@ -120,8 +127,18 @@ namespace jsdal_server_core
                     });
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)
         {
+            //app.UseDeveloperExceptionPage();
+
+            applicationLifetime.ApplicationStopped.Register(()=>{
+                Console.WriteLine("!!!  Stopped reached");
+            });
+
+            applicationLifetime.ApplicationStopping.Register(()=>{
+                Console.WriteLine("!!!  Stopping reached");
+            });
+
             //       loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             //     loggerFactory.AddDebug();
 

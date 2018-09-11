@@ -62,6 +62,25 @@ namespace jsdal_server_core
             }
         }
 
+        public static void Stop()
+        {
+            if (_workerList == null) return;
+
+            lock(_workerList)
+            {
+                _workerList.ForEach(wl=>{
+                    try
+                    {
+                        wl.Stop();
+                    }
+                    catch(ThreadAbortException)
+                    {
+                        // ignore TAEs
+                    }
+                });
+            }
+        }
+
         public static void Start()
         {
             try
