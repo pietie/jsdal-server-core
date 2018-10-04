@@ -16,14 +16,14 @@ namespace jsdal_server_core
 {
     public static class OrmDAL
     {
-        public static int SprocGenGetRoutineListCnt(SqlConnection con, long? maxRowDate)
+        public static int GetRoutineListCnt(SqlConnection con, long? maxRowDate)
         {
             using (var cmd = new SqlCommand())
             {
 
                 cmd.Connection = con;
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.CommandText = "orm.SprocGenGetRoutineListCnt";
+                cmd.CommandText = "ormV2.GetRoutineListCnt";
                 cmd.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = maxRowDate ?? 0;
 
                 var scalar = cmd.ExecuteScalar();
@@ -65,7 +65,7 @@ namespace jsdal_server_core
             return parameter;
         }
 
-        public static DataSet RoutineGetFmtOnlyResults(string connectionString, string schema, string routine, List<RoutineParameter> parameterList, out string error)
+        public static DataSet RoutineGetFmtOnlyResults(string connectionString, string schema, string routine, List<RoutineParameterV2> parameterList, out string error)
         {
             error = null;
             // we have to open a new connection as there is an open Reader across the main connection
@@ -84,8 +84,8 @@ namespace jsdal_server_core
                 {
                     foreach (var p in parameterList)
                     {
-                        if (p.IsResult.Equals("YES", StringComparison.OrdinalIgnoreCase)) continue;
-                        var parm = CreateParameter(dbCmd, p.ParameterName, Controllers.ExecController.GetSqlDbTypeFromParameterType(p.DataType));
+                        if (p.IsResult) continue;
+                        var parm = CreateParameter(dbCmd, p.Name, Controllers.ExecController.GetSqlDbTypeFromParameterType(p.SqlDataType));
                         dbCmd.Parameters.Add(parm);
                     }
                 }
@@ -210,14 +210,14 @@ namespace jsdal_server_core
 
                     if (isTVF)
                     {
-                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult.Equals("YES", StringComparison.OrdinalIgnoreCase)).Select(p => p.ParameterName).ToArray());
+                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
 
                         cmd.CommandType = CommandType.Text;
                         cmd.CommandText = string.Format("select * from [{0}].[{1}]({2})", schemaName, routineName, parmCsvList);
                     }
                     else if (type == Controllers.ExecController.ExecType.Scalar)
                     {
-                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult.Equals("YES", StringComparison.OrdinalIgnoreCase)).Select(p => p.ParameterName).ToArray());
+                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
 
                         if (cachedRoutine.Type.Equals("PROCEDURE", StringComparison.CurrentCultureIgnoreCase))
                         {
@@ -235,24 +235,24 @@ namespace jsdal_server_core
                     {
                         cachedRoutine.Parameters.ForEach(p =>
                         {
-                            if (p.IsResult.Equals("yes", StringComparison.OrdinalIgnoreCase)) return;
+                            if (p.IsResult) return;
 
-                            var sqlType = Controllers.ExecController.GetSqlDbTypeFromParameterType(p.DataType);
+                            var sqlType = Controllers.ExecController.GetSqlDbTypeFromParameterType(p.SqlDataType);
                             object parmValue = null;
 
-                            var newSqlParm = cmd.Parameters.Add(p.ParameterName, sqlType, p.Length ?? 32);
+                            var newSqlParm = cmd.Parameters.Add(p.Name, sqlType, p.MaxLength);
 
-                            if (p.ParameterMode == "IN")
+                            if (!p.IsOutput)
                             {
                                 newSqlParm.Direction = ParameterDirection.Input;
                             }
-                            else if (p.ParameterMode == "INOUT")
+                            else 
                             {
                                 newSqlParm.Direction = ParameterDirection.InputOutput;
                             }
 
                             // trim leading '@'
-                            var parmName = p.ParameterName.Substring(1);
+                            var parmName = p.Name.Substring(1);
 
                             if (inputParameters.ContainsKey(parmName))
                             {
@@ -281,7 +281,7 @@ namespace jsdal_server_core
                             else
                             {
                                 // do not skip on INOUT parameters as SQL does not apply default values to OUT parameters
-                                if (p.HasDefault && (p.ParameterMode == "IN"))
+                                if (p.HasDefault && !p.IsOutput)
                                 {
                                     // If no explicit value was specified and the parameter has it's own default...
                                     // Then DO NOT set newSqlParm.Value so that the DB Engine applies the default defined in SQL
@@ -390,7 +390,7 @@ namespace jsdal_server_core
                     if (cachedRoutine?.Parameters != null)
                     {
                         var outputParmList = (from p in cachedRoutine.Parameters
-                                              where p.ParameterMode.Equals("INOUT", StringComparison.OrdinalIgnoreCase)
+                                              where p.IsOutput
                                               select p).ToList();
 
 
@@ -399,11 +399,11 @@ namespace jsdal_server_core
                         {
                             object val = null;
 
-                            val = cmd.Parameters[outParm.ParameterName].Value;
+                            val = cmd.Parameters[outParm.Name].Value;
 
                             if (val == DBNull.Value) val = null;
 
-                            outputParameterDictionary.Add(outParm.ParameterName.TrimStart('@'), val);
+                            outputParameterDictionary.Add(outParm.Name.TrimStart('@'), val);
                         }
                     }
 

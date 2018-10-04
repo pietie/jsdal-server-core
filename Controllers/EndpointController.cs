@@ -133,7 +133,6 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/endpoint/{name}/installOrm")]
         public ApiResponse InstallOrm([FromRoute] string name, [FromQuery] string projectName, [FromQuery] string dbSourceName)
         {
-
             try
             {
                 if (!ControllerHelper.GetProjectAndApp(projectName, dbSourceName, out var proj, out var dbSource, out var resp))
@@ -146,9 +145,9 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
                 }
 
-                var installed = endpoint.InstallOrm();
+                var bgGuid = endpoint.InstallOrm();
 
-                if (installed)
+                if (bgGuid.HasValue)
                 {
                     endpoint.IsOrmInstalled = true;
 
@@ -156,7 +155,8 @@ namespace jsdal_server_core.Controllers
 
                     SettingsInstance.SaveSettingsToFile();
 
-                    return ApiResponse.Success();
+                    if (bgGuid == Guid.Empty) return ApiResponse.Payload(new { Success = true });
+                    else return ApiResponse.Payload(new { Success = true, BgInitGuid = bgGuid });
                 }
                 else return ApiResponse.ExclamationModal("Failed to install ORM");
             }

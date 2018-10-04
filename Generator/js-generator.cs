@@ -117,16 +117,16 @@ namespace jsdal_server_core
 
 
                             var sprocParameters = from p in r.Parameters
-                                                  where !string.IsNullOrEmpty(p.ParameterName)
+                                                  where !string.IsNullOrEmpty(p.Name)
                                                   select new
                                                   {
-                                                      Name = StartsWithNum(p.ParameterName.TrimStart('@')) ? (/*"_" + */p.ParameterName.TrimStart('@')) : p.ParameterName.TrimStart('@'),
+                                                      Name = StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@'),
                                                       p.IsResult,
-                                                      p.DataType,
-                                                      p.ParameterMode,
+                                                      p.SqlDataType,
+                                                      p.IsOutput,
                                                       HasDefault = p.HasDefault,
-                                                      JavascriptDataType = RoutineParameter.getDataTypeForJavaScriptComment(p.DataType),
-                                                      TypescriptDataType = RoutineParameter.getDataTypeForTypeScript(p.DataType)
+                                                      JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType),
+                                                      TypescriptDataType = RoutineParameterV2.GetDataTypeForTypeScript(p.SqlDataType)
                                                   };
 
                             /*
@@ -159,9 +159,9 @@ namespace jsdal_server_core
 
 
                             var outputParms = (from p in r.Parameters
-                                               where !string.IsNullOrEmpty(p.ParameterName) && !p.IsResult.Equals("Yes", StringComparison.OrdinalIgnoreCase)
-                                                 && (p.ParameterMode.Equals("INOUT", StringComparison.OrdinalIgnoreCase) || p.ParameterMode.Equals("OUT", StringComparison.OrdinalIgnoreCase))
-                                               select string.Format("{0}?: {1}", StartsWithNum(p.ParameterName.TrimStart('@')) ? (/*"_" + */p.ParameterName.TrimStart('@')) : p.ParameterName.TrimStart('@'), RoutineParameter.getDataTypeForTypeScript(p.DataType))).ToList();
+                                               where !string.IsNullOrEmpty(p.Name) && !p.IsResult
+                                                 && p.IsOutput
+                                               select string.Format("{0}?: {1}", StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@'), RoutineParameterV2.GetDataTypeForTypeScript(p.SqlDataType))).ToList();
 
 
 
@@ -245,7 +245,7 @@ namespace jsdal_server_core
 
 
                                     // a bit backwards but gets the job done
-                                    var typeScriptDataType = RoutineParameter.getDataTypeForTypeScript(dbDataType);
+                                    var typeScriptDataType = RoutineParameterV2.GetDataTypeForTypeScript(dbDataType);
 
                                     lst.Add(string.Format("{0}: {1}", colName, typeScriptDataType));
 
@@ -275,10 +275,10 @@ namespace jsdal_server_core
                         {
                             if (r.Parameters != null)
                             {
-                                var resultParm = r.Parameters.First(p => p.IsResult.Equals("YES", StringComparison.OrdinalIgnoreCase));
+                                var resultParm = r.Parameters.First(p => p.IsResult);
 
                                 var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): IUDFExecGeneric<{2}, {1}>", jsFunctionName, tsArguments
-                                , RoutineParameter.getDataTypeForTypeScript(resultParm.DataType));
+                                , RoutineParameterV2.GetDataTypeForTypeScript(resultParm.SqlDataType));
 
                                 tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
                             }

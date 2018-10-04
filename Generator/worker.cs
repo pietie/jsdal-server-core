@@ -62,7 +62,7 @@ namespace jsdal_server_core
 
         public Worker(Endpoint endpoint)
         {
-            this.ID = ShortId.Generate(useNumbers: true, useSpecial:false, length: 6);
+            this.ID = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             this.Endpoint = endpoint;
             this.log = new MemoryLog();
         }
@@ -184,6 +184,7 @@ namespace jsdal_server_core
                     {
                         this.log.Exception(ex);
                         SessionLog.Exception(ex);
+                        this.Status = ex.Message;
                         // TODO: Decide what to do with an exception here
                     }
 
@@ -206,7 +207,7 @@ namespace jsdal_server_core
 
         private void Process(SqlConnection con, string connectionString)
         {
-            var changesCount = OrmDAL.SprocGenGetRoutineListCnt(con, this.MaxRowDate);
+            var changesCount = OrmDAL.GetRoutineListCnt(con, this.MaxRowDate);
 
             if (changesCount > 0)
             {
@@ -261,18 +262,18 @@ namespace jsdal_server_core
 
         private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount)
         {
-            var cmdSprocGenGetRoutineList = new SqlCommand();
+            var cmdGetRoutineList = new SqlCommand();
 
-            cmdSprocGenGetRoutineList.Connection = con;
-            cmdSprocGenGetRoutineList.CommandType = System.Data.CommandType.StoredProcedure;
-            cmdSprocGenGetRoutineList.CommandText = "orm.SprocGenGetRoutineList";
-            cmdSprocGenGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;
+            cmdGetRoutineList.Connection = con;
+            cmdGetRoutineList.CommandType = System.Data.CommandType.StoredProcedure;
+            cmdGetRoutineList.CommandText = "ormv2.GetRoutineList";
+            cmdGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;
 
-            using (var reader = cmdSprocGenGetRoutineList.ExecuteReader())
+            using (var reader = cmdGetRoutineList.ExecuteReader())
             {
                 if (!this.IsRunning) return;
 
-                var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ParameterCount", "ObjectId", "JsonMetadata" };
+                var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ObjectId", "JsonMetadata" };
 
                 // maps column ordinals to proper names 
                 var ix = columns.Select(s => new { s, Value = reader.GetOrdinal(s) }).ToDictionary(p => p.s, p => p.Value);
@@ -297,7 +298,7 @@ namespace jsdal_server_core
                         Schema = reader.GetString(ix["SchemaName"]),
                         Type = reader.GetString(ix["RoutineType"]),
                         IsDeleted = reader.GetBoolean(ix["IsDeleted"]),
-                        Parameters = new List<RoutineParameter>(),
+                        Parameters = new List<RoutineParameterV2>(),
                         RowVer = reader.GetInt64(ix["rowver"]),
                     };
 
@@ -421,34 +422,51 @@ namespace jsdal_server_core
         }
 
 
-        private List<RoutineParameter> ExtractParameters(string parametersXml)
+        private List<RoutineParameterV2> ExtractParameters(string parametersXml)
         {
             if (parametersXml == null) return null;
 
-            var xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(RoutineParameterContainer));
+            var xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(RoutineParameterContainerV2));
+
+            parametersXml = $"<Routine>{parametersXml}</Routine>";
 
             using (var sr = new StringReader(parametersXml))
             {
-                return (xmlSerializer.Deserialize(sr) as RoutineParameterContainer).Parameters;
+                var val = (xmlSerializer.Deserialize(sr) as RoutineParameterContainerV2);
+                return val.Parameters;
             }
         }
 
         [Serializable]
         [XmlRoot("Routine")]
-        public class RoutineParameterContainer
+
+        public class RoutineParameterContainerV2
         {
-            public RoutineParameterContainer()
+            public RoutineParameterContainerV2()
             {
-                this.Parameters = new List<RoutineParameter>();
+                this.Parameters = new List<RoutineParameterV2>();
             }
 
-            public string Catalog { get; set; }
-            public string Schema { get; set; }
-            public string RoutineName { get; set; }
-
-            [XmlElement("Parameter")]
-            public List<RoutineParameter> Parameters { get; set; }
+            [XmlElement("Parm")]
+            public List<RoutineParameterV2> Parameters { get; set; }
         }
+
+        // [Serializable]
+        // [XmlRoot("Routine")]
+        // public class RoutineParameterContainer
+        // {
+        //     public RoutineParameterContainer()
+        //     {
+        //         this.Parameters = new List<RoutineParameter>();
+        //     }
+
+        //     public string Catalog { get; set; }
+        //     public string Schema { get; set; }
+        //     public string RoutineName { get; set; }
+
+        //     [XmlElement("Parameter")]
+        //     public List<RoutineParameter> Parameters { get; set; }
+        // }
 
         private void generateOutputFiles(Endpoint endpoint)
         {
@@ -459,12 +477,12 @@ namespace jsdal_server_core
                     // generate a file for every endpoint
                     //dbSource.Endpoints.ForEach(endpoint =>
                     //{
-                        JsFileGenerator.GenerateJsFile(endpoint, jsFile);
+                    JsFileGenerator.GenerateJsFile(endpoint, jsFile);
 
-                        this.IsRulesDirty = false;
-                        this.IsOutputFilesDirty = false;
-                        
-                        endpoint.LastUpdateDate = DateTime.Now;
+                    this.IsRulesDirty = false;
+                    this.IsOutputFilesDirty = false;
+
+                    endpoint.LastUpdateDate = DateTime.Now;
                     //});
 
                 });

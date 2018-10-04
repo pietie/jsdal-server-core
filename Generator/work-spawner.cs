@@ -97,9 +97,12 @@ namespace jsdal_server_core
 
                 // TODO: handle items (project/sources) that were deleted
 
+
                 //async.each(dbSources, (source) => {
                 endpoints.ForEach(endpoint =>
                 {
+                    //TEST!!
+                    if (endpoint.Name != "DEV" || endpoint.Application.Name != "PWAs") return;
 
                     try
                     {

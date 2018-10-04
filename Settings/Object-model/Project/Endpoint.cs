@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System.IO;
 using System.Data.SqlClient;
 using shortid;
+using System.Text.RegularExpressions;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -62,34 +63,87 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
         }
-        public bool InstallOrm()
+        public Guid? InstallOrm()
         {
             var missing = CheckForMissingOrmPreRequisitesOnDatabase();
 
             if (string.IsNullOrEmpty(missing))
             {
-                return true;
+                return Guid.Empty;
             }
+            
+            var sqlScriptPath = Path.GetFullPath("./resources/install-orm.sql");
+            var installSqlScript = File.ReadAllText(sqlScriptPath, System.Text.Encoding.UTF8);
 
-            var installSqlScript = File.ReadAllText("./resources/install-orm.sql", System.Text.Encoding.UTF8);
+        //https://stackoverflow.com/a/18597052
+            var statements = Regex.Split(installSqlScript,@"^[\s]*GO[\s]*\d*[\s]*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
+
+
+            var statementsToExec = statements.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim(' ', '\r', '\n'));
 
             using (var con = new SqlConnection())
             {
                 con.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
                 con.Open();
 
-                var cmd = new SqlCommand();
+                var trans = con.BeginTransaction();
 
-                cmd.Connection = con;
-                cmd.CommandText = installSqlScript;
-                cmd.CommandTimeout = 120;
+                try
+                {
+                    foreach(var st in statementsToExec)
+                    {
+                        var cmd = new SqlCommand();
 
-                cmd.ExecuteNonQuery();
+                        cmd.Connection = con;
+                        cmd.Transaction = trans;
+                        cmd.CommandType = System.Data.CommandType.Text;
+                        cmd.CommandText = st;
+                        cmd.CommandTimeout = 80;
+                        
+                        cmd.ExecuteNonQuery();
+                    }
+                    
+                    trans.Commit();
+                }
+                catch(Exception ex)
+                {
+                    if (trans != null) trans.Rollback();
+                    SessionLog.Exception(ex);
+                }
+
 
                 con.Close();
-            }
 
-            return true;
+
+                return BackgroundTask.Queue($"{Application.Project.Name}/{Application.Name}/{this.Name} ORM initilisation", ()=> { 
+                    try
+                    {
+                        using (var conInit = new SqlConnection())
+                        {
+                            conInit.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
+                            conInit.Open();
+
+                            var cmdInit = new SqlCommand();
+
+                            cmdInit.Connection = conInit;
+                            cmdInit.CommandText = "ormv2.Init";
+                            cmdInit.CommandTimeout = 600;
+
+                            cmdInit.ExecuteNonQuery();
+
+                            return true;
+                        }
+                    }
+                    catch(Exception ex)
+                    {
+                        return ex;
+                        //return ex;
+                    }
+
+                });
+
+                
+            }
 
         }
 

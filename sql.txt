@@ -1,4 +1,4 @@
-IF (SCHEMA_ID('ormv2') IS NULL)
+CREATE PROCEDURE [#efa7c892-d29b-47db-9c8c-6d56d55b9773] AS BEGIN IF (SCHEMA_ID('ormv2') IS NULL)
 	EXEC ('CREATE SCHEMA ormv2')
 GO
 
@@ -312,9 +312,6 @@ BEGIN
 	 
 	select @routineSource = object_definition(@procId)
 
-	-- quick like check upfront to bail early speeds up the whole function greatly
-	if (@routineSource not like '%jsDAL%:%{%') return null	
-
 	DECLARE @i INT	-- current ix in buffer
 			,@startIx INT
 			,@i2 INT
@@ -433,7 +430,7 @@ GO
 
 ALTER PROCEDURE [ormv2].[Init]
 AS
-BEGIN
+begin
 
 	TRUNCATE TABLE ormv2.RoutineMeta
 
@@ -454,14 +451,14 @@ BEGIN
 			,(
 				select x.Name [@Name]
 						,p.is_output [@IsOutput]
-						,p.max_length [@Max]
+						,p.max_length [@MaxLength]
 						,p.precision [@Precision]
 						,p.scale [@Scale]
-						,TYPE_NAME(p.user_type_id) [@Type]
+						,TYPE_NAME(p.user_type_id) [@Datatype]
 						,x.DefVal [@DefVal]
 					from ormv2.RoutineParameterDefaults(o.object_id) x
 					inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
-				for xml path('Parm'), elements
+				for xml path('Parm')/*, root('List')*/, elements
 		)  ParametersXml
 		,ormv2.JsonMetadata(o.object_id)
 		from sys.objects o 
@@ -472,119 +469,6 @@ BEGIN
 						where dst.RoutineName = o.name and dst.SchemaName = SCHEMA_NAME(o.schema_id) and dst.CatalogName = DB_NAME())
 
  
-
-		IF (exists(select 1/0 from sys.triggers where Name = 'DB_Trigger_DALMonitor' and parent_class_desc = 'DATABASE')) EXEC ('DROP TRIGGER DB_Trigger_DALMonitor ON DATABASE')
-
-		EXEC ('CREATE TRIGGER [DB_Trigger_DALMonitor] ON DATABASE 
-			FOR CREATE_PROCEDURE, ALTER_PROCEDURE, CREATE_FUNCTION, ALTER_FUNCTION, DROP_PROCEDURE, DROP_FUNCTION,  ALTER_SCHEMA, RENAME
-		AS 
-		BEGIN
-			SET NOCOUNT ON
-			
-			DECLARE @eventType NVARCHAR(MAX)
-					,@dbName NVARCHAR(MAX)
-					,@schema NVARCHAR(MAX)
-					,@objectName NVARCHAR(MAX)
-					,@objectType NVARCHAR(MAX)
-			
-			SELECT @eventType = EVENTDATA().value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(max)'')
-					,@dbName = EVENTDATA().value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(max)'')
-					,@schema = EVENTDATA().value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(max)'')
-					,@objectName = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(max)'')
-					,@objectType = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(max)'')
-
-			if (@eventType = ''RENAME'')
-			begin
-				set @objectName = EVENTDATA().value(''(/EVENT_INSTANCE/NewObjectName)[1]'',''nvarchar(max)'')
-			end
-			
-			DECLARE @existingId INT
-					,@isDeleted BIT 
-					
-			set @isDeleted = case LEFT(@eventType,5) when ''DROP_'' then 1 else 0 end
-
-			-- look for an existing entry
-			select @existingId = m.Id 
-				from ormv2.[RoutineMeta] m 
-			where m.CatalogName = @dbName
-				and m.SchemaName = @schema
-				and m.RoutineName = @objectName
-			
-			if (@existingId is null)
-			begin
-				INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, JsonMetadata)
-					select DB_NAME() [Catalog]
-							,SCHEMA_NAME(o.schema_id) [Schema]
-							,o.name RoutineName
-							,convert(nvarchar(20), CASE
-								WHEN o.type IN (''P'',''PC'')
-								THEN ''PROCEDURE''
-								ELSE ''FUNCTION'' END) RoutineType
-							,convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END) ReturnType
-							,0 IsDeleted
-							,HOST_NAME()
-							,(
-								select x.Name [@Name]
-										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,x.DefVal [@DefVal]
-									from ormv2.RoutineParameterDefaults(o.object_id) x
-									inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
-								for xml path(''Parm''), elements
-						)  ParametersXml
-						,ormv2.JsonMetadata(o.object_id)
-						from sys.objects o 
-							LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
-					where o.type IN (''P''/*SPROC*/, ''FN''/*UDF*/, ''TF''/*Table-valued function*/, ''IF''/*inline table function*/ /*, ''AF''aggregate function CLR*/ /*, ''FT''CLR table valued*//*, ''PC'' CLR SPROC*//*, ''IS'' DUNNO!*//*, ''FS'' CLR SCALAR*/)
-					and DB_NAME() = @dbName
-					and o.schema_id = SCHEMA_ID(@schema)
-					and o.name = @objectName
-					
-			
-			end
-			else
-			begin
-
-				update ormv2.[RoutineMeta]
-					set  LastUpdateDateUtc = getutcdate()
-						,LastUpdateByHostName = HOST_NAME()
-						,RoutineType = convert(nvarchar(20), CASE WHEN o.type IN (''P'',''PC'') THEN ''PROCEDURE'' ELSE ''FUNCTION'' END) 
-						,ReturnType = convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
-						,IsDeleted = @isDeleted
-						,ParametersXml = (
-								select x.Name [@Name]
-										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,x.DefVal [@DefVal]
-									from ormv2.RoutineParameterDefaults(o.object_id) x
-									inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
-								for xml path(''Parm''), elements
-						)
-						,JsonMetadata = ormv2.JsonMetadata(o.object_id)
-				from ormv2.[RoutineMeta] m (nolock)
-					left join sys.objects o  on DB_NAME() = m.CatalogName and o.schema_id = SCHEMA_ID(m.SchemaName) and o.name = m.RoutineName
-					LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
-				where m.ID = @existingId
-
-			end
-			
-			begin
-				-- ''delete'' any entries that no longer exist
-				update s
-					set s.IsDeleted = 1
-				from ormv2.RoutineMeta s 
-					left join sys.objects o on DB_NAME() = s.CatalogName and o.schema_id = SCHEMA_ID(s.SchemaName) and o.name = s.RoutineName
-				where o.object_id is null
-					and s.IsDeleted = 0
-			end
-
-		END') 
 	
 END
 GO
@@ -633,6 +517,125 @@ BEGIN
 	select count(1) CNT from ormv2.[RoutineMeta] mon where mon.rowver > @maxRowver
 END
 GO
+select OBJECT_ID('DB_Trigger_DALMonitor')
+
+
+
+IF (exists(select 1/0 from sys.triggers where Name = 'DB_Trigger_DALMonitor' and parent_class_desc = 'DATABASE'))
+	EXEC ('DROP TRIGGER DB_Trigger_DALMonitor ON DATABASE')
+GO
+
+CREATE TRIGGER [DB_Trigger_DALMonitor] ON DATABASE 
+	FOR CREATE_PROCEDURE, ALTER_PROCEDURE, CREATE_FUNCTION, ALTER_FUNCTION, DROP_PROCEDURE, DROP_FUNCTION,  ALTER_SCHEMA, RENAME
+AS 
+BEGIN
+	SET NOCOUNT ON
+	
+	DECLARE @eventType NVARCHAR(MAX)
+			,@dbName NVARCHAR(MAX)
+			,@schema NVARCHAR(MAX)
+			,@objectName NVARCHAR(MAX)
+			,@objectType NVARCHAR(MAX)
+	
+	SELECT @eventType = EVENTDATA().value('(/EVENT_INSTANCE/EventType)[1]','nvarchar(max)')
+			,@dbName = EVENTDATA().value('(/EVENT_INSTANCE/DatabaseName)[1]','nvarchar(max)')
+			,@schema = EVENTDATA().value('(/EVENT_INSTANCE/SchemaName)[1]','nvarchar(max)')
+			,@objectName = EVENTDATA().value('(/EVENT_INSTANCE/ObjectName)[1]','nvarchar(max)')
+			,@objectType = EVENTDATA().value('(/EVENT_INSTANCE/ObjectType)[1]','nvarchar(max)')
+
+	if (@eventType = 'RENAME')
+	begin
+		set @objectName = EVENTDATA().value('(/EVENT_INSTANCE/NewObjectName)[1]','nvarchar(max)')
+	end
+	 
+	DECLARE @existingId INT
+			,@isDeleted BIT 
+			
+	set @isDeleted = case LEFT(@eventType,5) when 'DROP_' then 1 else 0 end
+
+	-- look for an existing entry
+	select @existingId = m.Id 
+		from ormv2.[RoutineMeta] m 
+	where m.CatalogName = @dbName
+		and m.SchemaName = @schema
+		and m.RoutineName = @objectName
+	
+	if (@existingId is null)
+	begin
+		INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, JsonMetadata)
+			select DB_NAME() [Catalog]
+					,SCHEMA_NAME(o.schema_id) [Schema]
+					,o.name RoutineName
+					,convert(nvarchar(20), CASE
+						WHEN o.type IN ('P','PC')
+						THEN 'PROCEDURE'
+						ELSE 'FUNCTION' END) RoutineType
+					,convert(sysname, CASE WHEN o.type IN ('TF', 'IF', 'FT') THEN N'TABLE' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END) ReturnType
+					,0 IsDeleted
+					,HOST_NAME()
+					,(
+						select x.Name [@Name]
+								,p.is_output [@IsOutput]
+								,p.max_length [@MaxLength]
+								,p.precision [@Precision]
+								,p.scale [@Scale]
+								,TYPE_NAME(p.user_type_id) [@Datatype]
+								,x.DefVal [@DefVal]
+							from ormv2.RoutineParameterDefaults(o.object_id) x
+							inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
+						for xml path('Parm')/*, root('List')*/, elements
+				)  ParametersXml
+				,ormv2.JsonMetadata(o.object_id)
+				from sys.objects o 
+					LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
+			where o.type IN ('P'/*SPROC*/, 'FN'/*UDF*/, 'TF'/*Table-valued function*/, 'IF'/*inline table function*/ /*, 'AF'aggregate function CLR*/ /*, 'FT'CLR table valued*//*, 'PC' CLR SPROC*//*, 'IS' DUNNO!*//*, 'FS' CLR SCALAR*/)
+			  and DB_NAME() = @dbName
+			  and o.schema_id = SCHEMA_ID(@schema)
+			  and o.name = @objectName
+			 
+	
+	end
+	else
+	begin
+
+		update ormv2.[RoutineMeta]
+			set  LastUpdateDateUtc = getutcdate()
+				,LastUpdateByHostName = HOST_NAME()
+				,RoutineType = convert(nvarchar(20), CASE WHEN o.type IN ('P','PC') THEN 'PROCEDURE' ELSE 'FUNCTION' END) 
+				,ReturnType = convert(sysname, CASE WHEN o.type IN ('TF', 'IF', 'FT') THEN N'TABLE' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
+				,IsDeleted = @isDeleted
+				,ParametersXml = (
+						select x.Name [@Name]
+								,p.is_output [@IsOutput]
+								,p.max_length [@MaxLength]
+								,p.precision [@Precision]
+								,p.scale [@Scale]
+								,TYPE_NAME(p.user_type_id) [@Datatype]
+								,x.DefVal [@DefVal]
+							from ormv2.RoutineParameterDefaults(o.object_id) x
+							inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
+						for xml path('Parm')/*, root('List')*/, elements
+				)
+				,JsonMetadata = ormv2.JsonMetadata(o.object_id)
+		from ormv2.[RoutineMeta] m (nolock)
+			left join sys.objects o  on DB_NAME() = m.CatalogName and o.schema_id = SCHEMA_ID(m.SchemaName) and o.name = m.RoutineName
+			LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
+		where m.ID = @existingId
+
+	end
+	
+	begin
+		-- 'delete' any entries that no longer exist
+		update s
+			set s.IsDeleted = 1
+		from ormv2.RoutineMeta s 
+			left join sys.objects o on DB_NAME() = s.CatalogName and o.schema_id = SCHEMA_ID(s.SchemaName) and o.name = s.RoutineName
+		where o.object_id is null
+			and s.IsDeleted = 0
+	end
+
+END
+GO
 	
 IF OBJECT_ID('ormv2.Uninstall') IS NULL
 	EXEC ('CREATE PROCEDURE ormv2.Uninstall AS RETURN 0')
@@ -662,4 +665,4 @@ BEGIN
 END
 GO
 
---EXEC ormv2.Init
+--EXEC ormv2.Init END EXEC $[#efa7c892-d29b-47db-9c8c-6d56d55b9773]

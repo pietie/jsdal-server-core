@@ -64,13 +64,13 @@ namespace jsdal_server_core
                 _startDate = DateTime.Now;
 
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
-                
+
                 //globalCulture.NumberFormat.NumberDecimalSeparator = ".";
-                
+
                 // set global culture to en-US - will help with things like parsing numbers from Javascript(e.g. 10.123) as double/decimal even if server uses a comma as decimal separator for example
                 System.Threading.Thread.CurrentThread.CurrentCulture = globalCulture;
 
-                
+
                 BuildWebHost(pathToContentRoot, args)
                         .Build()
                         .Run();
@@ -82,7 +82,7 @@ namespace jsdal_server_core
             {
                 Console.WriteLine("Shutting down workers from catch...");
                 WorkSpawner.Stop();
-                
+
                 SessionLog.Exception(ex);
                 Console.WriteLine(ex.ToString());
             }
@@ -133,27 +133,27 @@ namespace jsdal_server_core
 
             // var certPass = System.IO.File.ReadAllText(certPassPath);
 
-            
-//                 var configurationBuilder = new ConfigurationBuilder();
-                
-//                 configurationBuilder.AddJsonFile("./appsettings.json", false, true);
 
-// var appConfig = configurationBuilder.Build();
+            //                 var configurationBuilder = new ConfigurationBuilder();
+
+            //                 configurationBuilder.AddJsonFile("./appsettings.json", false, true);
+
+            // var appConfig = configurationBuilder.Build();
 
 
             return WebHost.CreateDefaultBuilder(args)
-            //return new WebHostBuilder()
+                  //return new WebHostBuilder()
                   //.UseConfiguration(appConfig)
                   .UseContentRoot(pathToContentRoot)
                   .UseWebRoot(Path.Combine(pathToContentRoot, "wwwroot"))
-                //   .ConfigureAppConfiguration((builderContext, config) =>
-                //   {
-                //     IHostingEnvironment env = builderContext.HostingEnvironment;
+                  //   .ConfigureAppConfiguration((builderContext, config) =>
+                  //   {
+                  //     IHostingEnvironment env = builderContext.HostingEnvironment;
 
-                //     config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-                //         //.AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
-                //   })
-                
+                  //     config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                  //         //.AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                  //   })
+
                   .UseHttpSys(options =>
                   {
                       options.Authentication.Schemes = AuthenticationSchemes.None;
