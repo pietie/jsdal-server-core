@@ -4,6 +4,6 @@ if (not exists (select 1/0 from sys.triggers where name = 'DB_Trigger_DALMonitor
 if (not exists (select 1/0 from sys.procedures where name ='Init' and SCHEMA_NAME(schema_Id) = 'ormv2')) select @err = IsNull(@err + char(10), '') + 'Sproc ''Init'' does not exist.'
 if (not exists (select 1/0 from sys.procedures where name ='GetRoutineList' and SCHEMA_NAME(schema_Id) = 'ormv2')) select @err = IsNull(@err + char(10), '') + 'Sproc ''GetRoutineList'' does not exist.'
 if (not exists (select 1/0 from sys.procedures where name ='GetRoutineListCnt' and SCHEMA_NAME(schema_Id) = 'ormv2')) select @err = IsNull(@err + char(10), '') + 'Sproc ''GetRoutineListCnt'' does not exist.'
-if (not exists (select 1/0 from sys.procedures where name ='JsonMetadata' and SCHEMA_NAME(schema_Id) = 'ormv2')) select @err = IsNull(@err + char(10), '') + 'Sproc ''JsonMetadata'' does not exist.'
-if (not exists (select 1/0 from sys.objects where name ='RoutineParameterDefaults' and SCHEMA_NAME(schema_id) = 'ormv2' and type='TF')) select @err = IsNull(@err + char(10), '') + 'TVF ''RoutineParameterDefaults'' does not exist.'
+if (not exists (select 1/0 from sys.objects where name ='JsonMetadata' and SCHEMA_NAME(schema_Id) = 'ormv2' and [type]='FN')) select @err = IsNull(@err + char(10), '') + 'Sproc ''JsonMetadata'' does not exist.'
+if (not exists (select 1/0 from sys.objects where name ='RoutineParameterDefaults' and SCHEMA_NAME(schema_id) = 'ormv2' and [type]='TF')) select @err = IsNull(@err + char(10), '') + 'TVF ''RoutineParameterDefaults'' does not exist.'
 

@@ -115,7 +115,7 @@ namespace jsdal_server_core
                     this.MaxRowDate = cache.Max(c => c.RowVer);
                 }
 
-                int connectionErrorCnt = 0;
+                int connectionOpenErrorCnt = 0;
 
 
                 if (this.Endpoint?.MetadataConnection?.ConnectionStringDecrypted == null)
@@ -126,6 +126,8 @@ namespace jsdal_server_core
                     SessionLog.Error(this.Status);
                     return;
                 }
+
+                var exceptionThrottler = new SortedList<DateTime, Exception>();
 
                 while (this.IsRunning)
                 {
@@ -151,18 +153,18 @@ namespace jsdal_server_core
                             try
                             {
                                 con.Open();
-                                connectionErrorCnt = 0;
+                                connectionOpenErrorCnt = 0;
                             }
                             catch (Exception oex)
                             {
                                 this.Status = "Failed to open connection to database: " + oex.Message;
                                 this.log.Exception(oex, connectionStringRef);
                                 SessionLog.Exception(oex, connectionStringRef);
-                                connectionErrorCnt++;
+                                connectionOpenErrorCnt++;
 
-                                int waitMS = Math.Min(3000 + (connectionErrorCnt * 3000), 300000/*Max 5mins between tries*/);
+                                int waitMS = Math.Min(3000 + (connectionOpenErrorCnt * 3000), 300000/*Max 5mins between tries*/);
 
-                                this.Status = $"Attempt: #{connectionErrorCnt + 1} (waiting for {waitMS}ms). " + this.Status;
+                                this.Status = $"Attempt: #{connectionOpenErrorCnt + 1} (waiting for {waitMS}ms). " + this.Status;
 
                                 Hubs.WorkerMonitor.Instance.NotifyObservers();
 
@@ -184,8 +186,38 @@ namespace jsdal_server_core
                     {
                         this.log.Exception(ex);
                         SessionLog.Exception(ex);
-                        this.Status = ex.Message;
-                        // TODO: Decide what to do with an exception here
+
+                        exceptionThrottler.Add(DateTime.Now, ex);
+
+                        // TODO: make configurable
+                        var thresholdDate = DateTime.Now.AddSeconds(-60);
+
+                        var beforeThreshold = exceptionThrottler.Where(kv => kv.Key < thresholdDate);
+
+                        // remove items outside of threshold checking window
+                        foreach (var kv in beforeThreshold) { exceptionThrottler.Remove(kv.Key); }
+
+                        // TODO: make threshold count configurable
+                        if (exceptionThrottler.Count() >= 6)
+                        {
+                            exceptionThrottler.Clear();
+                            this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - Too many exceptions, shutting down thread for now. Last exception: {ex.Message}";
+                            Hubs.WorkerMonitor.Instance.NotifyObservers();
+                            break; // break out of main while loop
+                        }
+
+
+                        this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - {ex.Message}";
+                        Hubs.WorkerMonitor.Instance.NotifyObservers();
+
+                        var sleepTimeMS = 2000 + (exceptionThrottler.Count() * 400);
+
+                        // cap at 8 secs
+                        sleepTimeMS = sleepTimeMS > 8000 ? 8000 : sleepTimeMS;
+
+                        Thread.Sleep(sleepTimeMS);
+
+
                     }
 
                 } // while IsRunning
@@ -202,6 +234,7 @@ namespace jsdal_server_core
             finally
             {
                 this.IsRunning = false;
+                Hubs.WorkerMonitor.Instance.NotifyObservers();
             }
         } // Run
 
@@ -224,7 +257,7 @@ namespace jsdal_server_core
                 {
                     // call save for final changes 
                     this.Endpoint.SaveCache();
-                    this.generateOutputFiles(this.Endpoint);
+                    this.GenerateOutputFiles(this.Endpoint);
                 }
 
             }// if changeCount > 0
@@ -375,7 +408,7 @@ namespace jsdal_server_core
                                             var schemaRow = new
                                             {
                                                 ColumnName = row["ColumnName"],
-                                                DataType = ((Type)row["DataType"]).FullName,
+                                                DataType = GetCSharpType(row),
                                                 DbDataType = row["DataTypeName"],
                                                 ColumnSize = Convert.ToInt32(row["ColumnSize"]),
                                                 NumericalPrecision = Convert.ToUInt16(row["NumericPrecision"]),
@@ -384,6 +417,7 @@ namespace jsdal_server_core
                                             };
 
                                             lst.Add(schemaRow);
+
                                         }
 
                                         resultSetsDictionary.Add(dt.TableName, lst);
@@ -421,6 +455,26 @@ namespace jsdal_server_core
             }
         }
 
+        private string GetCSharpType(DataRow row)
+        {
+            var rowDataType = row["DataType"];
+            var rowDataTypeName = (string)row["DataTypeName"];
+
+            if (rowDataType == DBNull.Value)
+            {
+                if (rowDataTypeName.ToLower().EndsWith(".sys.geography"))
+                {
+                    return (string)row["UdtAssemblyQualifiedName"];
+                    
+                    //return typeof(System.Dynamic.DynamicObject).FullName;
+                }
+                else throw new NotImplementedException("Add support for DataType: " + rowDataTypeName);
+            }
+            else
+            {
+                return ((Type)row["DataType"]).FullName;
+            }
+        }
 
         private List<RoutineParameterV2> ExtractParameters(string parametersXml)
         {
@@ -437,38 +491,7 @@ namespace jsdal_server_core
             }
         }
 
-        [Serializable]
-        [XmlRoot("Routine")]
-
-        public class RoutineParameterContainerV2
-        {
-            public RoutineParameterContainerV2()
-            {
-                this.Parameters = new List<RoutineParameterV2>();
-            }
-
-            [XmlElement("Parm")]
-            public List<RoutineParameterV2> Parameters { get; set; }
-        }
-
-        // [Serializable]
-        // [XmlRoot("Routine")]
-        // public class RoutineParameterContainer
-        // {
-        //     public RoutineParameterContainer()
-        //     {
-        //         this.Parameters = new List<RoutineParameter>();
-        //     }
-
-        //     public string Catalog { get; set; }
-        //     public string Schema { get; set; }
-        //     public string RoutineName { get; set; }
-
-        //     [XmlElement("Parameter")]
-        //     public List<RoutineParameter> Parameters { get; set; }
-        // }
-
-        private void generateOutputFiles(Endpoint endpoint)
+        private void GenerateOutputFiles(Endpoint endpoint)
         {
             try
             {

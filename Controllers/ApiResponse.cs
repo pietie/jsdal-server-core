@@ -42,6 +42,21 @@ namespace jsdal_server_core
             return new ApiResponse() { Message = msg, Type = ApiResponseType.InfoMsg, Data = data };
         }
 
+        public static ApiResponse ExecException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
+        {
+            SessionLog.Exception(ex);
+
+            var id = ExceptionLogger.logException(ex, execOptions, additionalInfo, appTitle);
+
+            var ret = new ApiResponse();
+
+            ret.Message = $"Error ref: {id}";
+            ret.Type = ApiResponseType.Exception;
+            ret.Data = new System.Dynamic.ExpandoObject();
+            ((dynamic)ret.Data).Ref = id;
+
+            return ret;
+        }
         public static ApiResponse Exception(Exception ex, string additionalInfo = null, string appTitle = null)
         {
             SessionLog.Exception(ex);

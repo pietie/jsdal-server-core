@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.Http;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace jsdal_server_core.Controllers
 {
@@ -19,6 +21,128 @@ namespace jsdal_server_core.Controllers
             return "1.0"; // TODO: Version?
         }
 
+        [HttpGet("/api/jsdal/server-detail")]
+        public IActionResult GetServerDetail()
+        {
+            try
+            {
+                if (SettingsInstance.Instance.ProjectList == null || SettingsInstance.Instance.ProjectList.Count == 0) return null;
+
+                var currentETagHeader = this.Request.Headers["If-None-Match"].FirstOrDefault();
+
+
+                var q = (from p in SettingsInstance.Instance.ProjectList
+                         select new
+                         {
+                             Name = p.Name,
+                             Apps = p.Applications.Select(app => new
+                             {
+                                 app.Name,
+                                 Endpoints = app.Endpoints.Select(ep => new
+                                 {
+
+                                     ep.Name,
+                                     Files = app.JsFiles.Select(f => f.Filename)
+                                 })
+                             })
+                         })
+                         .ToList();
+
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(q);
+
+                using (var md5 = MD5.Create())
+                {
+                    var result = md5.ComputeHash(Encoding.ASCII.GetBytes(json));
+                    var hash = Convert.ToBase64String(result);
+
+                    if (currentETagHeader != null && currentETagHeader.Equals(hash))
+                    {
+                        this.Response.Headers.Clear();
+                        return StatusCode(304);
+                    }
+
+                    this.Response.Headers["ETag"] = hash;
+                    this.Response.Headers["Cache-Control"] = "max-age=0";
+                    this.Response.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
+                }
+
+                return Ok(q);
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                throw;
+            }
+        }
+
+        [HttpGet("/api/jsdal/file")]
+        public IActionResult GetFile([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string file, [FromQuery] long v = 0, [FromQuery] bool min = false, [FromQuery] bool tsd = false)
+        {
+            try
+            {
+                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound();
+                }
+
+                var jsFile = application.GetJsFile(file);
+
+                if (jsFile == null) return NotFound();
+
+                var jsFileDescriptor = $"{project}/{app}/{endpoint}/{file}";
+
+                if (tsd) // typescript definition
+                {
+                    // TODO:!?!?!?!?!! is still still valid?
+                    return ServeTypescriptDefinition(jsFile, application);
+                }
+
+                var path = min ? ep.MinifiedOutputFilePath(jsFile) : ep.OutputFilePath(jsFile);
+
+                if (!System.IO.File.Exists(path))
+                {
+                    Console.WriteLine($"412: {jsFileDescriptor}");
+                    return StatusCode(StatusCodes.Status412PreconditionFailed, $"The requested file ({jsFileDescriptor}) is not valid or has not been generated yet");
+                }
+
+                byte[] jsFileData;
+
+                using (var fs = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                {
+                    jsFileData = new byte[fs.Length];
+                    fs.Read(jsFileData, 0, jsFileData.Length);
+                }
+
+                var etagForLatestFile = ComputeETag(jsFileData);
+
+                var etagFromRequest = this.Request.Headers["If-None-Match"];
+
+                if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etagForLatestFile))
+                {
+                    if (etagForLatestFile == etagFromRequest) return StatusCode(StatusCodes.Status304NotModified);
+                }
+
+
+                var ret = File(jsFileData, "text/javascript");
+
+                ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etagForLatestFile);
+
+                this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
+
+                //!ret.Headers.Add("jsfver", jsFile.Version.ToString());
+
+                return ret;
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return BadRequest(ex.Message);
+            }
+        }
+
+
 
         [HttpGet("/api/jsdal/projects")]
         public List<dynamic> ListProjects()
@@ -26,7 +150,7 @@ namespace jsdal_server_core.Controllers
             try
             {
                 var q = (from p in SettingsInstance.Instance.ProjectList
-                         select new { Name = p.Name, p.Guid }).ToList<dynamic>();
+                         select new { Name = p.Name, Guid = (string)null }).ToList<dynamic>();
 
                 return q;
             }
@@ -37,30 +161,30 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpGet("/api/jsdal/outputs")]
-        public List<dynamic> GetOutputDetail([FromQuery] string projectGuid)
-        {
-            var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
-            // TODO: throw if project does not exist
-            var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }) }).ToList<dynamic>();
+        // [HttpGet("/api/jsdal/outputs")]
+        // public List<dynamic> GetOutputDetail([FromQuery] string projectGuid)
+        // {
+        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
+        //     // TODO: throw if project does not exist
+        //     var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }) }).ToList<dynamic>();
 
-            return ret;
-        }
+        //     return ret;
+        // }
 
-        [HttpGet("/api/jsdal/dbsources")]
-        public IActionResult GetDbSources([FromQuery] string projectGuid)
-        {
-            var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
+        // [HttpGet("/api/jsdal/dbsources")]
+        // public IActionResult GetDbSources([FromQuery] string projectGuid)
+        // {
+        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
 
-            if (project == null)
-            {
-                return NotFound($"The Project {projectGuid} does not exist.");
-            }
+        //     if (project == null)
+        //     {
+        //         return NotFound($"The Project {projectGuid} does not exist.");
+        //     }
 
-            var dbSources = project.Applications.Select(db => new { db.Name }).ToList<dynamic>();
+        //     var dbSources = project.Applications.Select(db => new { db.Name }).ToList<dynamic>();
 
-            return Ok(dbSources);
-        }
+        //     return Ok(dbSources);
+        // }
 
 
         [HttpGet("api/jsdal/files")]
@@ -124,49 +248,49 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-/*  15/05/2018, PL: Commented out..now sure where this is used..if at all... TODO: check jsdal-cli
-        [HttpGet("api/meta")]
-        public List<dynamic> GetMetadataUpdates([FromQuery] string dbSourceGuid, [FromQuery] long maxRowver)
-        {
-            try
-            {
-                var db = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).FirstOrDefault(d => d.CacheKey.Equals(dbSourceGuid, StringComparison.OrdinalIgnoreCase));
+        /*  15/05/2018, PL: Commented out..now sure where this is used..if at all... TODO: check jsdal-cli
+                [HttpGet("api/meta")]
+                public List<dynamic> GetMetadataUpdates([FromQuery] string dbSourceGuid, [FromQuery] long maxRowver)
+                {
+                    try
+                    {
+                        var db = SettingsInstance.Instance.ProjectList.SelectMany(p => p.DatabaseSources).FirstOrDefault(d => d.CacheKey.Equals(dbSourceGuid, StringComparison.OrdinalIgnoreCase));
 
-                if (db == null) throw new Exception(string.Format("The DB source {0} was not found", dbSourceGuid));
+                        if (db == null) throw new Exception(string.Format("The DB source {0} was not found", dbSourceGuid));
 
-                var cache = db.cache;
+                        var cache = db.cache;
 
-                if (cache == null) return null;
+                        if (cache == null) return null;
 
-                var q = (from c in cache
-                         where c.RowVer > maxRowver //&& !c.IsDeleted --> PL: We need to servce IsDeleted as well so that the subscribers can act on the operation
-                         select new
-                         {
-                             Catalog = db.MetadataConnection.initialCatalog,
-                             Name = c.Routine,
-                             c.Schema,
-                             c.Parameters,
-                             c.ResultSetError,
-                             c.ResultSetMetadata,
-                             c.jsDALMetadata?.jsDAL,
-                             c.RowVer,
-                             c.IsDeleted
-                         }
-
-
-                         ).ToList<dynamic>();
+                        var q = (from c in cache
+                                 where c.RowVer > maxRowver //&& !c.IsDeleted --> PL: We need to servce IsDeleted as well so that the subscribers can act on the operation
+                                 select new
+                                 {
+                                     Catalog = db.MetadataConnection.initialCatalog,
+                                     Name = c.Routine,
+                                     c.Schema,
+                                     c.Parameters,
+                                     c.ResultSetError,
+                                     c.ResultSetMetadata,
+                                     c.jsDALMetadata?.jsDAL,
+                                     c.RowVer,
+                                     c.IsDeleted
+                                 }
 
 
-                return q;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                SessionLog.Exception(ex);
-                return null;
-            }
-        }
-        */
+                                 ).ToList<dynamic>();
+
+
+                        return q;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                        SessionLog.Exception(ex);
+                        return null;
+                    }
+                }
+                */
 
         private static string ComputeETag(byte[] data)
         {
@@ -193,8 +317,8 @@ namespace jsdal_server_core.Controllers
                     return ServeTypescriptDefinition(jsFile, dbSource);
                 }
 
-throw new NotImplementedException();
-Endpoint endpoint = null; // TODO: !!!!!
+                throw new NotImplementedException();
+                Endpoint endpoint = null; // TODO: !!!!!
 
                 var path = min ? endpoint.MinifiedOutputFilePath(jsFile) : endpoint.OutputFilePath(jsFile);
 
@@ -227,9 +351,9 @@ Endpoint endpoint = null; // TODO: !!!!!
                 var ret = File(jsFileData, "text/javascript");
 
                 ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etagForLatestFile);
-                
+
                 this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
-                
+
                 //!ret.Headers.Add("jsfver", jsFile.Version.ToString());
 
                 return ret;
@@ -266,7 +390,7 @@ Endpoint endpoint = null; // TODO: !!!!!
             {
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-// TODO: review all of this
+                // TODO: review all of this
                 var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).FirstOrDefault(db => db.Name.Equals(guid));
 
                 // if the specified Guid is not a DBSource try looking for a file
@@ -323,8 +447,8 @@ Endpoint endpoint = null; // TODO: !!!!!
                 return Ok(content);
             }
 
-throw new NotImplementedException();
-Endpoint endpoint = null; // TODO:!!!
+            throw new NotImplementedException();
+            Endpoint endpoint = null; // TODO:!!!
             var tsdFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
 
             if (!System.IO.File.Exists(tsdFilePath)) return NotFound();

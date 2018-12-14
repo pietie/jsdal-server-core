@@ -107,7 +107,7 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpDelete("/api/app/{name}/file/{id}")]
+        [HttpDelete("/api/app/{name}/file/{file}")]
         public ApiResponse DeleteJsFile([FromQuery] string project, [FromRoute] string name, [FromRoute] string file)
         {
             try

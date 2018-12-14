@@ -9,7 +9,7 @@ namespace jsdal_server_core.Settings.ObjectModel
     public class Project
     {
         public string Name { get; set; }
-        public string Guid { get; set; } // TODO: Remove!
+        //public string Guid { get; set; } // TODO: Remove!
 
         [JsonProperty("Apps")] public List<Application> Applications { get; set; }
 

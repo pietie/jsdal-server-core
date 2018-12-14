@@ -11,7 +11,15 @@ namespace jsdal_server_core
         public static void Info(string info, params object[] args) { _log.Info(info, args); }
         public static void Error(string info, params object[] args) { _log.Error(info, args); }
         public static void Warning(string info, params object[] args) { _log.Warning(info, args); }
-        public static void Exception(Exception ex, params object[] args) { _log.Exception(ex, args); }
+        public static void Exception(Exception ex, params object[] args) { 
+            _log.Exception(ex, args); 
+            
+        }
+
+        public static void Exception(Exception ex, Controllers.ExecController.ExecOptions execOptions, params object[] args) { 
+            _log.Exception(ex,execOptions,  args); 
+        }
+
         public static List<LogEntry> Entries { get { return _log.Entries; } }
     }
     public class MemoryLog
@@ -78,6 +86,8 @@ namespace jsdal_server_core
             AddEntry(LogEntryType.Exception, line);
         }
 
+       
+
 
         // 03/11/2015, PL: Created.
         public List<LogEntry> Entries { get { return _entries; } }
@@ -89,6 +99,8 @@ namespace jsdal_server_core
         public DateTime? CreateDate { get; set; }
 
         public string Message { get; set; }
+
+  
         public LogEntryType Type { get; set; }
 
         private DateTime? LastAppend { get; set; }

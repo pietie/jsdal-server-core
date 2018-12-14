@@ -256,10 +256,10 @@ namespace jsdal_server_core
 
                             if (inputParameters.ContainsKey(parmName))
                             {
-                                string val = inputParameters[parmName];
+                                object val = inputParameters[parmName];
 
                                 // look for special jsDAL Server variables
-                                val = jsDALServerVariables.parse(req, val);
+                                val = jsDALServerVariables.Parse(req, val);
 
                                 if (val == null)
                                 {
@@ -267,13 +267,13 @@ namespace jsdal_server_core
                                 }
                                 // TODO: Consider making this 'null' mapping configurable.This is just a nice to have for when the client does not call the API correctly
                                 // convert the string value of 'null' to actual C# null
-                                else if (val == "null")
+                                else if (val.ToString().Equals("null"))
                                 {
                                     parmValue = null;
                                 }
                                 else
                                 {
-                                    parmValue = convertParameterValue(sqlType, val);
+                                    parmValue = ConvertParameterValue(sqlType, val.ToString());
                                 }
 
                                 newSqlParm.Value = parmValue;
@@ -450,7 +450,7 @@ namespace jsdal_server_core
 
         }
 
-        private static object convertParameterValue(SqlDbType sqlType, string value)
+        private static object ConvertParameterValue(SqlDbType sqlType, string value)
         {
             // if the expected value is a string return as is
             if ((new SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText, SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar }).Contains(sqlType))

@@ -412,10 +412,16 @@ namespace jsdal_server_core.Controllers
                 }
 
 
-                ep.ClearCache();
-                SettingsInstance.SaveSettingsToFile();
+                if (ep.ClearCache())
+                {
+                    SettingsInstance.SaveSettingsToFile();
 
-                return ApiResponse.Success();
+                    return ApiResponse.Success();
+                }
+                else
+                {
+                    return ApiResponse.ExclamationModal("Failed to clear cache. Check session log for errors.");
+                }
             }
             catch (Exception ex)
             {
@@ -436,7 +442,7 @@ namespace jsdal_server_core.Controllers
                 {
                     return resp;
                 }
-               
+
 
                 if (!dbs.GetEndpoint(endpoint, out var ep, out var resp2))
                 {

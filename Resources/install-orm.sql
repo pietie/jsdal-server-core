@@ -435,6 +435,22 @@ ALTER PROCEDURE [ormv2].[Init]
 AS
 BEGIN
 
+-----------------------------------------------------------
+-- Create lookup table for each parameter's default value
+-----------------------------------------------------------
+	CREATE TABLE #Lookup(object_id INT, ParmId SMALLINT, DefVal varchar(8000))
+
+	insert into #Lookup
+	select o.object_id, p.ParmId, p.DefVal from sys.objects o 
+				cross apply ormv2.RoutineParameterDefaults(o.object_id) p
+	where o.type IN ('P'/*SPROC*/, 'FN'/*UDF*/, 'TF'/*Table-valued function*/, 'IF'/*inline table function*/ /*, 'AF'aggregate function CLR*/ /*, 'FT'CLR table valued*//*, 'PC' CLR SPROC*//*, 'IS' DUNNO!*//*, 'FS' CLR SCALAR*/)
+		and not exists (select 1/0 
+							from ormv2.RoutineMeta dst with(nolock) 
+						where dst.RoutineName = o.name and dst.SchemaName = SCHEMA_NAME(o.schema_id) and dst.CatalogName = DB_NAME())
+
+	CREATE NONCLUSTERED INDEX [tmplookup_ix_object_id] ON #Lookup ([object_id] ASC)
+-------------------------
+
 	TRUNCATE TABLE ormv2.RoutineMeta
 
 	INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, JsonMetadata)
@@ -452,17 +468,20 @@ BEGIN
 			,0 IsDeleted
 			,HOST_NAME()
 			,(
-				select x.Name [@Name]
+				select p.Name [@Name]
 						,p.is_output [@IsOutput]
 						,p.max_length [@Max]
 						,p.precision [@Precision]
 						,p.scale [@Scale]
 						,TYPE_NAME(p.user_type_id) [@Type]
-						,x.DefVal [@DefVal]
-					from ormv2.RoutineParameterDefaults(o.object_id) x
-					inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
+						,l.DefVal [@DefVal]
+						,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+					from sys.parameters p 
+						left join #Lookup l on l.object_id = o.object_id and l.ParmId = p.parameter_id
+					where p.object_id = o.object_id
 				for xml path('Parm'), elements
 		)  ParametersXml
+
 		,ormv2.JsonMetadata(o.object_id)
 		from sys.objects o 
 			LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
@@ -525,15 +544,17 @@ BEGIN
 							,HOST_NAME()
 							,(
 								select x.Name [@Name]
-										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,x.DefVal [@DefVal]
-									from ormv2.RoutineParameterDefaults(o.object_id) x
-									inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
-								for xml path(''Parm''), elements
+									,p.is_output [@IsOutput]
+									,p.max_length [@Max]
+									,p.precision [@Precision]
+									,p.scale [@Scale]
+									,TYPE_NAME(p.user_type_id) [@Type]
+									,x.DefVal [@DefVal]
+									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+								from sys.parameters p 
+									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
+								where p.object_id = o.object_id
+							for xml path(''Parm''), elements
 						)  ParametersXml
 						,ormv2.JsonMetadata(o.object_id)
 						from sys.objects o 
@@ -555,16 +576,18 @@ BEGIN
 						,ReturnType = convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
 						,IsDeleted = @isDeleted
 						,ParametersXml = (
-								select x.Name [@Name]
-										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,x.DefVal [@DefVal]
-									from ormv2.RoutineParameterDefaults(o.object_id) x
-									inner join sys.parameters p on p.object_id = o.object_id and p.parameter_id = x.ParmId
-								for xml path(''Parm''), elements
+							select x.Name [@Name]
+									,p.is_output [@IsOutput]
+									,p.max_length [@Max]
+									,p.precision [@Precision]
+									,p.scale [@Scale]
+									,TYPE_NAME(p.user_type_id) [@Type]
+									,x.DefVal [@DefVal]
+									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+								from sys.parameters p 
+									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
+								where p.object_id = o.object_id
+							for xml path(''Parm''), elements
 						)
 						,JsonMetadata = ormv2.JsonMetadata(o.object_id)
 				from ormv2.[RoutineMeta] m (nolock)
@@ -587,6 +610,7 @@ BEGIN
 		END') 
 	
 END
+
 GO
 
 IF OBJECT_ID('ormv2.GetRoutineList') is null

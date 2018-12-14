@@ -6,6 +6,7 @@ using System.IO;
 using System.Data.SqlClient;
 using shortid;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -71,12 +72,12 @@ namespace jsdal_server_core.Settings.ObjectModel
             {
                 return Guid.Empty;
             }
-            
+
             var sqlScriptPath = Path.GetFullPath("./resources/install-orm.sql");
             var installSqlScript = File.ReadAllText(sqlScriptPath, System.Text.Encoding.UTF8);
 
-        //https://stackoverflow.com/a/18597052
-            var statements = Regex.Split(installSqlScript,@"^[\s]*GO[\s]*\d*[\s]*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
+            //https://stackoverflow.com/a/18597052
+            var statements = Regex.Split(installSqlScript, @"^[\s]*GO[\s]*\d*[\s]*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
 
 
             var statementsToExec = statements.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim(' ', '\r', '\n'));
@@ -90,7 +91,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 try
                 {
-                    foreach(var st in statementsToExec)
+                    foreach (var st in statementsToExec)
                     {
                         var cmd = new SqlCommand();
 
@@ -99,13 +100,13 @@ namespace jsdal_server_core.Settings.ObjectModel
                         cmd.CommandType = System.Data.CommandType.Text;
                         cmd.CommandText = st;
                         cmd.CommandTimeout = 80;
-                        
+
                         cmd.ExecuteNonQuery();
                     }
-                    
+
                     trans.Commit();
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     if (trans != null) trans.Rollback();
                     SessionLog.Exception(ex);
@@ -115,7 +116,8 @@ namespace jsdal_server_core.Settings.ObjectModel
                 con.Close();
 
 
-                return BackgroundTask.Queue($"{Application.Project.Name}/{Application.Name}/{this.Name} ORM initilisation", ()=> { 
+                return BackgroundTask.Queue($"{Application.Project.Name}/{Application.Name}/{this.Name} ORM initilisation", () =>
+                {
                     try
                     {
                         using (var conInit = new SqlConnection())
@@ -134,7 +136,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                             return true;
                         }
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         return ex;
                         //return ex;
@@ -142,7 +144,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 });
 
-                
+
             }
 
         }
@@ -235,7 +237,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 var data = File.ReadAllText(cacheFilePath, System.Text.Encoding.UTF8);
 
-                var allCacheEntries = JsonConvert.DeserializeObject<List<CachedRoutine>>(data);
+                var allCacheEntries = JsonConvert.DeserializeObject<List<CachedRoutine>>(data/*, new BoolJsonConverter()*/);
 
                 this.CachedRoutineList = allCacheEntries;
             }
@@ -278,29 +280,30 @@ namespace jsdal_server_core.Settings.ObjectModel
         [JsonIgnore]
         public List<CachedRoutine> cache { get { return this.CachedRoutineList; } }
 
-        public void ClearCache()
+        public bool ClearCache()
         {
             try
             {
                 var cachePath = "./cache";
 
-                if (!Directory.Exists(cachePath)) return;
+                if (!Directory.Exists(cachePath)) return true;
 
-                var cacheFilePath = Path.Combine(cachePath, $"{this.Id}.json");
+                var cacheFilePath = Path.Combine(cachePath, this.CacheFilename);
 
-                if (!File.Exists(cacheFilePath)) return;
+                if (!File.Exists(cacheFilePath)) return true;
 
                 this.CachedRoutineList = new List<CachedRoutine>();
 
                 File.Delete(cacheFilePath);
 
-                //!!!!                WorkSpawner.resetMaxRowDate(this);
+                WorkSpawner.ResetMaxRowDate(this);
                 this.LastUpdateDate = DateTime.Now;
+                return true;
             }
             catch (Exception ex)
             {
-                //SessionLog.Exception(ex);
-                throw ex;// TODO: HANDLE!!!!
+                SessionLog.Exception(ex);
+                return false;
             }
 
         }
@@ -316,7 +319,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             return this.ExecutionConnection;
         }
 
-        [JsonIgnore] public string OutputDir
+        [JsonIgnore]
+        public string OutputDir
         {
             get
             {
@@ -360,7 +364,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             };
         }
 
-        [JsonIgnore] public string Pedigree
+        [JsonIgnore]
+        public string Pedigree
         {
             get
             {
@@ -369,5 +374,56 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
     }
+
+    public class BoolJsonConverter : JsonConverter
+    {
+        public BoolJsonConverter()
+        {
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            throw new NotImplementedException("!!");
+            // JToken t = JToken.FromObject(value);
+
+            // if (t.Type != JTokenType.Object)
+            // {
+            //     t.WriteTo(writer);
+            // }
+            // else
+            // {
+            //     JObject o = (JObject)t;
+            //     IList<string> propertyNames = o.Properties().Select(p => p.Name).ToList();
+
+            //     o.AddFirst(new JProperty("Keys", new JArray(propertyNames)));
+
+            //     o.WriteTo(writer);
+            // }
+        }
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            if (objectType == typeof(bool)) { return (bool)existingValue; }
+            else if (objectType == typeof(string))
+            {
+                var str = (string)existingValue;
+                return str.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                    || str.Equals("true", StringComparison.OrdinalIgnoreCase)
+                    || str.Equals("okay", StringComparison.OrdinalIgnoreCase);
+            }
+            else return existingValue;
+        }
+
+        public override bool CanRead
+        {
+            get { return true; }
+        }
+
+        public override bool CanConvert(Type objectType)
+        {
+            return objectType == typeof(bool);
+        }
+    }
+
 
 }

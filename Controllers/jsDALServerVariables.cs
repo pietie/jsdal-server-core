@@ -8,25 +8,28 @@ namespace jsdal_server_core
     {
         private static readonly string PREFIX_MARKER = "$jsDAL$";
 
-        public static string parse(HttpRequest request, string val)
+        public static object Parse(HttpRequest request, object val)
         {
             if (val == null) return val;
-            if (!val.ToLower().StartsWith(jsDALServerVariables.PREFIX_MARKER.ToLower())) return val;
+            
+            var str = val.ToString();
+
+            if (!str.ToLower().StartsWith(jsDALServerVariables.PREFIX_MARKER.ToLower())) return val;
 
             // remove the prefix
-            val = val.Substring(jsDALServerVariables.PREFIX_MARKER.Length + 1);
+            str = str.Substring(jsDALServerVariables.PREFIX_MARKER.Length + 1);
 
-            if (val.Equals("RemoteClient.IP"))
+            if (str.Equals("RemoteClient.IP"))
             {
                 return request.HttpContext?.Connection?.RemoteIpAddress?.ToString();
             }
-            if (val == "DBNull")
+            if (str.Equals("DBNull",StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                return DBNull.Value;
             }
             else
             {
-                throw new Exception($"The server variable name \"{val}\" does not exist");
+                throw new Exception($"The server variable name \"{str}\" does not exist");
             }
 
 

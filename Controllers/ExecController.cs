@@ -28,42 +28,46 @@ namespace jsdal_server_core.Controllers {
             this.config = configuration;
         }
 
-        private struct ExecOptions {
+        public class ExecOptions {
             public string project;
             public string application;
             public string endpoint;
 
             public string schema;
             public string routine;
-            public ExecType Type;
+            public ExecType type;
+            [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
+            
+            public Dictionary<string, string> inputParameters { get; set; }
         }
 
+
         public enum ExecType {
-            Query,
-            NonQuery,
-            Scalar
+            Query = 0,
+            NonQuery = 1,
+            Scalar = 2 
         }
 
         [AllowAnonymous]
         [HttpGet ("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost ("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execNonQuery ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.NonQuery });
+            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
         }
 
         [AllowAnonymous]
         [HttpGet ("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost ("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execQuery ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.Query });
+            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
         }
 
         [AllowAnonymous]
         [HttpGet ("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost ("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult Scalar ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, Type = ExecType.Scalar });
+            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
         }
 
         private class BatchData {
@@ -227,7 +231,7 @@ namespace jsdal_server_core.Controllers {
                                             schema = batchItem.Routine.schema,
                                             routine = batchItem.Routine.routine,
                                             OverridingInputParameters = inputParameters,
-                                            Type = ExecType.Query
+                                            type = ExecType.Query
 
                                     }) as Microsoft.AspNetCore.Mvc.ObjectResult;
 
@@ -330,6 +334,8 @@ namespace jsdal_server_core.Controllers {
 
                 if (inputParameters == null) inputParameters = new Dictionary<string, string> ();
 
+                execOptions.inputParameters = inputParameters;
+
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage ("Init plugins");
 
@@ -343,7 +349,7 @@ namespace jsdal_server_core.Controllers {
 
                 // DB call
                 var executionResult = OrmDAL.execRoutineQuery (req, res,
-                    execOptions.Type,
+                    execOptions.type,
                     execOptions.schema,
                     execOptions.routine,
                     endpoint,
@@ -383,7 +389,7 @@ namespace jsdal_server_core.Controllers {
                     }
                 }
 
-                if (execOptions.Type == ExecType.Query) {
+                if (execOptions.type == ExecType.Query) {
                     var dataSet = executionResult.DataSet;
                     var dataContainers = dataSet.ToJsonDS ();
 
@@ -395,9 +401,9 @@ namespace jsdal_server_core.Controllers {
 
                     retVal.Add ("HasResultSets", keys.Count > 0);
                     retVal.Add ("ResultSetKeys", keys.ToArray ());
-                } else if (execOptions.Type == ExecType.NonQuery) {
+                } else if (execOptions.type == ExecType.NonQuery) {
 
-                } else if (execOptions.Type == ExecType.Scalar) {
+                } else if (execOptions.type == ExecType.Scalar) {
 
                     if (executionResult.ScalarValue is DateTime) {
                         var dt = (DateTime) executionResult.ScalarValue;
@@ -439,7 +445,7 @@ namespace jsdal_server_core.Controllers {
 
                 }
 
-                var exceptionResponse = ApiResponse.Exception (ex, debugInfo, appTitle);
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle);
 
                 if (pluginList != null) {
                     string externalRef;

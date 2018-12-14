@@ -106,7 +106,7 @@ namespace jsdal_server_core
 
         public static string logException(Exception ex, string additionalInfo = null, string appTitle = null)
         {
-            lock (exceptionList)
+             lock (exceptionList)
             {
                 if (ExceptionLogger.exceptionList.Count >= ExceptionLogger.MAX_ENTRIES)
                 {
@@ -115,6 +115,26 @@ namespace jsdal_server_core
                 }
 
                 var ew = new ExceptionWrapper(ex, additionalInfo, appTitle);
+
+                ExceptionLogger.exceptionList.Add(ew);
+
+                // TODO: Really save on each exception logged?
+                SaveToFile();
+
+                return ew.id;
+            }
+        }
+        public static string logException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
+        {
+            lock (exceptionList)
+            {
+                if (ExceptionLogger.exceptionList.Count >= ExceptionLogger.MAX_ENTRIES)
+                {
+                    // cull from the front
+                    ExceptionLogger.exceptionList.RemoveRange(0, ExceptionLogger.exceptionList.Count - ExceptionLogger.MAX_ENTRIES + 1);
+                }
+
+                var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle);
 
                 ExceptionLogger.exceptionList.Add(ew);
 
@@ -140,11 +160,19 @@ namespace jsdal_server_core
 
         public ExceptionWrapper innerException;
 
+        public Controllers.ExecController.ExecOptions execOptions;
+
         public ExceptionWrapper()
         {
 
+        
         }
+
         public ExceptionWrapper(Exception ex, string additionalInfo = null, string appTitle = null)
+        {
+// TODO:!!?!?!?
+        }
+        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null)
         { // TODO: do something intersting with additionalInfo
             this.created = DateTime.Now;
             this.appTitle = appTitle;
@@ -159,9 +187,10 @@ namespace jsdal_server_core
             }
 
 
-            this.id = ShortId.Generate(useNumbers: true, useSpecial:true, length: 6);
+            this.id = ShortId.Generate(useNumbers: true, useSpecial: true, length: 6);
             this.message = msg;
             this.stackTrace = ex.StackTrace;
+            this.execOptions = eo;
 
             if (ex.InnerException != null)
             {

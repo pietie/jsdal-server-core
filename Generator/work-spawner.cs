@@ -41,6 +41,11 @@ namespace jsdal_server_core
             return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
 
+        public static Worker GetWorkerByEndpoint(Endpoint ep)
+        {
+            return WorkSpawner._workerList.First(w=>w.Endpoint == ep);
+        }
+
         public static bool RestartWorker(Worker worker)
         {
             if (worker.IsRunning) return false;
@@ -50,7 +55,7 @@ namespace jsdal_server_core
             worker.SetWinThread(winThread);
 
             winThread.Start();
-
+            
             return true;
         }
 
@@ -212,7 +217,15 @@ namespace jsdal_server_core
             }
         }
 
+        public static void ResetMaxRowDate(Endpoint endpoint)
+        {
+            var worker = GetWorkerByEndpoint(endpoint);
 
+            if (worker != null)
+            {
+                worker.ResetMaxRowDate();
+            }
+        }
     }
 }
 
