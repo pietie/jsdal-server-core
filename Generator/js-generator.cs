@@ -33,7 +33,7 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile)
+        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string,string> fullChangeSet)
         {
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;
@@ -52,19 +52,11 @@ namespace jsdal_server_core
                                     orderby row.FullName
                                     select row).ToList();
 
-            // var includedRoutines = dbSource.cache
-            //     .filter(r => !r.IsDeleted && (r.RuleInstructions[jsFile.Guid] != null && !!r.RuleInstructions[jsFile.Guid].Included))
-            //     //.filter(r => r.Routine == "DefTest")
-            //     .sort((a, b) => a.FullName.localeCompare(b.FullName))
-            //     ;
-
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
             var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
 
             var serverMethodPlugins = SettingsInstance.Instance.InlinePlugins?
                                             .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.PluginGuid));
-
-            // metadata?
 
             // TODO: use System.Threading.Tasks.Parallel.ForEach()
             includedRoutines.ForEach(r =>
@@ -73,7 +65,6 @@ namespace jsdal_server_core
                 {
                     var schemaName = r.Schema;
                     var routineName = r.Routine;
-                    //var routineType = r.Type.ToUpper();
 
                     // javascript does not allow types to start with a number so just prepend with an underscore
                     // declaring jsFunctionName as routine name before alteration and alter if necessary, keep Original routineName for execution
@@ -105,7 +96,6 @@ namespace jsdal_server_core
                         else line = line.Replace("<<CLASS>>", "U");
 
                         string jsParameters = null;
-                        string jsParameterComments = null;
 
                         string tsParameterTypeDefName = null;
                         string typeScriptOutputParameterTypeName = null;
@@ -129,23 +119,6 @@ namespace jsdal_server_core
                                                       TypescriptDataType = RoutineParameterV2.GetDataTypeForTypeScript(p.SqlDataType)
                                                   };
 
-                            /*
-                                                let sprocParameters = r.Parameters.filter(p => p.ParameterName && p.ParameterName.trim() != "").map(p =>
-                                                {
-                                                    let parmName = p.ParameterName;
-                                                    if (parmName[0] == '@') parmName = parmName.substr(1, 9999);
-                                                    return {
-                                                    Name: parmName,
-                                                        IsResult: p.IsResult,
-                                                        DataType: p.DataType,
-                                                        ParameterMode: p.ParameterMode,
-                                                        HasDefault: p.HasDefaultValue,
-                                                        JavascriptDataType: RoutineParameter.getDataTypeForJavaScriptComment(p.DataType),
-                                                        TypescriptDataType: RoutineParameter.getDataTypeForTypeScript(p.DataType)
-
-                                                    };
-                                                });
-                             */
 
                             jsParameters = string.Join(",", sprocParameters.Select(p => $"\"{p.Name}\"").ToArray());
 
@@ -175,7 +148,7 @@ namespace jsdal_server_core
                             }
 
                         }// if (r.Parameters != null)
-                        if (!includeParams) { jsParameters = null; jsParameterComments = null; }
+                        if (!includeParams) { jsParameters = null;  }
 
                         if (!string.IsNullOrEmpty(jsParameters))
                         {
@@ -186,18 +159,7 @@ namespace jsdal_server_core
                             line = line.Replace("<<PARM_DEFINITION>>", "");
                         }
 
-
-                        // add parameter comments
-                        //if (!string.IsNullOrEmpty(jsParameterComments))
-                        //{
-                        //    line = line.Replace("<<PARM_COMMENTS>>", "/// " + jsParameterComments);
-                        //}
-                        //else
-                        //{
-                        //    line = line.Replace("<<PARM_COMMENTS>>", "");
-                        //}
-
-                        var resultTypes = new List<string>();
+                         var resultTypes = new List<string>();
 
 
                         if (r.ResultSetMetadata != null)
@@ -291,7 +253,7 @@ namespace jsdal_server_core
                         else
                         {
                             var outputParmType = "void";
-                            // check if there is output parameters present
+                            // check if there are output parameters present
                             if (!string.IsNullOrWhiteSpace(typeScriptOutputParameterTypeName))
                             {
                                 outputParmType = "_." + typeScriptOutputParameterTypeName;
@@ -331,7 +293,7 @@ namespace jsdal_server_core
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.ToString());
+                    SessionLog.Exception(ex);
                     // TODO: quit whole process
                 }
 
@@ -342,7 +304,7 @@ namespace jsdal_server_core
 
             var finalSB = new StringBuilder(routineContainerTemplate);
 
-            jsFile.incrementVersion();
+            jsFile.IncrementVersion();
 
             finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
@@ -351,14 +313,11 @@ namespace jsdal_server_core
                 .Replace("<<DB_SOURCE_GUID>>", endpoint.Id); // TODO: fix placeholder name...or change to something more appropriate?
             ;
 
-            //throw new NotImplementedException(); // for fixing above TODO
-
             var finalTypeScriptSB = new StringBuilder();
 
             finalTypeScriptSB = finalTypeScriptSB.Append(typescriptDefinitionsContainer);
 
             var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();
-
 
             finalTypeScriptSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
@@ -378,7 +337,6 @@ namespace jsdal_server_core
             var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
 
             if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
-
 
             File.WriteAllText(filePath, finalOutput);
             File.WriteAllText(minfiedFilePath, minifiedSource);

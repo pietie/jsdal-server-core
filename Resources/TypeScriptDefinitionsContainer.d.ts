@@ -1,6 +1,6 @@
 ﻿/// <reference path="./jsDAL.common.d.ts" />
-/// jsDAL Server auto-generated, do not edit.
-/// <<DATE>>	v<<FILE_VERSION>>
+/// v<<FILE_VERSION>>   jsDAL Server auto-generated, do not edit.
+/// <<DATE>>
 declare module DAL {
     export function init(sprocClass: any, udfClass: any): void
     module _ {

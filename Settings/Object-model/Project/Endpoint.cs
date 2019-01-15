@@ -192,8 +192,9 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         }
 
-        public void AddToCache(long maxRowDate, CachedRoutine newCachedRoutine)
+        public void AddToCache(long maxRowDate, CachedRoutine newCachedRoutine, out string changeDesc)
         {
+            changeDesc = null;
             if (this.Id == null) this.Id = ShortId.Generate();
 
             if (this.CachedRoutineList == null)
@@ -204,12 +205,28 @@ namespace jsdal_server_core.Settings.ObjectModel
             lock (CachedRoutineList)
             {
                 // get those items that are existing and have been changed (Updated or Deleted)
-                var changed = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).ToList();
+                //var changed = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).ToList();
+                var existing = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).FirstOrDefault();
 
-                if (changed.Count > 0)
+                if (existing != null)
                 {
                     // remove existing cached version as it will just be added again below
-                    this.CachedRoutineList.RemoveAll(i => changed.Contains(i));
+                    this.CachedRoutineList.Remove(existing);
+
+                    //changeDesc = "";
+
+                    //var existingParmHash = string.Join(';', existing.Parameters.Select(p=>p.Hash()).ToArray());
+
+                    //if (string.IsNullOrWhiteSpace(changeDesc))
+                    {
+                        changeDesc = $"{newCachedRoutine.Type} {newCachedRoutine.FullName} UPDATED";
+                    }
+
+
+                }
+                else
+                {
+                    changeDesc = $"{newCachedRoutine.Type} {newCachedRoutine.FullName} ADDED";
                 }
 
                 this.CachedRoutineList.Add(newCachedRoutine);

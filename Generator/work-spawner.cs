@@ -107,7 +107,7 @@ namespace jsdal_server_core
                 endpoints.ForEach(endpoint =>
                 {
                     //TEST!!
-                    if (endpoint.Name != "DEV" || endpoint.Application.Name != "PWAs") return;
+                 //   if (endpoint.Name != "DEV" || endpoint.Application.Name != "PWAs") return;
 
                     try
                     {

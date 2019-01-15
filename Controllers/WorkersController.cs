@@ -50,7 +50,7 @@ namespace jsdal_server_core.Controllers
 
             if (worker != null)
             {
-                return ApiResponse.Payload(worker.LogEntries);
+                return ApiResponse.Payload(new { Endpoint = worker.Endpoint.Pedigree, Log = worker.LogEntries });
             }
             else
             {

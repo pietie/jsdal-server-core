@@ -124,14 +124,11 @@ namespace jsdal_server_core.Controllers
                     if (etagForLatestFile == etagFromRequest) return StatusCode(StatusCodes.Status304NotModified);
                 }
 
-
                 var ret = File(jsFileData, "text/javascript");
 
                 ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etagForLatestFile);
 
                 this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
-
-                //!ret.Headers.Add("jsfver", jsFile.Version.ToString());
 
                 return ret;
             }

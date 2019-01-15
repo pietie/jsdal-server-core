@@ -62,7 +62,7 @@ namespace jsdal_server_core
 
         public Worker(Endpoint endpoint)
         {
-            this.ID = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
+            this.ID = ShortId.Generate(useNumbers: false, useSpecial: false, length: 6);
             this.Endpoint = endpoint;
             this.log = new MemoryLog();
         }
@@ -247,17 +247,15 @@ namespace jsdal_server_core
                 last0Cnt = null;
 
                 SessionLog.Info($"{ Endpoint.Pedigree }\t{ changesCount} change(s) found using row date { this.MaxRowDate}");
-                //!this._log.info($"{ DBSource.Name}\t{ changesCount} change(s) found using row date ${ this.MaxRowDate}");
+                this.log.Info($"{ changesCount} change(s) found using row date { this.MaxRowDate}");
                 this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount} change(s) found using rowdate { this.MaxRowDate}";
 
-                GetAndProcessRoutineChanges(con, connectionString, changesCount);
-                //await ProcessChanges...;
-
+                GetAndProcessRoutineChanges(con, connectionString, changesCount, out var changesList);
 
                 {
                     // call save for final changes 
                     this.Endpoint.SaveCache();
-                    this.GenerateOutputFiles(this.Endpoint);
+                    this.GenerateOutputFiles(this.Endpoint, changesList);
                 }
 
             }// if changeCount > 0
@@ -293,7 +291,7 @@ namespace jsdal_server_core
 
         } // Process
 
-        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount)
+        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string,string> changesList)
         {
             var cmdGetRoutineList = new SqlCommand();
 
@@ -301,6 +299,8 @@ namespace jsdal_server_core
             cmdGetRoutineList.CommandType = System.Data.CommandType.StoredProcedure;
             cmdGetRoutineList.CommandText = "ormv2.GetRoutineList";
             cmdGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;
+
+            changesList = new Dictionary<string, string>();
 
             using (var reader = cmdGetRoutineList.ExecuteReader())
             {
@@ -318,7 +318,6 @@ namespace jsdal_server_core
                 while (reader.Read())
                 {
                     if (!this.IsRunning) break;
-                    //!this.progress("genGetRoutineListStream row...");
 
                     if (changesCount == 1)
                     {
@@ -437,7 +436,12 @@ namespace jsdal_server_core
                         }
                     } // !IsDeleted
 
-                    Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine);
+                    Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, out var changesDesc);
+
+                    if (!string.IsNullOrWhiteSpace(changesDesc))
+                    {
+                        if (!changesList.ContainsKey(newCachedRoutine.FullName.ToLower()) changesList.Add(newCachedRoutine.FullName.ToLower(), changesDesc);
+                    }
 
                     // TODO: Make saving gap configurable?
                     if (DateTime.Now.Subtract(lastSavedDate).TotalSeconds >= 20)
@@ -465,7 +469,7 @@ namespace jsdal_server_core
                 if (rowDataTypeName.ToLower().EndsWith(".sys.geography"))
                 {
                     return (string)row["UdtAssemblyQualifiedName"];
-                    
+
                     //return typeof(System.Dynamic.DynamicObject).FullName;
                 }
                 else throw new NotImplementedException("Add support for DataType: " + rowDataTypeName);
@@ -491,22 +495,19 @@ namespace jsdal_server_core
             }
         }
 
-        private void GenerateOutputFiles(Endpoint endpoint)
+        private void GenerateOutputFiles(Endpoint endpoint, Dictionary<string,string> fullChangeSet)
         {
             try
             {
+                // TODO: changesList contains absolute of changes..does not necessarily apply to all files!!!!
                 endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    // generate a file for every endpoint
-                    //dbSource.Endpoints.ForEach(endpoint =>
-                    //{
-                    JsFileGenerator.GenerateJsFile(endpoint, jsFile);
+                    JsFileGenerator.GenerateJsFile(endpoint, jsFile, fullChangeSet);
 
                     this.IsRulesDirty = false;
                     this.IsOutputFilesDirty = false;
 
                     endpoint.LastUpdateDate = DateTime.Now;
-                    //});
 
                 });
             }

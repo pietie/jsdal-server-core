@@ -32,7 +32,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Version = 1;
         }
 
-        public void incrementVersion()
+        public void IncrementVersion()
         {
             this.Version++;
         }
