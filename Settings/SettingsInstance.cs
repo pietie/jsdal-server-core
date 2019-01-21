@@ -25,9 +25,12 @@ namespace jsdal_server_core.Settings
         {
             try
             {
-                var json = JsonConvert.SerializeObject(SettingsInstance._instance);
+                lock (_instance)
+                {
+                    var json = JsonConvert.SerializeObject(SettingsInstance._instance);
 
-                File.WriteAllText(SettingsInstance.SettingsFilePath, json, System.Text.Encoding.UTF8);
+                    File.WriteAllText(SettingsInstance.SettingsFilePath, json, System.Text.Encoding.UTF8);
+                }
             }
             catch (Exception ex)
             {
@@ -49,7 +52,7 @@ namespace jsdal_server_core.Settings
 
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 
-                settingsInst.ProjectList.ForEach(p=>p.UpdateParentReferences());
+                settingsInst.ProjectList.ForEach(p => p.UpdateParentReferences());
                 settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
                             .ToList()
                             .ForEach(ep => ep.LoadCache());

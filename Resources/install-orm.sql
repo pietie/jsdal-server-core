@@ -8,14 +8,14 @@ BEGIN
 		[Id] [int] IDENTITY(1,1) NOT NULL,
 		[CreateDateUtc] [datetime] NOT NULL,
 		[LastUpdateDateUtc] [datetime] NULL,
-		[CatalogName] [varchar](500) NOT NULL,
-		[SchemaName] [varchar](500) NOT NULL,
-		[RoutineName] [varchar](500) NOT NULL,
-		[RoutineType] [varchar](20) NOT NULL,
-		[ReturnType] [varchar](20) NULL,
+		[CatalogName] [nvarchar](128) NOT NULL,
+		[SchemaName] [nvarchar](128) NOT NULL,
+		[RoutineName] [nvarchar](128) NOT NULL,
+		[RoutineType] [nvarchar](20) NOT NULL,
+		[ReturnType] [nvarchar](20) NULL,
 		[rowver] [timestamp] NOT NULL,
 		[IsDeleted] [bit] NOT NULL,
-		[LastUpdateByHostName] [varchar](100) NULL,
+		[LastUpdateByHostName] [nvarchar](128) NULL,
 		[ParametersXml] [varchar](max) NULL,
 		[JsonMetadata] [varchar](max) NULL
 	 CONSTRAINT [PK_RoutineMeta] PRIMARY KEY CLUSTERED 
@@ -500,21 +500,21 @@ BEGIN
 		BEGIN
 			SET NOCOUNT ON
 			
-			DECLARE @eventType NVARCHAR(MAX)
-					,@dbName NVARCHAR(MAX)
-					,@schema NVARCHAR(MAX)
-					,@objectName NVARCHAR(MAX)
-					,@objectType NVARCHAR(MAX)
+			DECLARE @eventType NVARCHAR(128)
+					,@dbName NVARCHAR(128)
+					,@schema NVARCHAR(128)
+					,@objectName NVARCHAR(128)
+					,@objectType NVARCHAR(128)
 			
-			SELECT @eventType = EVENTDATA().value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(max)'')
-					,@dbName = EVENTDATA().value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(max)'')
-					,@schema = EVENTDATA().value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(max)'')
-					,@objectName = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(max)'')
-					,@objectType = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(max)'')
+			SELECT @eventType = EVENTDATA().value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(128)'')
+					,@dbName = EVENTDATA().value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(128)'')
+					,@schema = EVENTDATA().value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(128)'')
+					,@objectName = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(128)'')
+					,@objectType = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(128)'')
 
 			if (@eventType = ''RENAME'')
 			begin
-				set @objectName = EVENTDATA().value(''(/EVENT_INSTANCE/NewObjectName)[1]'',''nvarchar(max)'')
+				set @objectName = EVENTDATA().value(''(/EVENT_INSTANCE/NewObjectName)[1]'',''nvarchar(128)'')
 			end
 			
 			DECLARE @existingId INT
@@ -620,7 +620,7 @@ GO
 
 ALTER PROCEDURE [ormv2].[GetRoutineList]
 (
-	@maxRowver		bigint = 0
+	@maxRowver		timestamp = 0
 )
 as
 begin
@@ -638,6 +638,7 @@ begin
 			,mon.ParametersXml
 			,object_id(QUOTENAME(mon.CatalogName) + '.' + QUOTENAME(mon.SchemaName) + '.' + QUOTENAME(mon.RoutineName)) ObjectId
 			,mon.JsonMetadata
+			,mon.LastUpdateByHostName
 		from ormv2.[RoutineMeta] mon with (nolock)
 	where mon.rowver > @maxRowver
 	order by rowver
@@ -650,7 +651,7 @@ GO
 
 ALTER PROCEDURE [ormv2].[GetRoutineListCnt]
 (
-	@maxRowver		bigint = 0
+	@maxRowver		timestamp = 0
 )
 AS
 BEGIN

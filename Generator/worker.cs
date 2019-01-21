@@ -256,6 +256,8 @@ namespace jsdal_server_core
                     // call save for final changes 
                     this.Endpoint.SaveCache();
                     this.GenerateOutputFiles(this.Endpoint, changesList);
+                    // save "settings" to persist JsFile version changes
+                    SettingsInstance.SaveSettingsToFile(); 
                 }
 
             }// if changeCount > 0
@@ -291,7 +293,7 @@ namespace jsdal_server_core
 
         } // Process
 
-        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string,string> changesList)
+        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string, string> changesList)
         {
             var cmdGetRoutineList = new SqlCommand();
 
@@ -306,7 +308,7 @@ namespace jsdal_server_core
             {
                 if (!this.IsRunning) return;
 
-                var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ObjectId", "JsonMetadata" };
+                var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ObjectId", "JsonMetadata", "LastUpdateByHostName" };
 
                 // maps column ordinals to proper names 
                 var ix = columns.Select(s => new { s, Value = reader.GetOrdinal(s) }).ToDictionary(p => p.s, p => p.Value);
@@ -333,6 +335,9 @@ namespace jsdal_server_core
                         Parameters = new List<RoutineParameterV2>(),
                         RowVer = reader.GetInt64(ix["rowver"]),
                     };
+
+                    
+                    var lastUpdateByHostName = reader.GetString(ix["LastUpdateByHostName"]);
 
                     string jsonMetadata = null;
 
@@ -440,7 +445,10 @@ namespace jsdal_server_core
 
                     if (!string.IsNullOrWhiteSpace(changesDesc))
                     {
-                        if (!changesList.ContainsKey(newCachedRoutine.FullName.ToLower()) changesList.Add(newCachedRoutine.FullName.ToLower(), changesDesc);
+                        if (!changesList.ContainsKey(newCachedRoutine.FullName.ToLower()))
+                        {
+                            changesList.Add(newCachedRoutine.FullName.ToLower(), changesDesc);
+                        }
                     }
 
                     // TODO: Make saving gap configurable?
@@ -495,7 +503,7 @@ namespace jsdal_server_core
             }
         }
 
-        private void GenerateOutputFiles(Endpoint endpoint, Dictionary<string,string> fullChangeSet)
+        private void GenerateOutputFiles(Endpoint endpoint, Dictionary<string, string> fullChangeSet)
         {
             try
             {

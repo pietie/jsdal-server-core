@@ -130,6 +130,20 @@ namespace jsdal_server_core.Controllers
 
                 this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
 
+                var changes = JsFileChangesTracker.Instance.BuildChangeList(ep, jsFile, (int)v, jsFile.Version);
+
+                if (string.IsNullOrWhiteSpace(changes))
+                {
+                    changes = $"New version {jsFile.Version}";
+                }
+
+                if (changes.Length> 100)
+                {
+                    changes = changes.Substring(0, 100) + "...";
+                }
+
+                this.Response.Headers.Add("file-changes", changes);
+
                 return ret;
             }
             catch (Exception ex)

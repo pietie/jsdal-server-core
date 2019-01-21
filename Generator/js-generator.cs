@@ -33,8 +33,9 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string,string> fullChangeSet)
+        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, string> fullChangeSet)
         {
+
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;
             if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
@@ -51,6 +52,15 @@ namespace jsdal_server_core
                                     where !row.IsDeleted && (row.RuleInstructions[jsFile]?.Included ?? false == true)
                                     orderby row.FullName
                                     select row).ToList();
+
+            var changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0);
+
+            // TODO: Consider if this is a good idea?
+            //       If we can reasonably say that there are now changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
+            if (changesInFile.Count() == 0)
+            {
+                return;
+            }
 
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
             var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
@@ -148,7 +158,7 @@ namespace jsdal_server_core
                             }
 
                         }// if (r.Parameters != null)
-                        if (!includeParams) { jsParameters = null;  }
+                        if (!includeParams) { jsParameters = null; }
 
                         if (!string.IsNullOrEmpty(jsParameters))
                         {
@@ -159,7 +169,7 @@ namespace jsdal_server_core
                             line = line.Replace("<<PARM_DEFINITION>>", "");
                         }
 
-                         var resultTypes = new List<string>();
+                        var resultTypes = new List<string>();
 
 
                         if (r.ResultSetMetadata != null)
@@ -305,6 +315,12 @@ namespace jsdal_server_core
             var finalSB = new StringBuilder(routineContainerTemplate);
 
             jsFile.IncrementVersion();
+
+            // record changes against new version
+            if (changesInFile.Count() > 0)
+            {
+                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv=>kv.Value).ToList());
+            }
 
             finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())

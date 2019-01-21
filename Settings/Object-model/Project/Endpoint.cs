@@ -208,7 +208,15 @@ namespace jsdal_server_core.Settings.ObjectModel
                 //var changed = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).ToList();
                 var existing = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).FirstOrDefault();
 
-                if (existing != null)
+                if (newCachedRoutine.IsDeleted)
+                { 
+                    // remove existing cached version as it will just be added again below
+                    if (existing != null) this.CachedRoutineList.Remove(existing);;
+                    
+                    changeDesc = $"{newCachedRoutine.FullName} DROPPED";
+
+                }
+                else if (existing != null)
                 {
                     // remove existing cached version as it will just be added again below
                     this.CachedRoutineList.Remove(existing);
@@ -219,14 +227,14 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                     //if (string.IsNullOrWhiteSpace(changeDesc))
                     {
-                        changeDesc = $"{newCachedRoutine.Type} {newCachedRoutine.FullName} UPDATED";
+                        changeDesc = $"{newCachedRoutine.FullName} UPDATED";
                     }
 
 
                 }
                 else
                 {
-                    changeDesc = $"{newCachedRoutine.Type} {newCachedRoutine.FullName} ADDED";
+                    changeDesc = $"{newCachedRoutine.FullName} ADDED";
                 }
 
                 this.CachedRoutineList.Add(newCachedRoutine);
