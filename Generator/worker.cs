@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Xml.Serialization;
+using jsdal_server_core.Changes;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
 using Newtonsoft.Json;
@@ -293,7 +294,7 @@ namespace jsdal_server_core
 
         } // Process
 
-        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string, string> changesList)
+        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string, ChangeDescriptor> changesList)
         {
             var cmdGetRoutineList = new SqlCommand();
 
@@ -302,7 +303,7 @@ namespace jsdal_server_core
             cmdGetRoutineList.CommandText = "ormv2.GetRoutineList";
             cmdGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;
 
-            changesList = new Dictionary<string, string>();
+            changesList = new Dictionary<string, ChangeDescriptor>();
 
             using (var reader = cmdGetRoutineList.ExecuteReader())
             {
@@ -417,11 +418,9 @@ namespace jsdal_server_core
                                                 ColumnSize = Convert.ToInt32(row["ColumnSize"]),
                                                 NumericalPrecision = Convert.ToUInt16(row["NumericPrecision"]),
                                                 NumericalScale = Convert.ToUInt16(row["NumericScale"])
-
                                             };
 
                                             lst.Add(schemaRow);
-
                                         }
 
                                         resultSetsDictionary.Add(dt.TableName, lst);
@@ -441,9 +440,9 @@ namespace jsdal_server_core
                         }
                     } // !IsDeleted
 
-                    Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, out var changesDesc);
+                    Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, lastUpdateByHostName, out var changesDesc);
 
-                    if (!string.IsNullOrWhiteSpace(changesDesc))
+                    if (changesDesc != null)
                     {
                         if (!changesList.ContainsKey(newCachedRoutine.FullName.ToLower()))
                         {
@@ -503,7 +502,7 @@ namespace jsdal_server_core
             }
         }
 
-        private void GenerateOutputFiles(Endpoint endpoint, Dictionary<string, string> fullChangeSet)
+        private void GenerateOutputFiles(Endpoint endpoint, Dictionary<string, ChangeDescriptor> fullChangeSet)
         {
             try
             {

@@ -8,6 +8,7 @@ using NUglify;
 using jsdal_server_core;
 using System.Text.RegularExpressions;
 using jsdal_server_core.Settings;
+using jsdal_server_core.Changes;
 
 namespace jsdal_server_core
 {
@@ -33,7 +34,7 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, string> fullChangeSet)
+        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet)
         {
 
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);

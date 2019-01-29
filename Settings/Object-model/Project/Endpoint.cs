@@ -7,6 +7,7 @@ using System.Data.SqlClient;
 using shortid;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
+using jsdal_server_core.Changes;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -192,9 +193,9 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         }
 
-        public void AddToCache(long maxRowDate, CachedRoutine newCachedRoutine, out string changeDesc)
+        public void AddToCache(long maxRowDate, CachedRoutine newCachedRoutine, string lastUpdateByHostName, out ChangeDescriptor changeDescriptor)
         {
-            changeDesc = null;
+            changeDescriptor = null;
             if (this.Id == null) this.Id = ShortId.Generate();
 
             if (this.CachedRoutineList == null)
@@ -211,9 +212,9 @@ namespace jsdal_server_core.Settings.ObjectModel
                 if (newCachedRoutine.IsDeleted)
                 { 
                     // remove existing cached version as it will just be added again below
-                    if (existing != null) this.CachedRoutineList.Remove(existing);;
+                    if (existing != null) this.CachedRoutineList.Remove(existing);
                     
-                    changeDesc = $"{newCachedRoutine.FullName} DROPPED";
+                    changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} DROPPED");
 
                 }
                 else if (existing != null)
@@ -227,14 +228,14 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                     //if (string.IsNullOrWhiteSpace(changeDesc))
                     {
-                        changeDesc = $"{newCachedRoutine.FullName} UPDATED";
+                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} UPDATED");
                     }
 
 
                 }
                 else
                 {
-                    changeDesc = $"{newCachedRoutine.FullName} ADDED";
+                    changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} ADDED");
                 }
 
                 this.CachedRoutineList.Add(newCachedRoutine);

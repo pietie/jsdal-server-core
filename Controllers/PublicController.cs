@@ -9,6 +9,7 @@ using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.Http;
 using System.Security.Cryptography;
 using System.Text;
+using jsdal_server_core.Changes;
 
 namespace jsdal_server_core.Controllers
 {
@@ -130,24 +131,53 @@ namespace jsdal_server_core.Controllers
 
                 this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
 
-                var changes = JsFileChangesTracker.Instance.BuildChangeList(ep, jsFile, (int)v, jsFile.Version);
+                string filterJson = null;
 
-                if (string.IsNullOrWhiteSpace(changes))
+                if (this.Request.Headers.ContainsKey("changes-filter"))
                 {
-                    changes = $"New version {jsFile.Version}";
+                    filterJson = this.Request.Headers["changes-filter"];
                 }
 
-                if (changes.Length> 100)
-                {
-                    changes = changes.Substring(0, 100) + "...";
-                }
+                var changeCnt = JsFileChangesTracker.Instance.CountChanges(ep, jsFile, (int)v, jsFile.Version, filterJson);
 
-                this.Response.Headers.Add("file-changes", changes);
+                this.Response.Headers.Add("change-cnt", changeCnt.ToString());
 
                 return ret;
             }
             catch (Exception ex)
             {
+                SessionLog.Exception(ex);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("/api/jsdal/file/changes")]
+        public IActionResult GetFileChanges([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string file, [FromQuery] int from = 0, [FromQuery] int to = 0)
+        {
+            try
+            {
+                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound();
+                }
+
+                var jsFile = application.GetJsFile(file);
+
+                if (jsFile == null) return NotFound();
+
+                var jsFileDescriptor = $"{project}/{app}/{endpoint}/{file}";
+
+                if (to == -1) to = jsFile.Version;
+
+                var changes = JsFileChangesTracker.Instance.BuildChangeList(ep, jsFile, from, to);
+
+                return Ok(changes);
+            }
+            catch (Exception ex)
+            {
+
                 SessionLog.Exception(ex);
                 return BadRequest(ex.Message);
             }
