@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using System.Security.Cryptography;
 using System.Text;
 using jsdal_server_core.Changes;
+using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 
 namespace jsdal_server_core.Controllers
 {

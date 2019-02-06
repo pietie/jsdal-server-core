@@ -1,0 +1,1 @@
+sc stop jsdal-server & dotnet publish --configuration Release --output ./00-Release & sc start jsdal-server

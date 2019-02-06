@@ -1,1 +1,1 @@
-# jsdal-server-core
+# jsdal-server

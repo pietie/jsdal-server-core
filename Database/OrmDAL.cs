@@ -11,6 +11,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using jsdal_plugin;
 using jsdal_server_core.Performance;
+using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 
 namespace jsdal_server_core
 {

@@ -26,13 +26,29 @@ namespace jsdal_server_core
         static StreamWriter consoleWriter;
         static FileStream fs;
 
+        private static EventLogWrapper eventLog;
 
         public static void Main(string[] args)
         {
             try
             {
+                var isService = args.Length == 1 && args[0].Equals("--service", StringComparison.OrdinalIgnoreCase);
+                var justRun = args.Length == 1 && args[0].Equals("--run", StringComparison.OrdinalIgnoreCase);
+
+                if (isService)
+                {
+                    var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
+                    var pathToContentRootService = Path.GetDirectoryName(pathToExe);
+                    Directory.SetCurrentDirectory(pathToContentRootService);
+                }
+                else if (!Debugger.IsAttached && !justRun)
+                {
+                    TerminalUI.Init();
+                    return;
+                }
+
                 var pathToContentRoot = Directory.GetCurrentDirectory();
-                //OverrideStdout();
+
                 if (Debugger.IsAttached)
                 {
                     // var pathToExe = Process.GetCurrentProcess().MainModule.FileName;
@@ -43,9 +59,10 @@ namespace jsdal_server_core
                     OverrideStdout();
                 }
 
+                eventLog = new EventLogWrapper(isService);
+
                 Console.WriteLine("=================================");
                 Console.WriteLine("Application started.");
-
 
                 Console.WriteLine("Loading settings.");
                 UserManagement.loadUsersFromFile();
@@ -65,15 +82,21 @@ namespace jsdal_server_core
 
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
 
-                //globalCulture.NumberFormat.NumberDecimalSeparator = ".";
-
                 // set global culture to en-US - will help with things like parsing numbers from Javascript(e.g. 10.123) as double/decimal even if server uses a comma as decimal separator for example
                 System.Threading.Thread.CurrentThread.CurrentCulture = globalCulture;
 
+                //var builder = CreateWebHostBuilder(args.Where(arg => arg != "--console").ToArray());
+                var builder = BuildWebHost(pathToContentRoot, args);
+                var host = builder.Build();
 
-                BuildWebHost(pathToContentRoot, args)
-                        .Build()
-                        .Run();
+                if (isService)
+                {
+                    host.RunAsCustomService();
+                }
+                else
+                {
+                    host.Run();
+                }
 
                 Console.WriteLine("Shutting down workers...");
                 WorkSpawner.Stop();
@@ -161,7 +184,6 @@ namespace jsdal_server_core
                       options.MaxConnections = null;
                       options.MaxRequestBodySize = 30000000;
 
-
                       int interfaceCnt = 0;
 
                       if ((webServerSettings.EnableSSL ?? false)
@@ -177,6 +199,7 @@ namespace jsdal_server_core
                               {
                                   if (NetshWrapper.ValidateUrlAcl(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
                                   {
+                                      eventLog.Info($"Listening to {httpsUrl}");
                                       options.UrlPrefixes.Add(httpsUrl);
                                       interfaceCnt++;
                                   }
@@ -184,6 +207,7 @@ namespace jsdal_server_core
                                   {
                                       if (NetshWrapper.AddUrlToACL(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
                                       {
+                                          eventLog.Info($"Listening to {httpsUrl}");
                                           options.UrlPrefixes.Add(httpsUrl);
                                           interfaceCnt++;
                                       }
@@ -216,6 +240,7 @@ namespace jsdal_server_core
 
                               if (NetshWrapper.ValidateUrlAcl(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
                               {
+                                  eventLog.Info($"Listening to {httpUrl}");
                                   options.UrlPrefixes.Add(httpUrl);
                                   interfaceCnt++;
                               }
@@ -223,6 +248,7 @@ namespace jsdal_server_core
                               {
                                   if (NetshWrapper.AddUrlToACL(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
                                   {
+                                      eventLog.Info($"Listening to {httpUrl}");
                                       options.UrlPrefixes.Add(httpUrl);
                                       interfaceCnt++;
                                   }
@@ -242,6 +268,7 @@ namespace jsdal_server_core
                       if (interfaceCnt == 0)
                       {
                           Console.WriteLine("No valid interface (http or https) found so defaulting to localhost:9086");
+                          eventLog.Warning("No valid interface (http or https) found so defaulting to localhost:9086");
                           options.UrlPrefixes.Add("http://localhost:9086");
                       }
 

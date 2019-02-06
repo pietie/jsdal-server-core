@@ -16,6 +16,7 @@ generated
 cache
 wwwroot
 data
+00-Release
 
 plugins/*.dll
 
