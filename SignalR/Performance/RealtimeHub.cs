@@ -22,6 +22,12 @@ namespace jsdal_server_core.Hubs.Performance
         {
             return RealtimeMonitor.Instance;
         }
+        
+        public int GetInitProgress()
+        {
+            return 10;
+        }
+
     }
 
 }

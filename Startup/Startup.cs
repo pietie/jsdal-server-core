@@ -61,7 +61,9 @@ namespace jsdal_server_core
             services.AddCors(options => options.AddPolicy("CorsPolicy",
                     builder => builder
                         .SetIsOriginAllowedToAllowWildcardSubdomains()
-                        .AllowAnyOrigin()
+                        //.SetIsOriginAllowed(s=>s.Equals("http://localhost:4200"))
+                        .SetIsOriginAllowed(s=>true)
+                        //.AllowAnyOrigin()
                         .AllowAnyMethod()
                         .AllowCredentials()
                         .AllowAnyHeader()
@@ -139,6 +141,8 @@ namespace jsdal_server_core
                 Console.WriteLine("!!!  Stopping reached");
             });
 
+      
+
             //       loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             //     loggerFactory.AddDebug();
 
@@ -160,9 +164,12 @@ namespace jsdal_server_core
             var webSocketOptions = new WebSocketOptions()
             {
                 KeepAliveInterval = TimeSpan.FromSeconds(120),
-                ReceiveBufferSize = 4 * 1024
+                ReceiveBufferSize = 4 * 1024,
             };
+
+
             app.UseWebSockets(webSocketOptions);
+                    app.UseCors("CorsPolicy");
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
@@ -203,7 +210,7 @@ namespace jsdal_server_core
 
             app.UseMirrorSharp(mirrorSharpOptions);
 
-            app.UseCors("CorsPolicy");
+          
 
             app.UseDefaultFiles();
             app.UseStaticFiles();

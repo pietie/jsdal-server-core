@@ -53,6 +53,7 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Payload(new
                 {
                     endpoint.Name,
+                    BgTaskKey = endpoint.GetBgTaskKey(),
                     endpoint.IsOrmInstalled,
                     MetadataConnection = new
                     {
@@ -145,18 +146,18 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
                 }
 
-                var bgGuid = endpoint.InstallOrm();
+                var bw = endpoint.InstallOrm();
 
-                if (bgGuid.HasValue)
+                if (bw != null)
                 {
-                    endpoint.IsOrmInstalled = true;
+                   // endpoint.IsOrmInstalled = true; // will be set when BG task completes
 
-                    //!WorkSpawner.resetMaxRowDate(cs);
+                    WorkSpawner.ResetMaxRowDate(endpoint);
 
                     SettingsInstance.SaveSettingsToFile();
 
-                    if (bgGuid == Guid.Empty) return ApiResponse.Payload(new { Success = true });
-                    else return ApiResponse.Payload(new { Success = true, BgInitGuid = bgGuid });
+                    if (bw ==null) return ApiResponse.Payload(new { Success = true });
+                    else return ApiResponse.Payload(new { Success = true, BgTaskKey = bw.Key });
                 }
                 else return ApiResponse.ExclamationModal("Failed to install ORM");
             }

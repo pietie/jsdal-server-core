@@ -4,6 +4,8 @@ using System.Data;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Xml.Serialization;
 using jsdal_server_core.Changes;
@@ -207,7 +209,6 @@ namespace jsdal_server_core
                             break; // break out of main while loop
                         }
 
-
                         this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - {ex.Message}";
                         Hubs.WorkerMonitor.Instance.NotifyObservers();
 
@@ -217,8 +218,6 @@ namespace jsdal_server_core
                         sleepTimeMS = sleepTimeMS > 8000 ? 8000 : sleepTimeMS;
 
                         Thread.Sleep(sleepTimeMS);
-
-
                     }
 
                 } // while IsRunning
@@ -258,7 +257,7 @@ namespace jsdal_server_core
                     this.Endpoint.SaveCache();
                     this.GenerateOutputFiles(this.Endpoint, changesList);
                     // save "settings" to persist JsFile version changes
-                    SettingsInstance.SaveSettingsToFile(); 
+                    SettingsInstance.SaveSettingsToFile();
                 }
 
             }// if changeCount > 0
@@ -309,7 +308,7 @@ namespace jsdal_server_core
             {
                 if (!this.IsRunning) return;
 
-                var columns = new string[] { "Id", "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ParametersXml", "ObjectId", "JsonMetadata", "LastUpdateByHostName" };
+                var columns = new string[] { "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ObjectId", "LastUpdateByHostName", "JsonMetadata", "ParametersXml", "ParametersHash", "ResultSetXml", "ResultSetHash" };
 
                 // maps column ordinals to proper names 
                 var ix = columns.Select(s => new { s, Value = reader.GetOrdinal(s) }).ToDictionary(p => p.s, p => p.Value);
@@ -337,7 +336,19 @@ namespace jsdal_server_core
                         RowVer = reader.GetInt64(ix["rowver"]),
                     };
 
-                    
+                    var parmHash = reader.GetSqlBinary(ix["ParametersHash"]);
+                    var resultSetHash = reader.GetSqlBinary(ix["ResultSetHash"]);
+
+                    if (!parmHash.IsNull)
+                    {
+                        newCachedRoutine.ParametersHash = string.Concat(parmHash.Value.Select(item => item.ToString("x2")));
+                    }
+
+                    if (!resultSetHash.IsNull)
+                    {
+                        newCachedRoutine.ResultSetHash = string.Concat(resultSetHash.Value.Select(item => item.ToString("x2")));
+                    }
+
                     var lastUpdateByHostName = reader.GetString(ix["LastUpdateByHostName"]);
 
                     string jsonMetadata = null;
@@ -391,52 +402,38 @@ namespace jsdal_server_core
                             //logLine.Append("Generating result set metadata");
                             //console.log("Generating result set metadata");
 
-                            try
+                            // generate using legacy FMTONLY way if explicitly requested
+                            if ((newCachedRoutine.jsDALMetadata?.jsDAL?.fmtOnlyResultSet ?? false))
                             {
-                                string resultSetError = null;
-                                // get schema details of all result sets
-                                var resultSets = OrmDAL.RoutineGetFmtOnlyResults(connectionString, newCachedRoutine.Schema, newCachedRoutine.Routine
-                                , newCachedRoutine.Parameters, out resultSetError);
+                                GenerateFmtOnlyResultsets(connectionString, newCachedRoutine);
+                            }
+                            else
+                            {
+                                string resultSetXml = null;
 
-                                if (resultSets != null)
+                                if (!reader.IsDBNull(ix["ResultSetXml"]))
                                 {
-                                    Dictionary<string, dynamic> resultSetsDictionary = new Dictionary<string, dynamic>();
+                                    resultSetXml = reader.GetString(ix["ResultSetXml"]);
 
-                                    foreach (DataTable dt in resultSets.Tables)
+                                    (var resultSetMetdata, var error) = ExtractResultSetMetadata(resultSetXml);
+
+                                    newCachedRoutine.ResultSetRowver = newCachedRoutine.RowVer;
+
+                                    if (error == null)
                                     {
-                                        List<dynamic> lst = new List<dynamic>();
 
-                                        for (var rowIx = 0; rowIx < dt.Rows.Count; rowIx++)
+                                        newCachedRoutine.ResultSetMetadata = new Dictionary<string, List<ResultSetFieldMetadata>>()
                                         {
-                                            DataRow row = dt.Rows[rowIx];
-
-                                            var schemaRow = new
-                                            {
-                                                ColumnName = row["ColumnName"],
-                                                DataType = GetCSharpType(row),
-                                                DbDataType = row["DataTypeName"],
-                                                ColumnSize = Convert.ToInt32(row["ColumnSize"]),
-                                                NumericalPrecision = Convert.ToUInt16(row["NumericPrecision"]),
-                                                NumericalScale = Convert.ToUInt16(row["NumericScale"])
-                                            };
-
-                                            lst.Add(schemaRow);
-                                        }
-
-                                        resultSetsDictionary.Add(dt.TableName, lst);
+                                            ["Table0"] = resultSetMetdata
+                                        };
                                     }
-
-                                    newCachedRoutine.ResultSetMetadata = resultSetsDictionary;
-                                    //!newCachedRoutine.ResultSetMetadata = resultSets;
-                                    newCachedRoutine.ResultSetRowver = reader.GetInt64(ix["rowver"]);
-                                    newCachedRoutine.ResultSetError = resultSetError;
+                                    else
+                                    {
+                                        newCachedRoutine.ResultSetError = error;
+                                    }
                                 }
                             }
-                            catch (Exception e)
-                            {
-                                newCachedRoutine.ResultSetRowver = reader.GetInt64(ix["rowver"]);
-                                newCachedRoutine.ResultSetError = e.ToString();
-                            }
+
                         }
                     } // !IsDeleted
 
@@ -448,6 +445,9 @@ namespace jsdal_server_core
                         {
                             changesList.Add(newCachedRoutine.FullName.ToLower(), changesDesc);
                         }
+                        // TODO: Else update - so last change is what gets through? 
+                        // ...  Two things to consider here.. 1. We use changesList to determine if there was a significant change to the metadata so we can generate a new file and notify subscribers
+                        //                                    2. ..nothing else actually...? just think about the same sproc changing multiple times ....no sproc can only come back once per iteration!!!!
                     }
 
                     // TODO: Make saving gap configurable?
@@ -463,6 +463,65 @@ namespace jsdal_server_core
                     }
 
                 } // while reader.Read
+            }
+        }
+
+        private void GenerateFmtOnlyResultsets(string connectionString, CachedRoutine newCachedRoutine)
+        {
+            try
+            {
+                string resultSetError = null;
+
+                // get schema details of all result sets
+                var resultSets = OrmDAL.RoutineGetFmtOnlyResults(connectionString, newCachedRoutine.Schema, newCachedRoutine.Routine, newCachedRoutine.Parameters, out resultSetError);
+
+                if (resultSets != null)
+                {
+                    var resultSetsDictionary = new Dictionary<string, List<ResultSetFieldMetadata>>();
+
+                    foreach (DataTable dt in resultSets.Tables)
+                    {
+                        var lst = new List<ResultSetFieldMetadata>();
+
+                        for (var rowIx = 0; rowIx < dt.Rows.Count; rowIx++)
+                        {
+                            DataRow row = dt.Rows[rowIx];
+
+                            var schemaRow = new ResultSetFieldMetadata()
+                            {
+                                ColumnName = (string)row["ColumnName"],
+                                DataType = GetCSharpType(row),
+                                DbDataType = (string)row["DataTypeName"],
+                                ColumnSize = Convert.ToInt32(row["ColumnSize"]),
+                                NumericalPrecision = Convert.ToUInt16(row["NumericPrecision"]),
+                                NumericalScale = Convert.ToUInt16(row["NumericScale"])
+                            };
+
+                            lst.Add(schemaRow);
+                        }
+
+                        resultSetsDictionary.Add(dt.TableName, lst);
+                    }
+
+                    newCachedRoutine.ResultSetMetadata = resultSetsDictionary;
+
+                    var resultSetJson = JsonConvert.SerializeObject(resultSetsDictionary);
+
+                    using (var hash = SHA256Managed.Create())
+                    {
+                        newCachedRoutine.ResultSetHash = string.Concat(hash.ComputeHash(System.Text.Encoding.UTF8
+                            .GetBytes(resultSetJson))
+                            .Select(item => item.ToString("x2")));
+                    }
+
+                    newCachedRoutine.ResultSetRowver = newCachedRoutine.RowVer;
+                    newCachedRoutine.ResultSetError = resultSetError;
+                }
+            }
+            catch (Exception e)
+            {
+                newCachedRoutine.ResultSetRowver = newCachedRoutine.RowVer;
+                newCachedRoutine.ResultSetError = e.ToString();
             }
         }
 
@@ -499,6 +558,45 @@ namespace jsdal_server_core
             {
                 var val = (xmlSerializer.Deserialize(sr) as RoutineParameterContainerV2);
                 return val.Parameters;
+            }
+        }
+
+        private (List<ResultSetFieldMetadata>, string) ExtractResultSetMetadata(string resultSetXml)
+        {
+            try
+            {
+                var xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(SqlResultSetFieldCollection));
+
+                resultSetXml = $"<FieldCollection>{resultSetXml}</FieldCollection>";
+
+                using (var sr = new StringReader(resultSetXml))
+                {
+                    var val = (xmlSerializer.Deserialize(sr) as Settings.ObjectModel.SqlResultSetFieldCollection);
+
+                    // look for error
+                    if (val.Fields.Count > 0 && !string.IsNullOrWhiteSpace(val.Fields[0].ErrorMsg))
+                    {
+                        var f = val.Fields[0];
+                        return (null, $"({f.ErrorDescription}) {f.ErrorMsg}");
+                    }
+                    else
+                    {
+                        return (val.Fields.Select(f => new ResultSetFieldMetadata()
+                        {
+                            ColumnName = f.Name,
+                            DataType = RoutineParameterV2.GetCSharpDataTypeFromSqlDbType(f.Type),
+                            DbDataType = f.Type,
+                            ColumnSize = f.Size,
+                            NumericalPrecision = f.Precision,
+                            NumericalScale = f.Scale
+                        }).ToList(), null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return (null, "Failed to parse ResultSetXml:" + ex.Message);
             }
         }
 

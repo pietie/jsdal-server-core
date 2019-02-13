@@ -8,6 +8,7 @@ using shortid;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using jsdal_server_core.Changes;
+using System.Text;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -38,6 +39,17 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Application = app;
         }
 
+        public string GetBgTaskKey()
+        {
+            if (this.MetadataConnection == null) return null;
+            var bgTaskKey = $"{this.MetadataConnection.DataSource.ToLower()}/{this.MetadataConnection.Port}/{this.MetadataConnection.InitialCatalog.ToLower()}.ORM_INSTALL";
+
+            using (var md5 = ((System.Security.Cryptography.HashAlgorithm)System.Security.Cryptography.CryptoConfig.CreateFromName("MD5")))
+            {
+                return Convert.ToBase64String(md5.ComputeHash(Encoding.UTF8.GetBytes(bgTaskKey))).TrimEnd('=');
+            }
+        }
+
         public string CheckForMissingOrmPreRequisitesOnDatabase()
         {
             var sqlScript = File.ReadAllText("./resources/check-pre-requisites.sql", System.Text.Encoding.UTF8);
@@ -65,13 +77,13 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
         }
-        public Guid? InstallOrm()
+        public BackgroundWorker InstallOrm()
         {
             var missing = CheckForMissingOrmPreRequisitesOnDatabase();
 
             if (string.IsNullOrEmpty(missing))
             {
-                return Guid.Empty;
+                return null;
             }
 
             var sqlScriptPath = Path.GetFullPath("./resources/install-orm.sql");
@@ -79,7 +91,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             //https://stackoverflow.com/a/18597052
             var statements = Regex.Split(installSqlScript, @"^[\s]*GO[\s]*\d*[\s]*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase);
-
 
             var statementsToExec = statements.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim(' ', '\r', '\n'));
 
@@ -113,39 +124,52 @@ namespace jsdal_server_core.Settings.ObjectModel
                     SessionLog.Exception(ex);
                 }
 
-
                 con.Close();
 
+                BackgroundWorker backgroundWorker = null;
 
-                return BackgroundTask.Queue($"{Application.Project.Name}/{Application.Name}/{this.Name} ORM initilisation", () =>
+                backgroundWorker = BackgroundTask.Queue($"{GetBgTaskKey()}.ORM_INIT", $"{Application.Project.Name}/{Application.Name}/{this.Name} ORM initilisation", () =>
                 {
-                    try
+                    // try
+                    // {
+                    using (var conInit = new SqlConnection())
                     {
-                        using (var conInit = new SqlConnection())
+                        con.FireInfoMessageEventOnUserErrors = true;
+                        conInit.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
+                        conInit.Open();
+
+                        var cmdInit = new SqlCommand();
+
+                        cmdInit.Connection = conInit;
+                        cmdInit.CommandText = "ormv2.Init";
+                        cmdInit.CommandTimeout = 600;
+
+                        conInit.InfoMessage += (sender, e) =>
                         {
-                            conInit.ConnectionString = this.MetadataConnection.ConnectionStringDecrypted;
-                            conInit.Open();
+                            if (!backgroundWorker.IsDone && double.TryParse(e.Message, out var p))
+                            {
+                                backgroundWorker.Progress = p;
+                                Hubs.BackgroundTaskMonitor.Instance.NotifyOfChange(backgroundWorker);
+                            }
+                        };
 
-                            var cmdInit = new SqlCommand();
+                        cmdInit.ExecuteScalar();
 
-                            cmdInit.Connection = conInit;
-                            cmdInit.CommandText = "ormv2.Init";
-                            cmdInit.CommandTimeout = 600;
+                        this.IsOrmInstalled = true;
+                        SettingsInstance.SaveSettingsToFile();
 
-                            cmdInit.ExecuteNonQuery();
-
-                            return true;
-                        }
+                        return true;
                     }
-                    catch (Exception ex)
-                    {
-                        return ex;
-                        //return ex;
-                    }
+                    // }
+                    // catch (Exception ex)
+                    // {
+                    //     return ex;
+                    //     //return ex;
+                    // }
 
                 });
 
-
+                return backgroundWorker;
             }
 
         }
@@ -160,7 +184,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var cmd = new SqlCommand();
 
                 cmd.Connection = con;
-                cmd.CommandText = "exec orm.Uninstall";
+                cmd.CommandText = "exec ormV2.Uninstall";
                 cmd.CommandTimeout = 120;
 
                 cmd.ExecuteNonQuery();
@@ -169,7 +193,6 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
             return true;
-
         }
 
         public CommonReturnValueWithApplication UpdateMetadataConnection(string dataSource, string catalog, string username, string password, int port)
@@ -179,8 +202,6 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.MetadataConnection.update(dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithApplication.success(null);
-
-
         }
         public CommonReturnValueWithApplication UpdateExecConnection(string dataSource, string catalog, string username, string password, int port)
         {
@@ -189,15 +210,13 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.ExecutionConnection.update(dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithApplication.success(null);
-
-
         }
 
         public void AddToCache(long maxRowDate, CachedRoutine newCachedRoutine, string lastUpdateByHostName, out ChangeDescriptor changeDescriptor)
         {
             changeDescriptor = null;
-            if (this.Id == null) this.Id = ShortId.Generate();
 
+            if (this.Id == null) this.Id = ShortId.Generate();
             if (this.CachedRoutineList == null)
             {
                 this.CachedRoutineList = new List<CachedRoutine>();
@@ -205,33 +224,44 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             lock (CachedRoutineList)
             {
-                // get those items that are existing and have been changed (Updated or Deleted)
-                //var changed = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).ToList();
-                var existing = this.CachedRoutineList.Where(e => newCachedRoutine.equals(e)).FirstOrDefault();
+                // look for an existing item
+                var existing = this.CachedRoutineList.Where(e => newCachedRoutine.Equals(e)).FirstOrDefault();
 
-                if (newCachedRoutine.IsDeleted)
-                { 
-                    // remove existing cached version as it will just be added again below
-                    if (existing != null) this.CachedRoutineList.Remove(existing);
-                    
-                    changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} DROPPED");
-
-                }
-                else if (existing != null)
+                if (existing != null)
                 {
-                    // remove existing cached version as it will just be added again below
-                    this.CachedRoutineList.Remove(existing);
-
-                    //changeDesc = "";
-
-                    //var existingParmHash = string.Join(';', existing.Parameters.Select(p=>p.Hash()).ToArray());
-
-                    //if (string.IsNullOrWhiteSpace(changeDesc))
+                    // if existing is not deleted but the update IS 
+                    if (!existing.IsDeleted && newCachedRoutine.IsDeleted)
                     {
-                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} UPDATED");
+                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} DROPPED");
+                        this.CachedRoutineList.Remove(existing); // will be added again below
                     }
+                    else if (existing.IsDeleted && newCachedRoutine.IsDeleted) // still deleted then nothing to do
+                    {
+                        return;
+                    }
+                    else if (!newCachedRoutine.IsDeleted)
+                    {
+                        bool parametersUpdated = newCachedRoutine.ParametersHash != existing.ParametersHash;
+                        bool resultSetsUpdated = newCachedRoutine.ResultSetHash != existing.ResultSetHash;
+                        bool jsDALMetadataUpdated = false;
 
+                        if (existing.jsDALMetadata == null && newCachedRoutine.jsDALMetadata != null) jsDALMetadataUpdated = true;
+                        else if (existing.jsDALMetadata != null && newCachedRoutine.jsDALMetadata == null) jsDALMetadataUpdated = true;
+                        else jsDALMetadataUpdated = newCachedRoutine.jsDALMetadata != null && newCachedRoutine.jsDALMetadata.Equals(existing.jsDALMetadata);
 
+                        // no metadata related change
+                        if (!parametersUpdated && !resultSetsUpdated && !jsDALMetadataUpdated) return;
+
+                        this.CachedRoutineList.Remove(existing); // will be added again below
+
+                        var applicableChanges = new List<string>();
+
+                        if (parametersUpdated) applicableChanges.Add("PARAMETERS");
+                        if (resultSetsUpdated) applicableChanges.Add("RESULT SETS");
+                        if (jsDALMetadataUpdated) applicableChanges.Add("jsDAL metadata");
+
+                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} UPDATED {string.Join(", ", applicableChanges.ToArray())}");
+                    }
                 }
                 else
                 {
@@ -239,6 +269,44 @@ namespace jsdal_server_core.Settings.ObjectModel
                 }
 
                 this.CachedRoutineList.Add(newCachedRoutine);
+                /**************
+                                if (newCachedRoutine.IsDeleted)
+                                {
+                                    // remove existing cached version as it will just be added again below
+                                    if (existing != null)
+                                    {
+                                        this.CachedRoutineList.Remove(existing);
+
+                                        ///?????if (!existing.IsDeleted)
+                                        {
+                                            changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} DROPPED");
+                                        }
+                                    }
+
+                                }
+                                else if (existing != null)
+                                {
+                                    // remove existing cached version as it will just be added again below
+                                    this.CachedRoutineList.Remove(existing);
+
+                                    //changeDesc = "";
+
+                                    //var existingParmHash = string.Join(';', existing.Parameters.Select(p=>p.Hash()).ToArray());
+
+                                    //if (string.IsNullOrWhiteSpace(changeDesc))
+                                    {
+                                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} UPDATED");
+                                    }
+
+
+                                }
+                                else
+                                {
+                                    changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} ADDED");
+                                }
+
+                                this.CachedRoutineList.Add(newCachedRoutine);
+                                ****/
             }
         }
 

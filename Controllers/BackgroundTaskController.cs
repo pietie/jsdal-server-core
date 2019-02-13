@@ -22,7 +22,7 @@ namespace jsdal_server_core.Controllers
             {
                 return ApiResponse.Payload(BackgroundTask
                         .Workers
-                        .Select(t=> new { CreatedEpoch = t.Created.ToEpochMS(), t.IsDone, t.Name, Error = (string)null }).OrderBy(t=>t.CreatedEpoch));
+                        .Select(t => new { CreatedEpoch = t.Created.ToEpochMS(), t.IsDone, t.Name, Error = t.Exception }).OrderBy(t => t.CreatedEpoch));
             }
             catch (Exception e)
             {

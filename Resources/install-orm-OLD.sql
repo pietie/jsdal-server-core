@@ -313,7 +313,7 @@ BEGIN
 	 
 	select @routineSource = object_definition(@procId)
 
-	-- quick like check upfront to bail early speeds up the function greatly
+	-- quick like check upfront to bail early speeds up the whole function greatly
 	if (@routineSource not like '%jsDAL%:%{%') return null	
 
 	DECLARE @i INT	-- current ix in buffer
@@ -435,97 +435,28 @@ GO
 ALTER PROCEDURE [ormv2].[Init]
 AS
 BEGIN
-	SET NOCOUNT ON
-	BEGIN TRANSACTION
 
-		DECLARE @objectId INT
-				,@type char(2)
-				,@parmXml varchar(max)
-				,@resultXml varchar(max)
-				,@ix INT = 0
-				,@numOfRows float
-				,@perc float
-				,@msg varchar(100)
+-----------------------------------------------------------
+-- Create lookup table for each parameter's default value
+-----------------------------------------------------------
+	CREATE TABLE #Lookup(object_id INT, ParmId SMALLINT, DefVal varchar(8000))
 
-		DECLARE cur CURSOR LOCAL STATIC READ_ONLY FORWARD_ONLY FOR
-			select o.object_id
-					,o.type
-					from sys.objects o 
-					where o.type IN ('P'/*SPROC*/, 'FN'/*UDF*/, 'TF'/*Table-valued function*/, 'IF'/*inline table function*/ /*, 'AF'aggregate function CLR*/ /*, 'FT'CLR table valued*//*, 'PC' CLR SPROC*//*, 'IS' DUNNO!*//*, 'FS' CLR SCALAR*/)
-						and not exists (select 1/0 
-											from ormv2.RoutineMeta dst 
-										where dst.RoutineName = o.name and dst.SchemaName = SCHEMA_NAME(o.schema_id) and dst.CatalogName = DB_NAME())
-		OPEN cur
+	insert into #Lookup
+	select o.object_id, p.ParmId, p.DefVal from sys.objects o 
+				cross apply ormv2.RoutineParameterDefaults(o.object_id) p
+	where o.type IN ('P'/*SPROC*/, 'FN'/*UDF*/, 'TF'/*Table-valued function*/, 'IF'/*inline table function*/ /*, 'AF'aggregate function CLR*/ /*, 'FT'CLR table valued*//*, 'PC' CLR SPROC*//*, 'IS' DUNNO!*//*, 'FS' CLR SCALAR*/)
+		and not exists (select 1/0 
+							from ormv2.RoutineMeta dst  
+						where dst.RoutineName = o.name and dst.SchemaName = SCHEMA_NAME(o.schema_id) and dst.CatalogName = DB_NAME())
 
-		SELECT @numOfRows = @@CURSOR_ROWS
-		
-		WHILE 1=1
-		BEGIN
-			FETCH NEXT FROM cur INTO @objectId, @type
-			IF (@@FETCH_STATUS != 0) BREAK
-			
-			set @perc = (@ix / @numOfRows) * 100
+	CREATE NONCLUSTERED INDEX [tmplookup_ix_object_id] ON #Lookup ([object_id] ASC)
+-------------------------
 
-			IF (@ix < 10 OR @ix % 10 = 0)
-			begin
-				set @msg = FORMAT(@perc, 'N')
-				RAISERROR(@msg, 0,0) WITH NOWAIT		
-			end
+	TRUNCATE TABLE ormv2.RoutineMeta
 
-			set @parmXml = (select p.Name [@Name]
-										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,l.DefVal [@DefVal]
-										,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-									from sys.parameters p 
-										left join ormv2.RoutineParameterDefaults(@objectId) l on l.ParmId = p.parameter_id
-									where p.object_id = @objectId
-								for xml path('Parm'), elements)
-
-			set @resultXml = null
-
-			if (@type = 'P')
-			begin
-				set @resultXml = (SELECT def.column_ordinal [@ix]
-											,ISNULL(def.name, CONCAT('$NA_', def.column_ordinal))  [@name]
-											,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-											,def.max_length [@size]
-											,def.precision [@prec]
-											,def.scale [@scale]
-											,def.error_number	[@error_number]
-											,def.error_severity [@error_severity]
-											,def.error_message	[@error_msg]
-											,def.error_type		[@error_type]	
-											,def.error_type_desc  [@error_desc]
-								FROM sys.dm_exec_describe_first_result_set_for_object (@objectId, NULL) def
-								FOR XML PATH('Field'), ELEMENTS)
-									
-			end
-			else if (@type = 'TF')
-			begin
-				set @resultXml = (select  def.column_ordinal [@ix]
-										,ISNULL(def.name, CONCAT('$NA_', def.column_ordinal))  [@name]
-										,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-										,def.max_length [@size]
-										,def.precision [@prec]
-										,def.scale [@scale]
-										,def.error_number	[@error_number]
-										,def.error_severity [@error_severity]
-										,def.error_message	[@error_msg]
-										,def.error_type		[@error_type]	
-										,def.error_type_desc  [@error_desc] 
-									from sys.dm_exec_describe_first_result_set(CONCAT('select * from '
-																						, QUOTENAME(OBJECT_SCHEMA_NAME(@objectId)),'.',QUOTENAME(OBJECT_NAME(@objectId))
-																								,'(',REPLACE(RTRIM(REPLICATE('null ',(select count(1) from sys.parameters p where p.object_id = @objectId))),' ',',')
-																								, ')'), NULL, NULL)   def
-									FOR XML PATH('Field'), ELEMENTS
-									)
-			end
-
-			INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, ParametersHash, ResultSetXml, ResultSetHash, JsonMetadata)
+	INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, ParametersHash, ResultSetXml, ResultSetHash, JsonMetadata)
+	SELECT CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, HASHBYTES('SHA2_256', ParametersXml), ResultSetXml, HASHBYTES('SHA2_256', ResultSetXml), JsonMetadata
+	FROM (
 			SELECT DB_NAME() [CatalogName]
 					,SCHEMA_NAME(o.schema_id) [SchemaName]
 					,o.name RoutineName
@@ -539,253 +470,215 @@ BEGIN
 									END) ReturnType
 					,0 IsDeleted
 					,HOST_NAME()	LastUpdateByHostName
-					,@parmXml
-					,HASHBYTES('SHA2_256', @parmXml)
-					,@resultXml
-					,HASHBYTES('SHA2_256', @resultXml)
-					,ormv2.JsonMetadata(o.object_id)	JsonMetadata
-			FROM sys.objects o 
-				LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
-			WHERE o.object_id = @objectId
-
-			set @ix += 1
-		
-		END
-		CLOSE cur
-		DEALLOCATE cur
-
-	COMMIT TRANSACTION
-	
-	RAISERROR('100', 0,0) WITH NOWAIT	
-	
-	exec [ormv2].[CreateDBTrigger]
-END
-
-GO
-
-IF OBJECT_ID('ormv2.CreateDBTrigger') is null
-	EXEC ('CREATE PROCEDURE ormv2.CreateDBTrigger AS RETURN 0')
-GO
-ALTER PROCEDURE [ormv2].[CreateDBTrigger]
-AS
-BEGIN
-	IF (exists(select 1/0 from sys.triggers where Name = 'DB_Trigger_DALMonitor' and parent_class_desc = 'DATABASE')) EXEC ('DROP TRIGGER DB_Trigger_DALMonitor ON DATABASE')
-
-	EXEC ('CREATE TRIGGER [DB_Trigger_DALMonitor] ON DATABASE 
-		FOR CREATE_PROCEDURE, ALTER_PROCEDURE, CREATE_FUNCTION, ALTER_FUNCTION, DROP_PROCEDURE, DROP_FUNCTION,  ALTER_SCHEMA, RENAME
-	AS 
-	BEGIN
-		SET NOCOUNT ON
-		
-		DECLARE @eventType NVARCHAR(128)
-				,@dbName NVARCHAR(128)
-				,@schema NVARCHAR(128)
-				,@objectName NVARCHAR(128)
-				,@objectType NVARCHAR(128)
-		
-		SELECT @eventType = EVENTDATA().value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(128)'')
-				,@dbName = EVENTDATA().value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(128)'')
-				,@schema = EVENTDATA().value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(128)'')
-				,@objectName = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(128)'')
-				,@objectType = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(128)'')
-
-		if (@eventType = ''RENAME'')
-		begin
-			set @objectName = EVENTDATA().value(''(/EVENT_INSTANCE/NewObjectName)[1]'',''nvarchar(128)'')
-		end
-		
-		DECLARE @existingId INT
-				,@isDeleted BIT 
-				
-		set @isDeleted = case LEFT(@eventType,5) when ''DROP_'' then 1 else 0 end
-
-		-- look for an existing entry
-		select @existingId = m.Id 
-			from ormv2.[RoutineMeta] m 
-		where m.CatalogName = @dbName
-			and m.SchemaName = @schema
-			and m.RoutineName = @objectName
-		
-		if (@existingId is null)
-		begin
-			INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, ParametersHash, ResultSetXml, ResultSetHash, JsonMetadata)
-				select CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, HASHBYTES(''SHA2_256'', ParametersXml), ResultSetXml, HASHBYTES(''SHA2_256'', ResultSetXml), JsonMetadata
-					 FROM 
-					(select DB_NAME() [CatalogName]
-							,SCHEMA_NAME(o.schema_id) [SchemaName]
-							,o.name RoutineName
-							,convert(nvarchar(20), CASE
-								WHEN o.type IN (''P'',''PC'')
-								THEN ''PROCEDURE''
-								ELSE ''FUNCTION'' END) RoutineType
-							,convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id)) END) ReturnType
-							,0 IsDeleted
-							,HOST_NAME() LastUpdateByHostName
-							,(
-								select x.Name [@Name]
-									,p.is_output [@IsOutput]
-									,p.max_length [@Max]
-									,p.precision [@Precision]
-									,p.scale [@Scale]
-									,TYPE_NAME(p.user_type_id) [@Type]
-									,x.DefVal [@DefVal]
-									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-								from sys.parameters p 
-									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
-								where p.object_id = o.object_id
-							for xml path(''Parm''), elements
-						)  ParametersXml
-
-						,(
-								select * from 
-								(
-									-- PROCS
-									SELECT def.column_ordinal [@ix]
-											,ISNULL(def.name, CONCAT(''$NA_'', def.column_ordinal))  [@name]
-											,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-											,def.max_length [@size]
-											,def.precision [@prec]
-											,def.scale [@scale]
-											,def.error_number	[@error_number]
-											,def.error_severity [@error_severity]
-											,def.error_message	[@error_msg]
-											,def.error_type		[@error_type]	
-											,def.error_type_desc  [@error_desc]
-									FROM sys.dm_exec_describe_first_result_set_for_object (o.object_id, NULL) def
-									WHERE o.type = ''P''
-									UNION 
-									-- TVFs
-									select  def.column_ordinal [@ix]
-											,ISNULL(def.name, CONCAT(''$NA_'', def.column_ordinal))  [@name]
-											,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-											,def.max_length [@size]
-											,def.precision [@prec]
-											,def.scale [@scale]
-											,def.error_number	[@error_number]
-											,def.error_severity [@error_severity]
-											,def.error_message	[@error_msg]
-											,def.error_type		[@error_type]	
-											,def.error_type_desc  [@error_desc] 
-									from sys.dm_exec_describe_first_result_set(CONCAT(''select * from ''
-																							, QUOTENAME(OBJECT_SCHEMA_NAME(o.object_id)),''.'',QUOTENAME(OBJECT_NAME(o.object_id))
-																									,''('',REPLACE(RTRIM(REPLICATE(''null '',(select count(1) from sys.parameters p where p.object_id = o.object_id))),'' '','','')
-																									, '')''), NULL, NULL)   def
-									where o.type = ''TF''
-								) x
-						
-								FOR XML PATH(''Field''), ELEMENTS
+					,(
+						select p.Name [@Name]
+								,p.is_output [@IsOutput]
+								,p.max_length [@Max]
+								,p.precision [@Precision]
+								,p.scale [@Scale]
+								,TYPE_NAME(p.user_type_id) [@Type]
+								,l.DefVal [@DefVal]
+								,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+							from sys.parameters p 
+								left join #Lookup l on l.object_id = o.object_id and l.ParmId = p.parameter_id
+							where p.object_id = o.object_id
+						for xml path('Parm'), elements
+				)  ParametersXml
+				,(
+					select * from 
+					(
+						-- PROCS
+						SELECT def.column_ordinal [@ix]
+								,ISNULL(def.name, CONCAT('$NA_', def.column_ordinal))  [@name]
+								,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
+								,def.max_length [@size]
+								,def.precision [@prec]
+								,def.scale [@scale]
+								,def.error_number	[@error_number]
+								,def.error_severity [@error_severity]
+								,def.error_message	[@error_msg]
+								,def.error_type		[@error_type]	
+								,def.error_type_desc  [@error_desc]
+						FROM sys.dm_exec_describe_first_result_set_for_object (o.object_id, NULL) def
+						WHERE o.type in ('P','PC')
+						UNION 
+						-- TVFs
+						select  def.column_ordinal [@ix]
+								,ISNULL(def.name, CONCAT('$NA_', def.column_ordinal))  [@name]
+								,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
+								,def.max_length [@size]
+								,def.precision [@prec]
+								,def.scale [@scale]
+								,def.error_number	[@error_number]
+								,def.error_severity [@error_severity]
+								,def.error_message	[@error_msg]
+								,def.error_type		[@error_type]	
+								,def.error_type_desc  [@error_desc] 
+						from sys.dm_exec_describe_first_result_set(CONCAT('select * from '
+																				, QUOTENAME(OBJECT_SCHEMA_NAME(o.object_id)),'.',QUOTENAME(OBJECT_NAME(o.object_id))
+																						,'(',REPLACE(RTRIM(REPLICATE('null ',(select count(1) from sys.parameters p where p.object_id = o.object_id))),' ',',')
+																						, ')'), NULL, NULL)   def
+						where o.type = 'TF'
+					) x
 			
-						) ResultSetXml
-
-						,ormv2.JsonMetadata(o.object_id) JsonMetadata
-						from sys.objects o 
-							LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
-					where o.type IN (''P''/*SPROC*/, ''FN''/*UDF*/, ''TF''/*Table-valued function*/, ''IF''/*inline table function*/ /*, ''AF''aggregate function CLR*/ /*, ''FT''CLR table valued*//*, ''PC'' CLR SPROC*//*, ''IS'' DUNNO!*//*, ''FS'' CLR SCALAR*/)
-					and DB_NAME() = @dbName
-					and o.schema_id = SCHEMA_ID(@schema)
-					and o.name = @objectName
-				) X
-				
-		
-		end
-		else
-		begin
-			BEGIN TRANSACTION
-
-				DECLARE @updatedIds TABLE (Id INT)
-
-
-				update ormv2.[RoutineMeta]
-					set  LastUpdateDateUtc = getutcdate()
-						,LastUpdateByHostName = HOST_NAME()
-						,RoutineType = convert(nvarchar(20), CASE WHEN o.type IN (''P'',''PC'') THEN ''PROCEDURE'' ELSE ''FUNCTION'' END) 
-						,ReturnType = convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
-						,IsDeleted = @isDeleted
-						,ParametersXml = (
-							select x.Name [@Name]
-									,p.is_output [@IsOutput]
-									,p.max_length [@Max]
-									,p.precision [@Precision]
-									,p.scale [@Scale]
-									,TYPE_NAME(p.user_type_id) [@Type]
-									,x.DefVal [@DefVal]
-									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-								from sys.parameters p 
-									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
-								where p.object_id = o.object_id
-							for xml path(''Parm''), elements
-						)
-						,ResultSetXml = (
-								select * from 
-								(
-									-- PROCS
-									SELECT def.column_ordinal [@ix]
-											,ISNULL(def.name, CONCAT(''$NA_'', def.column_ordinal))  [@name]
-											,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-											,def.max_length [@size]
-											,def.precision [@prec]
-											,def.scale [@scale]
-											,def.error_number	[@error_number]
-											,def.error_severity [@error_severity]
-											,def.error_message	[@error_msg]
-											,def.error_type		[@error_type]	
-											,def.error_type_desc  [@error_desc]
-									FROM sys.dm_exec_describe_first_result_set_for_object (o.object_id, NULL) def
-									WHERE o.type = ''P''
-									UNION 
-									-- TVFs
-									select  def.column_ordinal [@ix]
-											,ISNULL(def.name, CONCAT(''$NA_'', def.column_ordinal))  [@name]
-											,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
-											,def.max_length [@size]
-											,def.precision [@prec]
-											,def.scale [@scale]
-											,def.error_number	[@error_number]
-											,def.error_severity [@error_severity]
-											,def.error_message	[@error_msg]
-											,def.error_type		[@error_type]	
-											,def.error_type_desc  [@error_desc] 
-									from sys.dm_exec_describe_first_result_set(CONCAT(''select * from ''
-																							, QUOTENAME(OBJECT_SCHEMA_NAME(o.object_id)),''.'',QUOTENAME(OBJECT_NAME(o.object_id))
-																									,''('',REPLACE(RTRIM(REPLICATE(''null '',(select count(1) from sys.parameters p where p.object_id = o.object_id))),'' '','','')
-																									, '')''), NULL, NULL)   def
-									where o.type = ''TF''
-								) x
-						
-								FOR XML PATH(''Field''), ELEMENTS
-						)
-						,JsonMetadata = ormv2.JsonMetadata(o.object_id)
-				output inserted.Id into @updatedIds							
-				from ormv2.[RoutineMeta] m 
-					left join sys.objects o  on DB_NAME() = m.CatalogName and o.schema_id = SCHEMA_ID(m.SchemaName) and o.name = m.RoutineName
+					FOR XML PATH('Field'), ELEMENTS
+			
+				) ResultSetXml
+				,ormv2.JsonMetadata(o.object_id)	JsonMetadata
+				from sys.objects o 
 					LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
-				where m.ID = @existingId
+			where o.type IN ('P'/*SPROC*/, 'FN'/*UDF*/, 'TF'/*Table-valued function*/, 'IF'/*inline table function*/ /*, 'AF'aggregate function CLR*/ /*, 'FT'CLR table valued*//*, 'PC' CLR SPROC*//*, 'IS' DUNNO!*//*, 'FS' CLR SCALAR*/)
+				and not exists (select 1/0 
+									from ormv2.RoutineMeta dst 
+								where dst.RoutineName = o.name and dst.SchemaName = SCHEMA_NAME(o.schema_id) and dst.CatalogName = DB_NAME())
+	) X
 
-				update rm
-					set ParametersHash = HASHBYTES(''SHA2_256'', ParametersXml),
-					 	ResultSetHash = HASHBYTES(''SHA2_256'', ResultSetXml) 
-				from ormv2.RoutineMeta rm WITH (updlock, readpast)
-					inner join @updatedIds t on t.Id = rm.Id					
+ 
 
-			COMMIT
-		end
-		
-		begin
-			-- ''delete'' any entries that no longer exist
-			update s
-				set s.IsDeleted = 1
-			from ormv2.RoutineMeta s 
-				left join sys.objects o on DB_NAME() = s.CatalogName and o.schema_id = SCHEMA_ID(s.SchemaName) and o.name = s.RoutineName
-			where o.object_id is null
-				and s.IsDeleted = 0
-		end
+		IF (exists(select 1/0 from sys.triggers where Name = 'DB_Trigger_DALMonitor' and parent_class_desc = 'DATABASE')) EXEC ('DROP TRIGGER DB_Trigger_DALMonitor ON DATABASE')
 
-	END') 
+		EXEC ('CREATE TRIGGER [DB_Trigger_DALMonitor] ON DATABASE 
+			FOR CREATE_PROCEDURE, ALTER_PROCEDURE, CREATE_FUNCTION, ALTER_FUNCTION, DROP_PROCEDURE, DROP_FUNCTION,  ALTER_SCHEMA, RENAME
+		AS 
+		BEGIN
+			SET NOCOUNT ON
+			
+			DECLARE @eventType NVARCHAR(128)
+					,@dbName NVARCHAR(128)
+					,@schema NVARCHAR(128)
+					,@objectName NVARCHAR(128)
+					,@objectType NVARCHAR(128)
+			
+			SELECT @eventType = EVENTDATA().value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(128)'')
+					,@dbName = EVENTDATA().value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(128)'')
+					,@schema = EVENTDATA().value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(128)'')
+					,@objectName = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(128)'')
+					,@objectType = EVENTDATA().value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(128)'')
+
+			if (@eventType = ''RENAME'')
+			begin
+				set @objectName = EVENTDATA().value(''(/EVENT_INSTANCE/NewObjectName)[1]'',''nvarchar(128)'')
+			end
+			
+			DECLARE @existingId INT
+					,@isDeleted BIT 
+					
+			set @isDeleted = case LEFT(@eventType,5) when ''DROP_'' then 1 else 0 end
+
+			-- look for an existing entry
+			select @existingId = m.Id 
+				from ormv2.[RoutineMeta] m 
+			where m.CatalogName = @dbName
+				and m.SchemaName = @schema
+				and m.RoutineName = @objectName
+			
+			if (@existingId is null)
+			begin
+				INSERT INTO ormv2.RoutineMeta (CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, JsonMetadata, ParametersHash)
+					select CatalogName, SchemaName, RoutineName, RoutineType,ReturnType, IsDeleted, LastUpdateByHostName, ParametersXml, JsonMetadata, HASHBYTES(''SHA2_256'', ParametersXml) FROM 
+						(select DB_NAME() [CatalogName]
+								,SCHEMA_NAME(o.schema_id) [SchemaName]
+								,o.name RoutineName
+								,convert(nvarchar(20), CASE
+									WHEN o.type IN (''P'',''PC'')
+									THEN ''PROCEDURE''
+									ELSE ''FUNCTION'' END) RoutineType
+								,convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id)) END) ReturnType
+								,0 IsDeleted
+								,HOST_NAME() LastUpdateByHostName
+								,(
+									select x.Name [@Name]
+										,p.is_output [@IsOutput]
+										,p.max_length [@Max]
+										,p.precision [@Precision]
+										,p.scale [@Scale]
+										,TYPE_NAME(p.user_type_id) [@Type]
+										,x.DefVal [@DefVal]
+										,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+									from sys.parameters p 
+										left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
+									where p.object_id = o.object_id
+								for xml path(''Parm''), elements
+							)  ParametersXml
+							(SELECT def.column_ordinal [@ix]
+								,ISNULL(def.name, CONCAT(''$NA_'', def.column_ordinal))  [@name]
+								,ISNULL(TYPE_NAME(def.system_type_id), def.user_type_name) [@type]
+								,def.max_length [@size]
+								,def.precision [@prec]
+								,def.scale [@scale]
+								,def.error_number	[@error_number]
+								,def.error_severity [@error_severity]
+								,def.error_message	[@error_msg]
+								,def.error_type		[@error_type]	
+								,def.error_type_desc  [@error_desc]
+						FROM sys.dm_exec_describe_first_result_set_for_object (OBJECT_ID(o.OBJECT_ID), NULL) def
+						FOR XML PATH(''Field''), ELEMENTS) ResultSetXml
+							,ormv2.JsonMetadata(o.object_id) JsonMetadata
+							from sys.objects o 
+								LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
+						where o.type IN (''P''/*SPROC*/, ''FN''/*UDF*/, ''TF''/*Table-valued function*/, ''IF''/*inline table function*/ /*, ''AF''aggregate function CLR*/ /*, ''FT''CLR table valued*//*, ''PC'' CLR SPROC*//*, ''IS'' DUNNO!*//*, ''FS'' CLR SCALAR*/)
+						and DB_NAME() = @dbName
+						and o.schema_id = SCHEMA_ID(@schema)
+						and o.name = @objectName
+					) X
+					
+			
+			end
+			else
+			begin
+				BEGIN TRANSACTION
+
+					DECLARE @updatedIds TABLE (Id INT)
+
+
+					update ormv2.[RoutineMeta]
+						set  LastUpdateDateUtc = getutcdate()
+							,LastUpdateByHostName = HOST_NAME()
+							,RoutineType = convert(nvarchar(20), CASE WHEN o.type IN (''P'',''PC'') THEN ''PROCEDURE'' ELSE ''FUNCTION'' END) 
+							,ReturnType = convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
+							,IsDeleted = @isDeleted
+							,ParametersXml = (
+								select x.Name [@Name]
+										,p.is_output [@IsOutput]
+										,p.max_length [@Max]
+										,p.precision [@Precision]
+										,p.scale [@Scale]
+										,TYPE_NAME(p.user_type_id) [@Type]
+										,x.DefVal [@DefVal]
+										,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+									from sys.parameters p 
+										left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
+									where p.object_id = o.object_id
+								for xml path(''Parm''), elements
+							)
+							,JsonMetadata = ormv2.JsonMetadata(o.object_id)
+					output inserted.Id into @updatedIds							
+					from ormv2.[RoutineMeta] m 
+						left join sys.objects o  on DB_NAME() = m.CatalogName and o.schema_id = SCHEMA_ID(m.SchemaName) and o.name = m.RoutineName
+						LEFT JOIN sys.parameters c ON (c.object_id = o.object_id AND c.parameter_id = 0)
+					where m.ID = @existingId
+
+					update rm
+						set ParametersHash = HASHBYTES(''SHA2_256'', ParametersXml) 
+					from ormv2.RoutineMeta rm WITH (updlock, readpast)
+						inner join @updatedIds t on t.Id = rm.Id					
+
+				COMMIT
+			end
+			
+			begin
+				-- ''delete'' any entries that no longer exist
+				update s
+					set s.IsDeleted = 1
+				from ormv2.RoutineMeta s 
+					left join sys.objects o on DB_NAME() = s.CatalogName and o.schema_id = SCHEMA_ID(s.SchemaName) and o.name = s.RoutineName
+				where o.object_id is null
+					and s.IsDeleted = 0
+			end
+
+		END') 
 	
-
-	DROP PROCEDURE [ormv2].[CreateDBTrigger] -- self destruct
 END
-
 
 GO
 
@@ -800,7 +693,9 @@ ALTER PROCEDURE [ormv2].[GetRoutineList]
 )
 as
 begin
-	select mon.CatalogName
+
+	select mon.Id
+			,mon.CatalogName
 			,mon.SchemaName
 			,mon.RoutineName
 			,case 
@@ -809,13 +704,11 @@ begin
 			end  RoutineType
 			,cast(mon.rowver as bigint) rowver
 			,mon.IsDeleted
-			,object_id(QUOTENAME(mon.CatalogName) + '.' + QUOTENAME(mon.SchemaName) + '.' + QUOTENAME(mon.RoutineName)) ObjectId
-			,mon.LastUpdateByHostName
-			,mon.JsonMetadata
 			,mon.ParametersXml
+			,object_id(QUOTENAME(mon.CatalogName) + '.' + QUOTENAME(mon.SchemaName) + '.' + QUOTENAME(mon.RoutineName)) ObjectId
+			,mon.JsonMetadata
+			,mon.LastUpdateByHostName
 			,mon.ParametersHash
-			,mon.ResultSetXml
-			,mon.ResultSetHash
 		from ormv2.[RoutineMeta] mon 
 	where mon.rowver > @maxRowver
 	order by rowver
@@ -857,10 +750,11 @@ BEGIN
 
 	IF (OBJECT_ID('ormv2.RoutineParameterDefaults') IS NOT NULL) DROP FUNCTION ormv2.RoutineParameterDefaults
 	IF (OBJECT_ID('ormv2.RoutineMeta') IS NOT NULL) DROP TABLE ormv2.RoutineMeta
-
-	IF (OBJECT_ID('ormv2.CreateDBTrigger') IS NOT NULL) DROP PROCEDURE ormv2.CreateDBTrigger
+	
 	
 	DROP PROCEDURE ormv2.Uninstall
 	IF (SCHEMA_ID('ormv2') IS NOT NULL) DROP SCHEMA ormv2
 END
 GO
+
+--EXEC ormv2.Init
