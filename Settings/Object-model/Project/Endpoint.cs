@@ -155,7 +155,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                         cmdInit.ExecuteScalar();
 
-                        this.IsOrmInstalled = true;
+
+                        WorkSpawner.HandleOrmInstalled(this);
                         SettingsInstance.SaveSettingsToFile();
 
                         return true;

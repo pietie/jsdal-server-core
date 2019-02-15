@@ -81,6 +81,8 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(ret.userErrorVal);
                 }
 
+                Hubs.WorkerMonitor.Instance.NotifyObservers();
+
                 SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();
@@ -196,17 +198,17 @@ namespace jsdal_server_core.Controllers
                   }).ToList();
 
                 var inlinePlugins = (from p in Settings.SettingsInstance.Instance.InlinePlugins
-                                    where p.IsValid
-                                    select new
-                                    {
-                                        Name = p.Name,
-                                        Description = p.Description,
-                                        Guid = Guid.Parse(p.PluginGuid),
-                                        Included = app.IsPluginIncluded(p.PluginGuid),
-                                        SortOrder = 0
+                                     where p.IsValid
+                                     select new
+                                     {
+                                         Name = p.Name,
+                                         Description = p.Description,
+                                         Guid = Guid.Parse(p.PluginGuid),
+                                         Included = app.IsPluginIncluded(p.PluginGuid),
+                                         SortOrder = 0
 
-                                    });
-                
+                                     });
+
                 ret.AddRange(inlinePlugins);
 
                 return ApiResponse.Payload(ret);

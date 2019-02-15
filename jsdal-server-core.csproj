@@ -60,6 +60,8 @@
 
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.10.0" />
 
+		<PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290" />
+
 		<PackageReference Include="Microsoft.Windows.Compatibility" Version="2.0.1" />
 
 		<PackageReference Include="NUglify" Version="1.5.11" />

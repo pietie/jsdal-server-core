@@ -85,16 +85,17 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                if (!ControllerHelper.GetProjectAndApp(project, dbSourceName, out var proj, out var dbSource, out var resp))
+                if (!ControllerHelper.GetProjectAndApp(project, dbSourceName, out var proj, out var app, out var resp))
                 {
                     return resp;
                 }
 
-                var ret = dbSource.AddEndpoint(name);
+                var ret = app.AddEndpoint(name);
 
                 if (ret.isSuccess)
                 {
-                    //!WorkSpawner.UpdateDatabaseSource(dbSource, ret.dbSource); TODO: Spin up a new worker
+                    app.GetEndpoint(name, out var endpoint, out var _);
+                    WorkSpawner.CreateNewWorker(endpoint);
                     SettingsInstance.SaveSettingsToFile();
                     return ApiResponse.Success();
                 }
@@ -121,8 +122,8 @@ namespace jsdal_server_core.Controllers
 
             if (ret.isSuccess)
             {
-                // TODO: Update existing worker?
                 SettingsInstance.SaveSettingsToFile();
+                Hubs.WorkerMonitor.Instance.NotifyObservers();
                 return ApiResponse.Success();
             }
             else
@@ -150,13 +151,7 @@ namespace jsdal_server_core.Controllers
 
                 if (bw != null)
                 {
-                   // endpoint.IsOrmInstalled = true; // will be set when BG task completes
-
-                    WorkSpawner.ResetMaxRowDate(endpoint);
-
-                    SettingsInstance.SaveSettingsToFile();
-
-                    if (bw ==null) return ApiResponse.Payload(new { Success = true });
+                    if (bw == null) return ApiResponse.Payload(new { Success = true });
                     else return ApiResponse.Payload(new { Success = true, BgTaskKey = bw.Key });
                 }
                 else return ApiResponse.ExclamationModal("Failed to install ORM");
@@ -173,16 +168,20 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                if (!ControllerHelper.GetProjectAndApp(project, dbSourceName, out var proj, out var dbSource, out var resp))
+                if (!ControllerHelper.GetProjectAndApp(project, dbSourceName, out var proj, out var app, out var resp))
                 {
                     return resp;
                 }
 
-                var ret = dbSource.DeleteEndpoint(name);
+                if (!app.GetEndpoint(name, out var endpoint, out var resp2))
+                {
+                    return ApiResponse.ExclamationModal($"The endpoint '{name}' not found.");
+                }
+                var ret = app.DeleteEndpoint(name);
 
                 if (ret.isSuccess)
                 {
-                    // TODO: Stop existing worker
+                    WorkSpawner.RemoveEndpoint(endpoint);
                     SettingsInstance.SaveSettingsToFile();
                     return ApiResponse.Success();
                 }
@@ -337,8 +336,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(ret.userErrorVal);
                 }
 
-                // TODO: Update worker thread appropriately?!
-
+                WorkSpawner.RestartWorker(ep);
                 SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();

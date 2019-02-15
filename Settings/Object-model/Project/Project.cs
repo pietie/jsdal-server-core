@@ -49,6 +49,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             app.JsNamespace = jsNamespace;
             app.DefaultRuleMode = defaultRuleMode;
 
+            app.UpdateParentReferences(this);
+
             this.Applications.Add(app);
 
             return CommonReturnValueWithApplication.success(app);

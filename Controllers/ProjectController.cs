@@ -53,6 +53,7 @@ namespace jsdal_server_core.Controllers
 
             if (ret.isSuccess)
             {
+                Hubs.WorkerMonitor.Instance.NotifyObservers();
                 SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
             }

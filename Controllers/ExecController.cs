@@ -348,7 +348,7 @@ namespace jsdal_server_core.Controllers {
                 int rowsAffected;
 
                 // DB call
-                var executionResult = OrmDAL.execRoutineQuery (req, res,
+                var executionResult = OrmDAL.ExecRoutineQuery (req, res,
                     execOptions.type,
                     execOptions.schema,
                     execOptions.routine,

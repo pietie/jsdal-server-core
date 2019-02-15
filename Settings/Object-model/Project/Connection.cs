@@ -134,11 +134,14 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             string connectionString = null;
 
-            //this.Port = port;
-            //this.instanceName = instanceName;
 
             if (!string.IsNullOrWhiteSpace(username))
             {
+                // retain current password if no new one was specified
+                if (string.IsNullOrWhiteSpace(password) && !string.IsNullOrWhiteSpace(this.ConnectionStringDecrypted)) {
+                    password = this.Password;
+                }
+
                 connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
             }
             else

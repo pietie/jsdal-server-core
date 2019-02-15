@@ -27,7 +27,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int DefaultRuleMode;
 
         public List<string> Plugins; // TODO: Need to build this out for Access-list functionality of some sort? -->Specifically for the Server methods and SignalR loops and such?
-     //   public List<string> InlinePlugins;
+                                     //   public List<string> InlinePlugins;
 
         public List<JsFile> JsFiles;
         public List<BaseRule> Rules;
@@ -85,7 +85,9 @@ namespace jsdal_server_core.Settings.ObjectModel
                 return CommonReturnValue.userError($"An endpoint with the name '{name}' already exists on the current data source.");
             }
 
-            this.Endpoints.Add(new Endpoint() { Name = name });
+            var newEP = new Endpoint() { Name = name };
+            newEP.UpdateParentReferences(this);
+            this.Endpoints.Add(newEP);
 
             return CommonReturnValue.success();
         }
@@ -171,7 +173,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             jsfile.Filename = name;
             jsfile.Id = ShortId.Generate();
-
+            
             this.JsFiles.Add(jsfile);
 
             return CommonReturnValue.success();
@@ -188,7 +190,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     break;
                 case RuleType.Specific:
                     {
-                      rule = SpecificRule.FromFullname(txt);
+                        rule = SpecificRule.FromFullname(txt);
                     }
                     break;
                 case RuleType.Regex:
@@ -208,7 +210,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     throw new Exception($"Unsupported rule type:${ ruleType}");
             }
 
-            rule.Id = ShortId.Generate(useNumbers: true, useSpecial:true, length: 6);
+            rule.Id = ShortId.Generate(useNumbers: true, useSpecial: true, length: 6);
 
             this.Rules.Add(rule);
 
@@ -225,7 +227,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
             existingRule.Update(txt);
-            
+
             return CommonReturnValue.success();
         }
 

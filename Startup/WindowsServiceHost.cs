@@ -29,6 +29,7 @@ namespace jsdal_server_core
         protected override void OnStopping()
         {
             _logger.LogInformation("OnStopping method called.");
+            // TODO: Shutdown web server gracefully?
             base.OnStopping();
         }
     }

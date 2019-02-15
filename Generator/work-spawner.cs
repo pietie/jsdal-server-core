@@ -24,14 +24,6 @@ namespace jsdal_server_core
         // };
         //}
 
-        // public static void resetMaxRowDate(Application app)
-        // {
-        //     // TODO: Do not match on name alone? (Was .CacheKey before)
-        //     var worker = WorkSpawner._workerList.FirstOrDefault(wl => wl.DBSource == app);
-
-        //     if (worker != null) worker.ResetMaxRowDate();
-        // }
-
         public static Worker GetWorker(string id)
         {
             return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.Ordinal));
@@ -43,9 +35,15 @@ namespace jsdal_server_core
 
         public static Worker GetWorkerByEndpoint(Endpoint ep)
         {
-            return WorkSpawner._workerList.First(w=>w.Endpoint == ep);
+            return WorkSpawner._workerList.FirstOrDefault(w => w.Endpoint == ep);
         }
 
+        public static bool RestartWorker(Endpoint ep)
+        {
+            var w = GetWorkerByEndpoint(ep);
+            if (w == null) return false;
+            return RestartWorker(w);
+        }
         public static bool RestartWorker(Worker worker)
         {
             if (worker.IsRunning) return false;
@@ -55,7 +53,9 @@ namespace jsdal_server_core
             worker.SetWinThread(winThread);
 
             winThread.Start();
-            
+
+            Hubs.WorkerMonitor.Instance.NotifyObservers();
+
             return true;
         }
 
@@ -71,26 +71,29 @@ namespace jsdal_server_core
         {
             if (_workerList == null) return;
 
-            lock(_workerList)
+            lock (_workerList)
             {
-                _workerList.ForEach(wl=>{
+                _workerList.ForEach(wl =>
+                {
                     try
                     {
                         wl.Stop();
                     }
-                    catch(ThreadAbortException)
+                    catch (ThreadAbortException)
                     {
                         // ignore TAEs
                     }
                 });
             }
+
+            Hubs.WorkerMonitor.Instance.NotifyObservers();
         }
 
         public static void Start()
         {
             try
             {
-                var endpoints = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(app=>app.Endpoints).ToList();
+                var endpoints = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(app => app.Endpoints).ToList();
 
                 WorkSpawner.TEMPLATE_RoutineContainer = File.ReadAllText("./resources/RoutineContainerTemplate.txt");
                 WorkSpawner.TEMPLATE_Routine = File.ReadAllText("./resources/RoutineTemplate.txt");
@@ -107,19 +110,11 @@ namespace jsdal_server_core
                 endpoints.ForEach(endpoint =>
                 {
                     //TEST!!
-                 //   if (endpoint.Name != "DEV" || endpoint.Application.Name != "PWAs") return;
+                    //   if (endpoint.Name != "DEV" || endpoint.Application.Name != "PWAs") return;
 
                     try
                     {
-                        var worker = new Worker(endpoint);
-
-                        Console.WriteLine($"Spawning new worker for { endpoint.Pedigree }");
-
-                        WorkSpawner._workerList.Add(worker);
-
-                        var winThread = new Thread(new ThreadStart(worker.Run));
-
-                        winThread.Start();
+                        CreateNewWorker(endpoint);
                     }
                     catch (Exception e)
                     {
@@ -135,25 +130,41 @@ namespace jsdal_server_core
 
         } // Start
 
-        public static void RemoveApplication(Application app)
+        public static void CreateNewWorker(Endpoint endpoint)
+        {
+            lock (_workerList)
+            {
+                if (GetWorkerByEndpoint(endpoint) != null) return;
+
+                var worker = new Worker(endpoint);
+
+                Console.WriteLine($"Spawning new worker for { endpoint.Pedigree }");
+
+                WorkSpawner._workerList.Add(worker);
+
+                var winThread = new Thread(new ThreadStart(worker.Run));
+
+                winThread.Start();
+            }
+
+            Hubs.WorkerMonitor.Instance.NotifyObservers();
+        }
+
+        public static void RemoveEndpoint(Endpoint endpoint)
         {
             try
             {
-                //! TODO: fix up
-                // var workers = _workerList.Where(w => w.App == app);
+                lock (_workerList)
+                {
+                    var worker = GetWorkerByEndpoint(endpoint);
 
-                // if (workers.Count() > 0)
-                // {
-                //     foreach (var w in workers)
-                //     {
-                //         w.Stop();
-                //     }
-
-                //     _workerList.RemoveAll(w => workers.Contains(w));
-
-                //     Hubs.WorkerMonitor.Instance.NotifyObservers();
-                // }
-
+                    if (worker != null)
+                    {
+                        worker.Stop();
+                        _workerList.Remove(worker);
+                        Hubs.WorkerMonitor.Instance.NotifyObservers();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -189,33 +200,33 @@ namespace jsdal_server_core
         //     }
         // }
 
-        public static void UpdateDatabaseSource(Application oldDbSource, Application newDbSource)
-        {
-            try
-            {// TODO: !!!!
-                // var existing = _workerList.FirstOrDefault(w => w.DBSource == dbSource);
+        // public static void UpdateDatabaseSource(Application oldDbSource, Application newDbSource)
+        // {
+        //     try
+        //     {// TODO: !!!!
+        //         // var existing = _workerList.FirstOrDefault(w => w.DBSource == dbSource);
 
-                // if (existing == null)
-                // {
-                //     var worker = new Worker(dbSource);
+        //         // if (existing == null)
+        //         // {
+        //         //     var worker = new Worker(dbSource);
 
-                //     Console.WriteLine($"Spawning new worker for { dbSource.Name}");
+        //         //     Console.WriteLine($"Spawning new worker for { dbSource.Name}");
 
-                //     WorkSpawner._workerList.Add(worker);
+        //         //     WorkSpawner._workerList.Add(worker);
 
-                //     var winThread = new Thread(new ThreadStart(worker.Run));
+        //         //     var winThread = new Thread(new ThreadStart(worker.Run));
 
-                //     winThread.Start();
+        //         //     winThread.Start();
 
-                //     Hubs.WorkerMonitor.Instance.NotifyObservers();
-                // }
+        //         //     Hubs.WorkerMonitor.Instance.NotifyObservers();
+        //         // }
 
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-            }
-        }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         SessionLog.Exception(ex);
+        //     }
+        // }
 
         public static void ResetMaxRowDate(Endpoint endpoint)
         {
@@ -224,6 +235,30 @@ namespace jsdal_server_core
             if (worker != null)
             {
                 worker.ResetMaxRowDate();
+            }
+        }
+
+        public static void HandleOrmInstalled(Endpoint endpoint)
+        {
+            var worker = GetWorkerByEndpoint(endpoint);
+
+            if (worker != null)
+            {
+                if (worker.IsRunning)
+                {
+                    worker.ResetMaxRowDate();
+                    endpoint.IsOrmInstalled = true;
+                }
+                else
+                {
+                    RemoveEndpoint(endpoint);
+                    worker = null;
+                }
+            }
+
+            if (worker == null)
+            {
+                CreateNewWorker(endpoint);
             }
         }
     }

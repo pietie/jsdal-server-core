@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using jsdal_plugin;
 using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
+using Microsoft.SqlServer.Types;
 
 namespace jsdal_server_core
 {
@@ -128,7 +129,7 @@ namespace jsdal_server_core
             public string userError { get; set; }
         }
 
-        public static ExecutionResult execRoutineQuery(HttpRequest req, HttpResponse res,
+        public static ExecutionResult ExecRoutineQuery(HttpRequest req, HttpResponse res,
                Controllers.ExecController.ExecType type,
                string schemaName,
                string routineName,
@@ -247,7 +248,7 @@ namespace jsdal_server_core
                             {
                                 newSqlParm.Direction = ParameterDirection.Input;
                             }
-                            else 
+                            else
                             {
                                 newSqlParm.Direction = ParameterDirection.InputOutput;
                             }
@@ -515,7 +516,7 @@ namespace jsdal_server_core
             if (str.StartsWith(blobRefPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 var key = str.Substring(blobRefPrefix.Length);
-        
+
                 if (!BlobStore.Exists(key)) throw new Exception($"Invalid, non-existent or expired blob reference specified: '{str}'");
                 return BlobStore.Get(key);
             }
@@ -653,6 +654,30 @@ namespace jsdal_server_core
                         else if (val is DBNull)
                         {
                             rowValueList.Add(null);
+                        }
+                        else if (val is Microsoft.SqlServer.Types.SqlGeography)
+                        {
+                            var geo = (Microsoft.SqlServer.Types.SqlGeography)val;
+
+                            if (!geo.IsNull)
+                            {
+                                var wkt = geo.ToString();
+
+                                if (wkt.StartsWith("POINT") && !geo.Lat.IsNull && !geo.Long.IsNull)
+                                {
+                                    val = new { lat = geo.Lat.Value, lng = geo.Long.Value };
+                                }
+                                else
+                                {
+                                    val = wkt;
+                                }
+
+                                rowValueList.Add(val);
+                            }
+                            else
+                            {
+                                rowValueList.Add(null);
+                            }
                         }
                         else
                         {
