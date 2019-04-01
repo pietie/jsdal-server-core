@@ -95,10 +95,9 @@ namespace jsdal_server_core.Controllers
 
                 var jsFileDescriptor = $"{project}/{app}/{endpoint}/{file}";
 
-                if (tsd) // typescript definition
+                if (tsd)
                 {
-                    // TODO:!?!?!?!?!! is still still valid?
-                    return ServeTypescriptDefinition(jsFile, application);
+                    return ServeTypescriptDefinition(ep, jsFile);
                 }
 
                 var path = min ? ep.MinifiedOutputFilePath(jsFile) : ep.OutputFilePath(jsFile);
@@ -184,6 +183,21 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+        [HttpGet("/api/tsd/common")]
+        public IActionResult ServeCommonTSD()
+        {
+            try
+            {
+                var typescriptDefinitionsCommon = System.IO.File.ReadAllText("./resources/TypeScriptDefinitionsCommon.d.ts");
+
+                return Ok(typescriptDefinitionsCommon);
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return BadRequest(ex.Message);
+            }
+        }
 
 
         [HttpGet("/api/jsdal/projects")]
@@ -203,32 +217,6 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        // [HttpGet("/api/jsdal/outputs")]
-        // public List<dynamic> GetOutputDetail([FromQuery] string projectGuid)
-        // {
-        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
-        //     // TODO: throw if project does not exist
-        //     var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }) }).ToList<dynamic>();
-
-        //     return ret;
-        // }
-
-        // [HttpGet("/api/jsdal/dbsources")]
-        // public IActionResult GetDbSources([FromQuery] string projectGuid)
-        // {
-        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
-
-        //     if (project == null)
-        //     {
-        //         return NotFound($"The Project {projectGuid} does not exist.");
-        //     }
-
-        //     var dbSources = project.Applications.Select(db => new { db.Name }).ToList<dynamic>();
-
-        //     return Ok(dbSources);
-        // }
-
-
         [HttpGet("api/jsdal/files")]
         public IActionResult GetOutputFiles([FromQuery] string dbSourceGuid)
         {
@@ -244,11 +232,6 @@ namespace jsdal_server_core.Controllers
 
 
             return Ok(jsFiles);
-
-            // ret.Content = new StringContent(JsonConvert.SerializeObject(jsFiles));
-            // ret.Content.Headers.ContentType = new MediaTypeHeaderValue("application/javascript");
-
-            // return ret;
         }
 
         [HttpGet("/api/thread/{dbSourceGuid}/status")]
@@ -290,6 +273,85 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+
+        private static string ComputeETag(byte[] data)
+        {
+            byte[] md5data = ((System.Security.Cryptography.HashAlgorithm)System.Security.Cryptography.CryptoConfig.CreateFromName("MD5")).ComputeHash(data);
+
+            return "\"" + BitConverter.ToString(md5data).Replace("-", "").ToLower() + "\"";
+        }
+
+     
+        [HttpGet]
+        [Route("/api/hostname")]
+        public string HostName()
+        {
+            var he = System.Net.Dns.GetHostEntry("localhost");
+            return he?.HostName;
+        }
+
+        private IActionResult ServeTypescriptDefinition(Endpoint endpoint, JsFile jsFile)
+        {
+            // if (jsFile == null && app != null)
+            // {
+            //     // TODO: Get server ip/dns name???
+            //     var refs = app.JsFiles.Select(f => $"/// <reference path=\"./api/tsd/{f.Id}\" />").ToArray();
+            //     string content = "";
+
+            //     if (refs.Length > 0)
+            //     {
+            //         content = string.Join("\r\n", refs);
+            //     }
+
+            //     return Ok(content);
+            // }
+
+            
+            var tsdFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
+
+            if (!System.IO.File.Exists(tsdFilePath)) return NotFound();
+
+            byte[] tsdData;
+
+            using (var fs = System.IO.File.Open(tsdFilePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+            {
+                tsdData = new byte[fs.Length];
+                fs.Read(tsdData, 0, tsdData.Length);
+            }
+
+            Response.Headers.Add("jsfver", jsFile.Version.ToString());
+
+            return Content(System.Text.Encoding.UTF8.GetString(tsdData));
+        }
+
+
+        // [HttpGet("/api/jsdal/outputs")]
+        // public List<dynamic> GetOutputDetail([FromQuery] string projectGuid)
+        // {
+        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
+        //     // TODO: throw if project does not exist
+        //     var ret = project.Applications.Select(db => new { db.Name, Files = db.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }) }).ToList<dynamic>();
+
+        //     return ret;
+        // }
+
+        // [HttpGet("/api/jsdal/dbsources")]
+        // public IActionResult GetDbSources([FromQuery] string projectGuid)
+        // {
+        //     var project = SettingsInstance.Instance.ProjectList.FirstOrDefault(p => p.Guid.Equals(projectGuid, StringComparison.OrdinalIgnoreCase));
+
+        //     if (project == null)
+        //     {
+        //         return NotFound($"The Project {projectGuid} does not exist.");
+        //     }
+
+        //     var dbSources = project.Applications.Select(db => new { db.Name }).ToList<dynamic>();
+
+        //     return Ok(dbSources);
+        // }
+
+
+           
         /*  15/05/2018, PL: Commented out..now sure where this is used..if at all... TODO: check jsdal-cli
                 [HttpGet("api/meta")]
                 public List<dynamic> GetMetadataUpdates([FromQuery] string dbSourceGuid, [FromQuery] long maxRowver)
@@ -334,185 +396,72 @@ namespace jsdal_server_core.Controllers
                 }
                 */
 
-        private static string ComputeETag(byte[] data)
-        {
-            byte[] md5data = ((System.Security.Cryptography.HashAlgorithm)System.Security.Cryptography.CryptoConfig.CreateFromName("MD5")).ComputeHash(data);
+        // [HttpGet("/api/js/{fileGuid}")] // TODO: support multiple ways api/js/quickRef .... api/js/projName/dbSourceName/fileName (e.g. api/js/vZero/IceV0_Audit/General.js)
+        // public IActionResult ServeFile(string fileGuid, [FromQuery] long v = 0, [FromQuery] bool min = false, [FromQuery] bool tsd = false)
+        // {
+        //     try
+        //     {
+        //         if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-            return "\"" + BitConverter.ToString(md5data).Replace("-", "").ToLower() + "\"";
-        }
+        //         var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Id.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
 
-        [HttpGet("/api/js/{fileGuid}")] // TODO: support multiple ways api/js/quickRef .... api/js/projName/dbSourceName/fileName (e.g. api/js/vZero/IceV0_Audit/General.js)
-        public IActionResult ServeFile(string fileGuid, [FromQuery] long v = 0, [FromQuery] bool min = false, [FromQuery] bool tsd = false)
-        {
-            try
-            {
-                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+        //         if (jsFile == null) return NotFound();
 
-                var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Id.Equals(fileGuid, StringComparison.OrdinalIgnoreCase));
+        //         var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).First(db => db.JsFiles.Contains(jsFile));
 
-                if (jsFile == null) return NotFound();
+        //         if (tsd) // typescript definition
+        //         {
+        //             return ServeTypescriptDefinition(jsFile, dbSource);
+        //         }
 
-                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).First(db => db.JsFiles.Contains(jsFile));
+        //         throw new NotImplementedException();
+        //         Endpoint endpoint = null; // TODO: !!!!!
 
-                if (tsd) // typescript definition
-                {
-                    return ServeTypescriptDefinition(jsFile, dbSource);
-                }
+        //         var path = min ? endpoint.MinifiedOutputFilePath(jsFile) : endpoint.OutputFilePath(jsFile);
 
-                throw new NotImplementedException();
-                Endpoint endpoint = null; // TODO: !!!!!
+        //         if (!System.IO.File.Exists(path))
+        //         {
+        //             Console.WriteLine("412: " + dbSource.Name + " -- " + jsFile.Filename);
+        //             //   return new HttpResponseMessage(HttpStatusCode.PreconditionFailed) { Content = new StringContent("The requested file is not valid or has not been generated yet") };
+        //             return StatusCode(StatusCodes.Status412PreconditionFailed, "The requested file is not valid or has not been generated yet");
+        //         }
 
-                var path = min ? endpoint.MinifiedOutputFilePath(jsFile) : endpoint.OutputFilePath(jsFile);
+        //         byte[] jsFileData;
 
-                if (!System.IO.File.Exists(path))
-                {
-                    Console.WriteLine("412: " + dbSource.Name + " -- " + jsFile.Filename);
-                    //   return new HttpResponseMessage(HttpStatusCode.PreconditionFailed) { Content = new StringContent("The requested file is not valid or has not been generated yet") };
-                    return StatusCode(StatusCodes.Status412PreconditionFailed, "The requested file is not valid or has not been generated yet");
-                }
-
-                byte[] jsFileData;
-
-                using (var fs = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
-                {
-                    jsFileData = new byte[fs.Length];
-                    fs.Read(jsFileData, 0, jsFileData.Length);
-                }
+        //         using (var fs = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+        //         {
+        //             jsFileData = new byte[fs.Length];
+        //             fs.Read(jsFileData, 0, jsFileData.Length);
+        //         }
 
 
-                var etagForLatestFile = ComputeETag(jsFileData);
+        //         var etagForLatestFile = ComputeETag(jsFileData);
 
-                var etagFromRequest = this.Request.Headers["If-None-Match"];
+        //         var etagFromRequest = this.Request.Headers["If-None-Match"];
 
-                if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etagForLatestFile))
-                {
-                    if (etagForLatestFile == etagFromRequest) return StatusCode(StatusCodes.Status304NotModified);
-                }
-
-
-                var ret = File(jsFileData, "text/javascript");
-
-                ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etagForLatestFile);
-
-                this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
-
-                //!ret.Headers.Add("jsfver", jsFile.Version.ToString());
-
-                return ret;
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-                return BadRequest(ex.Message);
-            }
-        }
+        //         if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etagForLatestFile))
+        //         {
+        //             if (etagForLatestFile == etagFromRequest) return StatusCode(StatusCodes.Status304NotModified);
+        //         }
 
 
-        [HttpGet("/api/tsd/common")]
-        public IActionResult ServeCommonTSD()
-        {
-            try
-            {
-                var typescriptDefinitionsCommon = System.IO.File.ReadAllText("./resources/TypeScriptDefinitionsCommon.d.ts");
+        //         var ret = File(jsFileData, "text/javascript");
 
-                return Ok(typescriptDefinitionsCommon);
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-                return BadRequest(ex.Message);
-            }
-        }
+        //         ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etagForLatestFile);
 
+        //         this.Response.Headers.Add("jsfver", jsFile.Version.ToString());
 
-        [HttpGet("/api/tsd/{guid}")] // {guid} can be either a JsFile Guid or a DB source guid - if it's a DB Source then we return DBSource/all.d.ts
-        public IActionResult ServeFileTypings(Guid guid)
-        {
-            try
-            {
-                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+        //         //!ret.Headers.Add("jsfver", jsFile.Version.ToString());
 
-                // TODO: review all of this
-                var dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).FirstOrDefault(db => db.Name.Equals(guid));
+        //         return ret;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         SessionLog.Exception(ex);
+        //         return BadRequest(ex.Message);
+        //     }
+        // }
 
-                // if the specified Guid is not a DBSource try looking for a file
-                if (dbSource == null)
-                {
-                    var jsFile = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(db => db.JsFiles).FirstOrDefault(f => f.Id.Equals(guid));
-
-                    if (jsFile == null) return NotFound();
-
-                    dbSource = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).First(db => db.JsFiles.Contains(jsFile));
-
-                    return ServeTypescriptDefinition(jsFile, dbSource);
-
-                }
-
-                return ServeTypescriptDefinition(null, dbSource);
-
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpGet]
-        [Route("/api/hostname")]
-        public string HostName()
-        {
-            var he = System.Net.Dns.GetHostEntry("localhost");
-            return he?.HostName;
-        }
-
-        private IActionResult ServeTypescriptDefinition(JsFile jsFile, Application dbSource)
-        {
-            if (jsFile == null && dbSource != null)
-            {
-                // TODO: Get server ip/dns name???
-                var refs = dbSource.JsFiles.Select(f => $"/// <reference path=\"./api/tsd/{f.Id}\" />").ToArray();
-                string content = "";
-
-                if (refs.Length > 0)
-                {
-                    content = string.Join("\r\n", refs);
-                }
-
-                //var retDB = new HttpResponseMessage(HttpStatusCode.OK);
-
-                //retDB.Content = new StringContent(content);
-                //retDB.Content.Headers.ContentType = new MediaTypeHeaderValue("text/javascript");
-
-                //?retDB.Headers.Add("jsfver", jsFile.Version.ToString());
-
-                return Ok(content);
-            }
-
-            throw new NotImplementedException();
-            Endpoint endpoint = null; // TODO:!!!
-            var tsdFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
-
-            if (!System.IO.File.Exists(tsdFilePath)) return NotFound();
-
-            byte[] tsdData;
-
-            using (var fs = System.IO.File.Open(tsdFilePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
-            {
-                tsdData = new byte[fs.Length];
-                fs.Read(tsdData, 0, tsdData.Length);
-            }
-
-            // var ret = new HttpResponseMessage(HttpStatusCode.OK);
-
-            // ret.Content = new ByteArrayContent(tsdData);
-            // ret.Content.Headers.ContentType = new MediaTypeHeaderValue("text/javascript");
-
-
-            Response.Headers.Add("jsfver", jsFile.Version.ToString());
-
-            return Content(System.Text.Encoding.UTF8.GetString(tsdData));
-        }
 
     }
 }

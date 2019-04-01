@@ -39,7 +39,6 @@ namespace jsdal_server_core
             private set;
         }
 
-        public bool IsRulesDirty { get; set; }
         public bool IsOutputFilesDirty { get; set; }
         public long? MaxRowDate { get; private set; }
 
@@ -97,6 +96,15 @@ namespace jsdal_server_core
             this.MaxRowDate = 0;
         }
 
+        private Queue<WorkerInstruction> _instructionQueue = new Queue<WorkerInstruction>();
+        public void QueueInstruction(WorkerInstruction instruction)
+        {
+            lock (_instructionQueue)
+            {
+                _instructionQueue.Enqueue(instruction);
+            }
+        }
+
         public void Run()
         {
             try
@@ -106,7 +114,6 @@ namespace jsdal_server_core
                 this.Status = "Started";
 
                 this.IsRunning = true;
-                this.IsRulesDirty = false;
                 this.IsOutputFilesDirty = false;
 
                 DateTime lastSavedDate = DateTime.Now;
@@ -134,6 +141,24 @@ namespace jsdal_server_core
 
                 while (this.IsRunning)
                 {
+                    // look for new instructions first
+                    lock (_instructionQueue)
+                    {
+                        while (_instructionQueue.Count > 0)
+                        {
+                            var ins = _instructionQueue.Dequeue();
+
+                            if (ins.Type == WorkerInstructionType.RegenAllFiles)
+                            {
+                                this.ForceGenerateAllOutputFiles(this.Endpoint);
+                            }
+                            else if (ins.Type == WorkerInstructionType.RegenSpecificFile)
+                            {
+                                this.ForceGenerateOutputFile(this.Endpoint, ins.JsFile);
+                            }
+                        }
+                    }
+
                     isIterationDirty = false;
 
                     string connectionStringRef = null;
@@ -195,10 +220,13 @@ namespace jsdal_server_core
                         // TODO: make configurable
                         var thresholdDate = DateTime.Now.AddSeconds(-60);
 
-                        var beforeThreshold = exceptionThrottler.Where(kv => kv.Key < thresholdDate);
+                        var beforeThreshold = exceptionThrottler.Where(kv => kv.Key < thresholdDate).ToList();
 
                         // remove items outside of threshold checking window
-                        foreach (var kv in beforeThreshold) { exceptionThrottler.Remove(kv.Key); }
+                        for (int i = 0; i < beforeThreshold.Count; i++)
+                        {
+                            exceptionThrottler.Remove(beforeThreshold[i].Key);
+                        }
 
                         // TODO: make threshold count configurable
                         if (exceptionThrottler.Count() >= 6)
@@ -609,12 +637,47 @@ namespace jsdal_server_core
                 {
                     JsFileGenerator.GenerateJsFile(endpoint, jsFile, fullChangeSet);
 
-                    this.IsRulesDirty = false;
+
                     this.IsOutputFilesDirty = false;
 
                     endpoint.LastUpdateDate = DateTime.Now;
 
                 });
+            }
+            catch (Exception ex)
+            {
+                this.log.Exception(ex);
+                SessionLog.Exception(ex);
+            }
+        }
+
+        private void ForceGenerateAllOutputFiles(Endpoint endpoint)
+        {
+            try
+            {
+                endpoint.Application.JsFiles.ForEach(jsFile =>
+                {
+                    JsFileGenerator.GenerateJsFile(endpoint, jsFile, rulesChanged: true);
+
+                    this.IsOutputFilesDirty = false;
+                    endpoint.LastUpdateDate = DateTime.Now;
+                });
+            }
+            catch (Exception ex)
+            {
+                this.log.Exception(ex);
+                SessionLog.Exception(ex);
+            }
+        }
+
+        private void ForceGenerateOutputFile(Endpoint endpoint, JsFile jsFile)
+        {
+            try
+            {
+                JsFileGenerator.GenerateJsFile(endpoint, jsFile, rulesChanged: true);
+
+                this.IsOutputFilesDirty = false;
+                endpoint.LastUpdateDate = DateTime.Now;
             }
             catch (Exception ex)
             {

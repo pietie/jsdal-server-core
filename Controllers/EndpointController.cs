@@ -14,17 +14,98 @@ namespace jsdal_server_core.Controllers
     [Authorize(Roles = "admin")]
     public class EndpointController : Controller
     {
-        [HttpGet("/api/endpoint")]
-        public ApiResponse GetAllEndpoints([FromQuery] string project, [FromQuery] string dbSourceName)
+        // TODO: Move to new controller
+        [HttpGet("/api/exec-tester/endpoints")]
+        public ApiResponse GetAllEndpointsForSpecificApp()
         {
             try
             {
-                if (!ControllerHelper.GetProjectAndApp(project, dbSourceName, out var proj, out var dbSource, out var resp))
+                return ApiResponse.Payload(SettingsInstance.Instance.ProjectList
+                    .SelectMany(p =>
+                            p.Applications.SelectMany(app => app.Endpoints.Select(ep => new
+                            {
+                                Project = p.Name,
+                                App = app.Name,
+                                Endpoint = ep.Name
+                            }))));
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpGet("/api/exec-tester/search-routine")]
+        public IActionResult FindRoutine([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string query)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query) || query.Length < 3)
+                {
+                    return BadRequest("You need to specify at least 3 characters.");
+                }
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound($"The specified endpoint does not exist: {project}/{app}/{endpoint}");
+                }
+
+                var q = (from r in ep.cache
+                         where r.Contains(query)
+                         select r.FullName).ToList();
+
+                return Ok(q);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.ToString());
+            }
+        }
+        
+         [HttpGet("/api/exec-tester/routine-metadata")]
+        public IActionResult GetRoutineMetadata([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string routine)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(routine))
+                {
+                    return BadRequest("Routine name not specified");
+                }
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound($"The specified endpoint does not exist: {project}/{app}/{endpoint}");
+                }
+
+                var r = ep.cache.FirstOrDefault(rt=>rt.EqualsQuery(routine));
+
+                if (r == null)
+                {
+                    return NotFound("Specified routine not found");
+                }
+                
+                return Ok(new {
+                        Parameters = r.Parameters,
+                        ResultSets = r.ResultSetMetadata
+                });
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.ToString());
+            }
+        }
+
+        [HttpGet("/api/endpoint")]
+        public ApiResponse GetAllEndpointsForSpecificApp([FromQuery] string project, [FromQuery(Name="dbSourceName")] string appName)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(project, appName, out var proj, out var app, out var resp))
                 {
                     return resp;
                 }
 
-                return ApiResponse.Payload(dbSource.Endpoints
+                return ApiResponse.Payload(app.Endpoints
                                                         .Select(ep => new { ep.Name, ep.IsOrmInstalled })
                                                         .OrderBy(ep => ep.Name));
             }

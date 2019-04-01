@@ -34,9 +34,8 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "");
         }
 
-        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet)
+        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
         {
-
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;
             if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
@@ -54,13 +53,18 @@ namespace jsdal_server_core
                                     orderby row.FullName
                                     select row).ToList();
 
-            var changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0);
+            List<KeyValuePair<string, ChangeDescriptor>> changesInFile = null;
 
-            // TODO: Consider if this is a good idea?
-            //       If we can reasonably say that there are now changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
-            if (changesInFile.Count() == 0)
+            if (fullChangeSet != null)
             {
-                return;
+                changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0).ToList();
+
+                // TODO: Consider if this is a good idea?
+                //       If we can reasonably say that there are now changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
+                if (changesInFile.Count == 0)
+                {
+                    return;
+                }
             }
 
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
@@ -93,7 +97,7 @@ namespace jsdal_server_core
                     }
 
                     // needs to be true so that DAL.js can identify parameters from the [options] parm passed in
-                    var includeParams = true;
+                    var includeParams = false; // 27/03/2019, PL: DAL api changed so parms are no longer necessary in .js file
 
                     if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)
                               || r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
@@ -318,9 +322,15 @@ namespace jsdal_server_core
             jsFile.IncrementVersion();
 
             // record changes against new version
-            if (changesInFile.Count() > 0)
+
+            if (changesInFile != null && changesInFile.Count > 0)
             {
-                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv=>kv.Value).ToList());
+                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv => kv.Value).ToList());
+            }
+
+            if (rulesChanged)
+            {
+                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, new List<ChangeDescriptor> { ChangeDescriptor.Create("System", "One or more rules changed.") });
             }
 
             finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))

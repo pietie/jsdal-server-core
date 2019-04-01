@@ -410,7 +410,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 SessionLog.Error($"Execution connection not found on endpoint '{this.Name}'({ this.Id }).");
             }
 
-
             return this.ExecutionConnection;
         }
 

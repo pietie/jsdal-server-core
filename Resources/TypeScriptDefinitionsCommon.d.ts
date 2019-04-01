@@ -1,37 +1,140 @@
 declare module jsDAL {
-    interface Sproc { }
+    interface Sproc {
+     }
 }
 
+interface IDALConfig {
+    AutoSetTokenGuid?: boolean;
+    AutoProcessApiResponse?: boolean;
+    HandleExceptions?: boolean;
+    ShowPageLoadingIndicator?: boolean;
+    CommandTimeoutInSeconds?: number;
+    $select?: string;
+    $captcha?: string;
+    HttpMethod?: string;
+}
+
+
 interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {
+    configure(config: IDALConfig): ISprocExecGeneric0<O, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric0<O, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric0<O, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric0<O, U>;
+    Select(...cols: string[]): ISprocExecGeneric0<O, U>;
     ExecQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
     ExecSingleResult(parameters?: U): Promise<ApiResponseNoResult<O>>;
     ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
-    then(any): Promise<any>;
-    always(cb: (...any) => any): ISprocExecGeneric0<O, U>;
-    Select(any): jsDAL.Sproc;
 }
 
-interface ISprocExecGeneric1<O/*Output*/, T/*Result set*/, U/*Parameter*/> {
-    ExecQuery(parameters?: U): Promise<ApiResponse<O, T>>;
-    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T>>;
+interface ISprocExecGeneric1<O/*Output*/, T1/*Result set*/, U/*Parameter*/> {
+    configure(config?: IDALConfig): ISprocExecGeneric1<O, T1, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric1<O, T1, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric1<O, T1, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric1<O, T1, U>;
+    Select(...cols: string[]): ISprocExecGeneric1<O, T1, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse<O, T1>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
     ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
-    then<U>(onFulfilled?: (value: T) => U | Promise<U>, onRejected?: (error: any) => U | Promise<U>): Promise<U>;
-    always(cb: (...any) => any): ISprocExecGeneric1<O, T, U>;
-    Select(any): ISprocExecGeneric1<O, T, U>;
-    captcha(captchaResponseValue: string): ISprocExecGeneric1<O, T, U>;
 }
 
-interface ISprocExecGeneric2<O, T1, T2, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse2<O, T1, T2>>; always(cb: (...any) => any): ISprocExecGeneric2<O, T1, T2, U>; }
-interface ISprocExecGeneric3<O, T1, T2, T3, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse3<O, T1, T2, T3>>; }
-interface ISprocExecGeneric4<O, T1, T2, T3, T4, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse4<O, T1, T2, T3, T4>>; }
-interface ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse5<O, T1, T2, T3, T4, T5>>; }
+interface ISprocExecGeneric2<O/*Output*/, T1, T2, U/*Parameter*/> {
+    configure(config?: IDALConfig): ISprocExecGeneric2<O, T1, T2, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric2<O, T1, T2, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric2<O, T1, T2, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric2<O, T1, T2, U>;
+    Select(...cols: string[]): ISprocExecGeneric2<O, T1, T2, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse2<O, T1, T2>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
 
-interface ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse6<O, T1, T2, T3, T4, T5, T6>>; }
+interface ISprocExecGeneric3<O, T1, T2, T3, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    Select(...cols: string[]): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse3<O, T1, T2, T3>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
 
-interface ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse7<O, T1, T2, T3, T4, T5, T6, T7>>; }
-interface ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse8<O, T1, T2, T3, T4, T5, T6, T7, T8>>; }
-interface ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9>>; }
-interface ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U> extends ISprocExecGeneric1<O, T1, U> { ExecQuery(parameters?: U): Promise<ApiResponse10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>>; }
+interface ISprocExecGeneric4<O, T1, T2, T3, T4, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    Select(...cols: string[]): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse4<O, T1, T2, T3, T4>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    Select(...cols: string[]): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse5<O, T1, T2, T3, T4, T5>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    Select(...cols: string[]): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse6<O, T1, T2, T3, T4, T5, T6>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    Select(...cols: string[]): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse7<O, T1, T2, T3, T4, T5, T6, T7>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    Select(...cols: string[]): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse8<O, T1, T2, T3, T4, T5, T6, T7, T8>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    Select(...cols: string[]): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
+
+interface ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U> {
+    configure(config?: IDALConfig): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    afterExec(cb: (...any) => any): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    always(cb: (...fn: any[]) => any): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    captcha(captchaResponseValue: string): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    Select(...cols: string[]): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    ExecQuery(parameters?: U): Promise<ApiResponse10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>>;
+    ExecSingleResult(parameters?: U): Promise<ApiResponseSingleResult<O, T1>>;
+    ExecNonQuery(parameters?: U): Promise<ApiResponseNoResult<O>>;
+}
 
 interface IUDFExecGeneric<T, U> { Exec(parameters?: U): Promise<T>; }
 

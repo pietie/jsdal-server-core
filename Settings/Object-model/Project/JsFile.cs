@@ -37,7 +37,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Version++;
         }
 
-        public CommonReturnValue addRule(RuleType ruleType, string txt)
+        public CommonReturnValue AddRule(RuleType ruleType, string txt)
         {
             BaseRule rule = null;
 

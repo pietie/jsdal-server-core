@@ -261,6 +261,28 @@ namespace jsdal_server_core
                 CreateNewWorker(endpoint);
             }
         }
+
+        public static void SetRulesDirty(Application app)
+        {
+            // regen all jsfiles on app
+            var workers = WorkSpawner._workerList.Where(w => w.Endpoint.Application == app).ToList();
+
+            foreach(var w in workers)
+            {
+                w.QueueInstruction(new WorkerInstruction() { Type = WorkerInstructionType.RegenAllFiles });
+            }
+        }
+
+        public static void SetRulesDirty(Application app, JsFile jsFile)
+        {
+            // regen only affected jsFile
+            var worker = WorkSpawner._workerList.FirstOrDefault(w => w.Endpoint.Application == app && app.JsFiles.Contains(jsFile));
+
+            if (worker != null)
+            {
+                worker.QueueInstruction(new WorkerInstruction() { Type = WorkerInstructionType.RegenSpecificFile, JsFile = jsFile });
+            }
+        }
     }
 }
 

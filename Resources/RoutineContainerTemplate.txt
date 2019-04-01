@@ -3,15 +3,15 @@
 var DAL;
 (function (dal) {
 	
-    var S = function (schema, routine, params, options) {
-        var r = new ss(schema, routine, params, options);
+    var S = function (schema, routine, options) {
+        var r = new ss(schema, routine, options);
         r.dbSource = "<<DB_SOURCE_GUID>>";
         return r;
     }
     
-    var U = function(schema, routine, params, options)
+    var U = function(schema, routine, options)
     {
-        var r = new uu(schema, routine, params, options);
+        var r = new uu(schema, routine, options);
         r.dbSource = "<<DB_SOURCE_GUID>>";
         return r;
     }

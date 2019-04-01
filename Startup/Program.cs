@@ -141,7 +141,6 @@ namespace jsdal_server_core
 
         }
 
-
         public static IWebHostBuilder BuildWebHost(string pathToContentRoot, string[] args)
         {
             var webServerSettings = SettingsInstance.Instance.Settings.WebServer;
@@ -321,7 +320,4 @@ namespace jsdal_server_core
         }
 
     }
-
-
-
 }

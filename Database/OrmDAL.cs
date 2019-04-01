@@ -235,16 +235,28 @@ namespace jsdal_server_core
 
                     if (cachedRoutine.Parameters != null)
                     {
-                        cachedRoutine.Parameters.ForEach(p =>
-                        {
-                            if (p.IsResult) return;
+                        /*
+                            Parameters
+                            ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+                                (Parm not specified)    ->  (Has default in sproc def)  -> Add to command with C# null to inherit null value
+                                                            (No default)                -> Don't add to command, should result in SQL Exception
+                                
+                                Parm specified as null  ->  DBNull.Value (regardless of Sproc default value)
+                                $jsDAL$DBNull           ->  Add to command with value as DBNull.Value
 
-                            var sqlType = Controllers.ExecController.GetSqlDbTypeFromParameterType(p.SqlDataType);
+                        
+                         */
+                        cachedRoutine.Parameters.ForEach(expectedParm =>
+                        {
+                            if (expectedParm.IsResult) return;
+
+                            var sqlType = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
                             object parmValue = null;
 
-                            var newSqlParm = cmd.Parameters.Add(p.Name, sqlType, p.MaxLength);
+                            //??var newSqlParm = cmd.Parameters.Add(p.Name, sqlType, p.MaxLength);
+                            var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
 
-                            if (!p.IsOutput)
+                            if (!expectedParm.IsOutput)
                             {
                                 newSqlParm.Direction = ParameterDirection.Input;
                             }
@@ -254,24 +266,25 @@ namespace jsdal_server_core
                             }
 
                             // trim leading '@'
-                            var parmName = p.Name.Substring(1);
+                            var expectedParmName = expectedParm.Name.Substring(1);
 
-                            if (inputParameters.ContainsKey(parmName))
+                            // if the expected parameter was defined in the request
+                            if (inputParameters.ContainsKey(expectedParmName))
                             {
-                                object val = inputParameters[parmName];
+                                object val = inputParameters[expectedParmName];
 
                                 // look for special jsDAL Server variables
                                 val = jsDALServerVariables.Parse(req, val);
 
                                 if (val == null)
                                 {
-                                    parmValue = null;
+                                    parmValue = DBNull.Value;
                                 }
                                 // TODO: Consider making this 'null' mapping configurable.This is just a nice to have for when the client does not call the API correctly
                                 // convert the string value of 'null' to actual C# null
                                 else if (val.ToString().Equals("null"))
                                 {
-                                    parmValue = null;
+                                    parmValue = DBNull.Value;
                                 }
                                 else
                                 {
@@ -279,20 +292,30 @@ namespace jsdal_server_core
                                 }
 
                                 newSqlParm.Value = parmValue;
+
+                                cmd.Parameters.Add(newSqlParm);
                             }
                             else
                             {
-                                // do not skip on INOUT parameters as SQL does not apply default values to OUT parameters
-                                if (p.HasDefault && !p.IsOutput)
+                               // if (expectedParm.HasDefault && !expectedParm.IsOutput/*SQL does not apply default values to OUT parameters so OUT parameters will always be mandatory to define*/)
+                                if (expectedParm.HasDefault || expectedParm.IsOutput)
                                 {
-                                    // If no explicit value was specified and the parameter has it's own default...
-                                    // Then DO NOT set newSqlParm.Value so that the DB Engine applies the default defined in SQL
+// TODO: If expectedParm.IsOutput and the expectedParm not specified, refer to Endpoint config on strategy ... either auto specify and make null or let SQL throw
+
+                                    // If no explicit value was specified but the parameter has it's own default...
+                                    // Then DO NOT set newSqlParm.Value so that the DB engine applies the default defined in SQL
                                     newSqlParm.Value = null;
+                                    cmd.Parameters.Add(newSqlParm);
                                 }
                                 else
                                 {
-                                    newSqlParm.Value = DBNull.Value;
+                                    // SQL Parameter does not get added to cmd.Parameters and SQL will throw
                                 }
+
+                                // else
+                                // {
+                                //     newSqlParm.Value = DBNull.Value;
+                                // }
 
                                 //     if (p.HasDefault) // fall back to default parameter value if one exists
                                 //     {
@@ -392,7 +415,7 @@ namespace jsdal_server_core
                     if (cachedRoutine?.Parameters != null)
                     {
                         var outputParmList = (from p in cachedRoutine.Parameters
-                                              where p.IsOutput
+                                              where p.IsOutput && !p.IsResult/*IsResult parameters do not have a name so cannot be accessed in loop below*/
                                               select p).ToList();
 
 

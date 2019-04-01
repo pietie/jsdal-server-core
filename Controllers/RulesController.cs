@@ -144,8 +144,6 @@ namespace jsdal_server_core.Controllers
                 var type = (RuleType)int.Parse(json["Type"].ToString());
                 string value = json["Value"].ToString();
 
-                //var obj = JsonConvert.DeserializeAnonymousType(json, new { Type = RuleType.Regex, Text = "" });
-
 
                 if (file == null)
                 { // DB-level
@@ -155,7 +153,7 @@ namespace jsdal_server_core.Controllers
                     {
                         SettingsInstance.SaveSettingsToFile();
 
-                        //!GeneratorThreadDispatcher.SetRulesDirty(cs);
+                        WorkSpawner.SetRulesDirty(app);
 
                         return ApiResponse.Success();
                     }
@@ -170,13 +168,13 @@ namespace jsdal_server_core.Controllers
 
                     if (jsFile == null) return ApiResponse.ExclamationModal("The specified output file was not found.");
 
-                    var ret = jsFile.addRule(type, value);
+                    var ret = jsFile.AddRule(type, value);
 
                     if (ret.isSuccess)
                     {
                         SettingsInstance.SaveSettingsToFile();
 
-                        //!                    GeneratorThreadDispatcher.SetRulesDirty(cs);
+                        WorkSpawner.SetRulesDirty(app, jsFile);
 
                         return ApiResponse.Success();
                     }
@@ -208,16 +206,15 @@ namespace jsdal_server_core.Controllers
                 string value = json["Value"].ToString();
 
                 CommonReturnValue ret;
+                JsFile jsFile = null;
 
                 if (file == null)
                 { // DB-level
                     ret = app.UpdateRule(ruleId, value);
-
-
                 }
                 else
                 {
-                    var jsFile = app.GetJsFile(file);
+                    jsFile = app.GetJsFile(file);
 
                     // TODO: Move check and error message down to App api?
                     if (jsFile == null) return ApiResponse.ExclamationModal("The specified output file was not found.");
@@ -229,7 +226,8 @@ namespace jsdal_server_core.Controllers
                 {
                     SettingsInstance.SaveSettingsToFile();
 
-                    //!GeneratorThreadDispatcher.SetRulesDirty(cs);
+                    if (jsFile == null) WorkSpawner.SetRulesDirty(app);
+                    else WorkSpawner.SetRulesDirty(app, jsFile);
 
                     return ApiResponse.Success();
                 }
@@ -263,7 +261,7 @@ namespace jsdal_server_core.Controllers
 
                     if (ret.isSuccess)
                     {
-                        //!GeneratorThreadDispatcher.SetRulesDirty(cs);
+                        WorkSpawner.SetRulesDirty(app);
                         SettingsInstance.SaveSettingsToFile();
                         return ApiResponse.Success();
                     }
@@ -282,7 +280,7 @@ namespace jsdal_server_core.Controllers
 
                     if (ret.isSuccess)
                     {
-                        //!GeneratorThreadDispatcher.SetRulesDirty(cs);
+                        WorkSpawner.SetRulesDirty(app, jsFile);
                         SettingsInstance.SaveSettingsToFile();
                         return ApiResponse.Success();
                     }
