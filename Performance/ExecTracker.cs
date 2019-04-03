@@ -13,7 +13,6 @@ namespace jsdal_server_core.Performance
             var ret = new RoutineExecution(endpointId, schema, routine);
 
             ExecutionList.Add(ret);
-
             RealtimeTracker.Add(ret);
 
             return ret;

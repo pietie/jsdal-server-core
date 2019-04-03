@@ -8,11 +8,12 @@ namespace jsdal_server_core.Performance
 
     public class RealtimeTracker
     {
-        private static List<RealtimeInfo> List = new List<RealtimeInfo>();
+        private static SortedList<long, RealtimeInfo> List = new SortedList<long, RealtimeInfo>();
+        //private static List<RealtimeInfo> List = new List<RealtimeInfo>();
 
         public static List<RealtimeInfo> RealtimeItems
         {
-            get { return List; }
+            get { return List.Values.ToList(); }
         }
         static RealtimeTracker()
         {
@@ -20,7 +21,6 @@ namespace jsdal_server_core.Performance
 
             t.Elapsed += (s, e) => { Purge(); };
             t.Start();
-
         }
 
         public static void Add(RoutineExecution e)
@@ -31,7 +31,7 @@ namespace jsdal_server_core.Performance
 
                 lock (List)
                 {
-                    List.Add(ri);
+                    List.Add(ri.createdEpoch, ri);
 
                     Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
                 }
@@ -48,24 +48,31 @@ namespace jsdal_server_core.Performance
             {
                 lock (List)
                 {
-                    var toRemove = new List<RealtimeInfo>();
+                    // TODO: Make retention configurable
+                    var epochCutOff = DateTime.Now.AddSeconds(-10).ToEpochMS();
+                    int remoteCnt = 0;
 
-                    List.ForEach(ri =>
+                    for (var i = 0; i < List.Keys.Count; i++)
                     {
-                        var end = ri.RoutineExectionEndedUtc();
+                        var key = List.Keys[i];
 
-                        if (!end.HasValue) return;
-
-                        if (DateTime.UtcNow.Subtract(end.Value).TotalSeconds > 10)// TODO: Make retention configurable
+                        if (key <= epochCutOff)
                         {
-                            toRemove.Add(ri);
+                            List.RemoveAt(i);
+                            remoteCnt++;
+                            i--;
                         }
-                    });
+                        else
+                        {
+                            // the keys are sorted so we are guaranteed the next (later) key will also not be within the cutoff
+                            break;
+                        }
 
-                    if (toRemove.Count > 0)
+                    }
+
+                    if (remoteCnt > 0)
                     {
-                        List.RemoveAll(a => toRemove.Contains(a));
-                        Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
+                        Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();   
                     }
                 }
             }

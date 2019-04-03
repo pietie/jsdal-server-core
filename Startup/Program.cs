@@ -8,9 +8,9 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.AspNetCore.Server.HttpSys;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace jsdal_server_core
 {
@@ -83,9 +83,9 @@ namespace jsdal_server_core
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
 
                 // set global culture to en-US - will help with things like parsing numbers from Javascript(e.g. 10.123) as double/decimal even if server uses a comma as decimal separator for example
-                System.Threading.Thread.CurrentThread.CurrentCulture = globalCulture;
+                CultureInfo.DefaultThreadCurrentCulture = globalCulture;
+                CultureInfo.DefaultThreadCurrentUICulture = globalCulture;
 
-                //var builder = CreateWebHostBuilder(args.Where(arg => arg != "--console").ToArray());
                 var builder = BuildWebHost(pathToContentRoot, args);
                 var host = builder.Build();
 

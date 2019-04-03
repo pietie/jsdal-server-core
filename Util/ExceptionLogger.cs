@@ -187,7 +187,7 @@ namespace jsdal_server_core
             }
 
 
-            this.id = ShortId.Generate(useNumbers: true, useSpecial: true, length: 6);
+            this.id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             this.message = msg;
             this.stackTrace = ex.StackTrace;
             this.execOptions = eo;

@@ -13,6 +13,8 @@ namespace jsdal_server_core.Performance
         //?public DateTime StartedUtc { get; protected set; }
         public DateTime? EndedUtc { get; protected set; }
 
+        public Exception ExceptionError { get; protected set; }
+
         private Stopwatch _stopwatch;
 
 
@@ -65,8 +67,8 @@ namespace jsdal_server_core.Performance
 
         public void Exception(Exception e)
         {
+            this.ExceptionError = e;
             this.End();
-            // TODO: Record error
         }
 
         public string GetServerTimeHeader()

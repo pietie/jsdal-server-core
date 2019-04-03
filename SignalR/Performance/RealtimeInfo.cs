@@ -1,5 +1,6 @@
 using System;
 using jsdal_server_core.Performance;
+using Newtonsoft.Json;
 
 namespace jsdal_server_core.Hubs
 {
@@ -7,11 +8,10 @@ namespace jsdal_server_core.Hubs
     {
         public RealtimeInfo(RoutineExecution re)
         {
-            this.created = DateTime.Now;
+            this.createdEpoch = DateTime.Now.ToEpochMS();
             this.routineExecution = re;
         }
 
-        private DateTime created;
         private RoutineExecution routineExecution;
 
         public DateTime? RoutineExectionEndedUtc()
@@ -19,18 +19,24 @@ namespace jsdal_server_core.Hubs
             return this.routineExecution?.EndedUtc;
         }
 
+        [JsonProperty("n")]
         public string name
         {
             get
             {
                 if (this.routineExecution == null) return null;
-                return $"[{this.routineExecution.Name}].[{this.routineExecution.Schema}]";
+                return $"[{this.routineExecution.Schema}].[{this.routineExecution.Name}]";
             }
         }
 
-        public long? createdEpoch { get { return this.routineExecution?.CreateDate.ToEpochMS(); } }
-        public long? durationMS { get { return this.routineExecution?.DurationInMS; } }
+        [JsonProperty("ce")]
+        public long createdEpoch { get; private set; }
+        [JsonProperty("ee")]
+        public long? endedEpoch { get { return this.routineExecution.EndedUtc.ToEpochMS(); } }
+        [JsonProperty("ex")]
+        public string exception  { get { return this.routineExecution.ExceptionError?.Message; } }
 
+        [JsonProperty("r")]
         public int? rowsAffected { get { return this.routineExecution?.RowsAffected; } }
     }
 

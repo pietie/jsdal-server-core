@@ -297,10 +297,10 @@ namespace jsdal_server_core
                             }
                             else
                             {
-                               // if (expectedParm.HasDefault && !expectedParm.IsOutput/*SQL does not apply default values to OUT parameters so OUT parameters will always be mandatory to define*/)
+                                // if (expectedParm.HasDefault && !expectedParm.IsOutput/*SQL does not apply default values to OUT parameters so OUT parameters will always be mandatory to define*/)
                                 if (expectedParm.HasDefault || expectedParm.IsOutput)
                                 {
-// TODO: If expectedParm.IsOutput and the expectedParm not specified, refer to Endpoint config on strategy ... either auto specify and make null or let SQL throw
+                                    // TODO: If expectedParm.IsOutput and the expectedParm not specified, refer to Endpoint config on strategy ... either auto specify and make null or let SQL throw
 
                                     // If no explicit value was specified but the parameter has it's own default...
                                     // Then DO NOT set newSqlParm.Value so that the DB engine applies the default defined in SQL
@@ -518,11 +518,21 @@ namespace jsdal_server_core
                     return ConvertToSqlVarbinary(value);
                 case SqlDbType.Time:
                     return value;
+                case SqlDbType.Float:
+                    return double.Parse(value);
+                case SqlDbType.Decimal:
+                    return decimal.Parse(value);
 
+
+                //  default:
+                //      return value;
                 default:
-                    return value;
-                    //default:
-                    //return Convert.ChangeType(value, sqlType.);
+                    {
+                        var typeName = RoutineParameterV2.GetCSharpDataTypeFromSqlDbType(sqlType.ToString().ToLower());
+                        var type = Type.GetType(typeName);
+
+                        return Convert.ChangeType(value, type);
+                    }
             }
         }
 

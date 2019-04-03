@@ -17,18 +17,22 @@ using Newtonsoft.Json;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http.Features;
 
-namespace jsdal_server_core.Controllers {
-    public class ExecController : Controller {
+namespace jsdal_server_core.Controllers
+{
+    public class ExecController : Controller
+    {
 
-    private readonly IConfiguration config;
+        private readonly IConfiguration config;
 
         public ExecController(IConfiguration configuration)
         {
             this.config = configuration;
         }
 
-        public class ExecOptions {
+        public class ExecOptions
+        {
             public string project;
             public string application;
             public string endpoint;
@@ -38,51 +42,57 @@ namespace jsdal_server_core.Controllers {
             public ExecType type;
             [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
-            
+
             public Dictionary<string, string> inputParameters { get; set; }
         }
 
 
-        public enum ExecType {
+        public enum ExecType
+        {
             Query = 0,
             NonQuery = 1,
-            Scalar = 2 
+            Scalar = 2
         }
 
         [AllowAnonymous]
-        [HttpGet ("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        [HttpPost ("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult execNonQuery ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
+        [HttpGet("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
         }
 
         [AllowAnonymous]
-        [HttpGet ("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        [HttpPost ("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult execQuery ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
+        [HttpGet("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
         }
 
         [AllowAnonymous]
-        [HttpGet ("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        [HttpPost ("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult Scalar ([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine) {
-            return exec (new ExecOptions () { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
+        [HttpGet("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public IActionResult Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
         }
 
-        private class BatchData {
+        private class BatchData
+        {
             public int Ix { get; set; }
             public BatchDataRoutine Routine { get; set; }
         }
 
-        private class BatchDataRoutine {
+        private class BatchDataRoutine
+        {
             public string project { get; set; }
             public string application { get; set; }
             public string endpoint { get; set; }
             public string schema { get; set; }
             public string routine { get; set; }
 
-            [JsonProperty ("params")]
+            [JsonProperty("params")]
             public Dictionary<string, string> parameters { get; set; }
 
         }
@@ -95,14 +105,15 @@ namespace jsdal_server_core.Controllers {
             var res = this.Response;
             var req = this.Request;
 
-            try {
+            try
+            {
                 // always start off not caching whatever we send back
                 res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
                 res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
                 res.Headers["Content-Type"] = "application/json";
 
                 if (!BlobStore.Exists(blobRef)) return NotFound($"Invalid, non-existent or expired blob reference specified: '{blobRef}'");
-               
+
                 var blob = BlobStore.Get(blobRef);
 
                 var client = new System.Net.Http.HttpClient();
@@ -113,19 +124,19 @@ namespace jsdal_server_core.Controllers {
                     var postUrl = $"{barcodeServiceUrl}/scan/pdf417?raw={raw}&veh={veh}&drv={drv}";
 
                     var response = await client.PostAsync(postUrl, content);
-                    
+
                     var responseText = await response.Content.ReadAsStringAsync();
 
                     if (response.StatusCode == System.Net.HttpStatusCode.OK)
                     {
                         var json = JsonConvert.DeserializeObject(responseText);
-                        
+
                         return Ok(ApiResponse.Payload(json));
                     }
                     else
                     {
                         SessionLog.Error("Barcode failed. postUrl = {0}; contentLength: {1}; responseText={2}", postUrl ?? "(null)", blob?.Length ?? -1, responseText ?? "(null)");
-                        
+
                         //return StatusCode((int)response.StatusCode, responseText);
                         //return new ContentResult() { Content = responseText, StatusCode = (int)response.StatusCode, ContentType = "text/plain" };
                         return BadRequest(responseText);
@@ -133,19 +144,22 @@ namespace jsdal_server_core.Controllers {
 
                 }
             }
-            catch (Exception ex) {
-                return Ok (ApiResponse.Exception(ex));
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
             }
         }
 
         [AllowAnonymous]
-        [HttpPost ("/api/blob")]
-        public IActionResult PrepareBlob () {
-// TODO: Limit allowable size of post
+        [HttpPost("/api/blob")]
+        public IActionResult PrepareBlob()
+        {
+            // TODO: Limit allowable size of post
             var res = this.Response;
             var req = this.Request;
 
-            try {
+            try
+            {
 
                 // always start off not caching whatever we send back
                 res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
@@ -156,31 +170,35 @@ namespace jsdal_server_core.Controllers {
 
                 foreach (var file in req.Form.Files)
                 {
-                        var id = shortid.ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
-                        var data = new byte[file.Length];
-                        
-                        using (var stream = file.OpenReadStream())
-                        {
-                            stream.Read(data, 0, data.Length);
-                        }
+                    var id = shortid.ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
+                    var data = new byte[file.Length];
 
-                        BlobStore.Add(id,data);
-                        keyList.Add(id);
+                    using (var stream = file.OpenReadStream())
+                    {
+                        stream.Read(data, 0, data.Length);
+                    }
+
+                    BlobStore.Add(id, data);
+                    keyList.Add(id);
                 }
- 
-                return Ok (ApiResponse.Payload(keyList));
-            } catch (Exception ex) {
-                return Ok (ApiResponse.Exception (ex));
+
+                return Ok(ApiResponse.Payload(keyList));
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
             }
         }
 
         [AllowAnonymous]
-        [HttpPost ("/api/batch/{dbConnectionGuid}")]
-        public IActionResult Batch ([FromRoute] string dbConnectionGuid) {
+        [HttpPost("/api/batch/{dbConnectionGuid}")]
+        public IActionResult Batch([FromRoute] string dbConnectionGuid)
+        {
             var res = this.Response;
             var req = this.Request;
 
-            try {
+            try
+            {
                 // TODO: Add batch metrics? Or just note on exec that it was part of a batch?
 
                 string body = null;
@@ -188,66 +206,85 @@ namespace jsdal_server_core.Controllers {
 
                 int commandTimeOutInSeconds = 60;
 
-                using (var sr = new StreamReader (req.Body)) {
-                    body = sr.ReadToEnd ();
+                using (var sr = new StreamReader(req.Body))
+                {
+                    body = sr.ReadToEnd();
 
-                    bodyParams = JsonConvert.DeserializeObject<Dictionary<string, dynamic>> (body);
+                    bodyParams = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(body);
 
                     // look for any other parameters sent through
-                    var allOtherKeys = bodyParams.Keys.Where (k => !k.Equals ("batch-data")).ToList ();
+                    var allOtherKeys = bodyParams.Keys.Where(k => !k.Equals("batch-data")).ToList();
 
-                    var baseInputParams = bodyParams.Where ((kv) => !kv.Key.Equals ("batch-data"));
+                    var baseInputParams = bodyParams.Where((kv) => !kv.Key.Equals("batch-data"));
 
-                    BatchData[] batchDataCollection = JsonConvert.DeserializeObject<BatchData[]> (bodyParams["batch-data"].ToString ());
+                    BatchData[] batchDataCollection = JsonConvert.DeserializeObject<BatchData[]>(bodyParams["batch-data"].ToString());
 
                     var leftTodo = batchDataCollection.Length;
 
-                    var responses = new Dictionary<int, ApiResponse> ();
+                    var responses = new Dictionary<int, ApiResponse>();
 
-                    using (ManualResetEvent waitToCompleteEvent = new ManualResetEvent (false)) {
-                        foreach (BatchData batchItem in batchDataCollection) {
-                            ThreadPool.QueueUserWorkItem ((state) => {
-                                try {
-                                    var inputParameters = new Dictionary<string, string> ();
+                    using (ManualResetEvent waitToCompleteEvent = new ManualResetEvent(false))
+                    {
+                        foreach (BatchData batchItem in batchDataCollection)
+                        {
+                            ThreadPool.QueueUserWorkItem((state) =>
+                            {
+                                try
+                                {
+                                    var inputParameters = new Dictionary<string, string>();
 
-                                    foreach (var kv in baseInputParams) {
-                                        inputParameters.Add (kv.Key, kv.Value);
+                                    foreach (var kv in baseInputParams)
+                                    {
+                                        inputParameters.Add(kv.Key, kv.Value);
                                     }
 
-                                    if (batchItem.Routine.parameters != null) {
-                                        foreach (var kv in batchItem.Routine.parameters) {
-                                            if (inputParameters.ContainsKey (kv.Key)) {
+                                    if (batchItem.Routine.parameters != null)
+                                    {
+                                        foreach (var kv in batchItem.Routine.parameters)
+                                        {
+                                            if (inputParameters.ContainsKey(kv.Key))
+                                            {
                                                 inputParameters[kv.Key] = kv.Value;
-                                            } else {
-                                                inputParameters.Add (kv.Key, kv.Value);
+                                            }
+                                            else
+                                            {
+                                                inputParameters.Add(kv.Key, kv.Value);
                                             }
                                         }
                                     }
 
-                                    var ret = exec (new ExecOptions () {
+                                    var ret = exec(new ExecOptions()
+                                    {
                                         project = batchItem.Routine.project,
-                                            application = batchItem.Routine.application,
-                                            endpoint = batchItem.Routine.endpoint,
-                                            schema = batchItem.Routine.schema,
-                                            routine = batchItem.Routine.routine,
-                                            OverridingInputParameters = inputParameters,
-                                            type = ExecType.Query
+                                        application = batchItem.Routine.application,
+                                        endpoint = batchItem.Routine.endpoint,
+                                        schema = batchItem.Routine.schema,
+                                        routine = batchItem.Routine.routine,
+                                        OverridingInputParameters = inputParameters,
+                                        type = ExecType.Query
 
                                     }) as Microsoft.AspNetCore.Mvc.ObjectResult;
 
-                                    if (ret != null) {
+                                    if (ret != null)
+                                    {
                                         var apiResponse = ret.Value as ApiResponse;
 
-                                        lock (responses) {
-                                            responses.Add (batchItem.Ix, apiResponse);
+                                        lock (responses)
+                                        {
+                                            responses.Add(batchItem.Ix, apiResponse);
                                         }
                                     }
-                                } catch (Exception execEx) {
+                                }
+                                catch (Exception execEx)
+                                {
                                     // TODO: handle by pushing this as the respone?
-                                    responses.Add (batchItem.Ix, ApiResponse.Exception (execEx));
-                                } finally {
-                                    if (Interlocked.Decrement (ref leftTodo) == 0) {
-                                        waitToCompleteEvent.Set ();
+                                    responses.Add(batchItem.Ix, ApiResponse.Exception(execEx));
+                                }
+                                finally
+                                {
+                                    if (Interlocked.Decrement(ref leftTodo) == 0)
+                                    {
+                                        waitToCompleteEvent.Set();
                                     }
                                 }
 
@@ -255,22 +292,26 @@ namespace jsdal_server_core.Controllers {
                         } // foreach
 
                         // TODO: Make timeout configurable?
-                        if (!waitToCompleteEvent.WaitOne (TimeSpan.FromSeconds (60 * 6))) {
+                        if (!waitToCompleteEvent.WaitOne(TimeSpan.FromSeconds(60 * 6)))
+                        {
                             // TODO: Report timeout error?
-                            return BadRequest ("Response(s) was not received in time.");
+                            return BadRequest("Response(s) was not received in time.");
                         }
 
-                        return Ok (ApiResponse.Payload (responses));
+                        return Ok(ApiResponse.Payload(responses));
 
                     } // using ManualResetEvent                
                 } // using StreamReader
 
-            } catch (Exception ex) {
-                return Ok (ApiResponse.Exception (ex));
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
             }
         }
 
-        private IActionResult exec (ExecOptions execOptions) {
+        private IActionResult exec(ExecOptions execOptions)
+        {
             var debugInfo = "";
             var res = this.Response;
             var req = this.Request;
@@ -286,12 +327,19 @@ namespace jsdal_server_core.Controllers {
             // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             RoutineExecution routineExecutionMetric = null;
 
-            try {
-                if (!ControllerHelper.GetProjectAndAppAndEndpoint (execOptions.project, execOptions.application, execOptions.endpoint, out project, out app, out endpoint, out var resp)) {
-                    return Ok (resp);
+            string remoteIpAddress = null;
+
+            try
+            {
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(execOptions.project, execOptions.application, execOptions.endpoint, out project, out app, out endpoint, out var resp))
+                {
+                    return Ok(resp);
                 }
 
-                routineExecutionMetric = ExecTracker.Begin (endpoint.Id, execOptions.schema, execOptions.routine);
+                // TODO: log remote IP with exception and associate with request itself?
+                remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
+
+                routineExecutionMetric = ExecTracker.Begin(endpoint.Id, execOptions.schema, execOptions.routine);
 
                 appTitle = req.Headers["App-Title"];
 
@@ -300,17 +348,18 @@ namespace jsdal_server_core.Controllers {
                 res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
                 res.Headers["Content-Type"] = "application/json";
 
-                var isPOST = req.Method.Equals ("POST", StringComparison.OrdinalIgnoreCase);
+                var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
                 // make sure the source domain/IP is allowed access
-                var mayAccess = app.MayAccessDbSource (this.Request);
+                var mayAccess = app.MayAccessDbSource(this.Request);
 
-                if (!mayAccess.isSuccess) {
+                if (!mayAccess.isSuccess)
+                {
                     res.ContentType = "text/plain";
                     res.StatusCode = 403;
-                    return this.Content (mayAccess.userErrorVal);
+                    return this.Content(mayAccess.userErrorVal);
                 }
 
                 string body = null;
@@ -318,37 +367,44 @@ namespace jsdal_server_core.Controllers {
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
 
-                if (execOptions.OverridingInputParameters != null) {
+                if (execOptions.OverridingInputParameters != null)
+                {
                     inputParameters = execOptions.OverridingInputParameters;
-                } else {
-                    if (isPOST) {
-                        using (var sr = new StreamReader (req.Body)) {
-                            body = sr.ReadToEnd ();
+                }
+                else
+                {
+                    if (isPOST)
+                    {
+                        using (var sr = new StreamReader(req.Body))
+                        {
+                            body = sr.ReadToEnd();
 
-                            inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>> (body);
+                            inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
                         }
-                    } else {
-                        inputParameters = req.Query.ToDictionary (t => t.Key, t => t.Value.ToString ());
+                    }
+                    else
+                    {
+                        inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
                     }
                 }
 
-                if (inputParameters == null) inputParameters = new Dictionary<string, string> ();
+                if (inputParameters == null) inputParameters = new Dictionary<string, string>();
 
                 execOptions.inputParameters = inputParameters;
 
                 // PLUGINS
-                var pluginsInitMetric = routineExecutionMetric.BeginChildStage ("Init plugins");
+                var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
 
-                pluginList = InitPlugins (app, inputParameters);
+                pluginList = InitPlugins(app, inputParameters);
 
-                pluginsInitMetric.End ();
+                pluginsInitMetric.End();
 
-                var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage ("execRoutineQuery");
+                var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
                 int rowsAffected;
 
                 // DB call
-                var executionResult = OrmDAL.ExecRoutineQuery (req, res,
+                var executionResult = OrmDAL.ExecRoutineQuery(req, res,
                     execOptions.type,
                     execOptions.schema,
                     execOptions.routine,
@@ -361,85 +417,104 @@ namespace jsdal_server_core.Controllers {
                     out rowsAffected
                 );
 
-                execRoutineQueryMetric.End ();
+                execRoutineQueryMetric.End();
 
                 routineExecutionMetric.RowsAffected = rowsAffected;
 
-                var prepareResultsMetric = routineExecutionMetric.BeginChildStage ("Prepare results");
+                var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
 
-                if (!string.IsNullOrEmpty (executionResult.userError)) {
-                    return Ok (ApiResponse.ExclamationModal (executionResult.userError));
+                if (!string.IsNullOrEmpty(executionResult.userError))
+                {
+                    return Ok(ApiResponse.ExclamationModal(executionResult.userError));
                 }
 
-                var retVal = (IDictionary<string, object>) new System.Dynamic.ExpandoObject ();
-                var ret = ApiResponse.Payload (retVal);
+                var retVal = (IDictionary<string, object>)new System.Dynamic.ExpandoObject();
+                var ret = ApiResponse.Payload(retVal);
 
-                retVal.Add ("OutputParms", outputParameters);
+                retVal.Add("OutputParms", outputParameters);
 
-                if (outputParameters != null) { // TODO: Consider making this a plugin
-                    var possibleUEParmNames = (new string[] { "usererrormsg", "usrerrmsg", "usererrormessage", "usererror", "usererrmsg" }).ToList ();
+                if (outputParameters != null)
+                { // TODO: Consider making this a plugin
+                    var possibleUEParmNames = (new string[] { "usererrormsg", "usrerrmsg", "usererrormessage", "usererror", "usererrmsg" }).ToList();
 
-                    var ueKey = outputParameters.Keys.FirstOrDefault (k => possibleUEParmNames.Contains (k.ToLower ()));
+                    var ueKey = outputParameters.Keys.FirstOrDefault(k => possibleUEParmNames.Contains(k.ToLower()));
 
                     // if a user error msg is defined.
-                    if (!string.IsNullOrWhiteSpace (ueKey) && !string.IsNullOrWhiteSpace (outputParameters[ueKey])) {
+                    if (!string.IsNullOrWhiteSpace(ueKey) && !string.IsNullOrWhiteSpace(outputParameters[ueKey]))
+                    {
                         ret.Message = outputParameters[ueKey];
                         ret.Title = "Action failed";
                         ret.Type = ApiResponseType.ExclamationModal;
                     }
                 }
 
-                if (execOptions.type == ExecType.Query) {
+                if (execOptions.type == ExecType.Query)
+                {
                     var dataSet = executionResult.DataSet;
-                    var dataContainers = dataSet.ToJsonDS ();
+                    var dataContainers = dataSet.ToJsonDS();
 
-                    var keys = dataContainers.Keys.ToList ();
+                    var keys = dataContainers.Keys.ToList();
 
-                    for (var i = 0; i < keys.Count; i++) {
-                        retVal.Add (keys[i], dataContainers[keys[i]]);
+                    for (var i = 0; i < keys.Count; i++)
+                    {
+                        retVal.Add(keys[i], dataContainers[keys[i]]);
                     }
 
-                    retVal.Add ("HasResultSets", keys.Count > 0);
-                    retVal.Add ("ResultSetKeys", keys.ToArray ());
-                } else if (execOptions.type == ExecType.NonQuery) {
+                    retVal.Add("HasResultSets", keys.Count > 0);
+                    retVal.Add("ResultSetKeys", keys.ToArray());
+                }
+                else if (execOptions.type == ExecType.NonQuery)
+                {
 
-                } else if (execOptions.type == ExecType.Scalar) {
+                }
+                else if (execOptions.type == ExecType.Scalar)
+                {
 
-                    if (executionResult.ScalarValue is DateTime) {
-                        var dt = (DateTime) executionResult.ScalarValue;
+                    if (executionResult.ScalarValue is DateTime)
+                    {
+                        var dt = (DateTime)executionResult.ScalarValue;
 
                         // convert to Javascript Date ticks
-                        var ticks = dt.ToUniversalTime ().Subtract (new DateTime (1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+                        var ticks = dt.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
 
-                        ret = ApiResponseScalar.Payload (ticks, true);
-                    } else {
-                        ret = ApiResponse.Payload (executionResult.ScalarValue);
+                        ret = ApiResponseScalar.Payload(ticks, true);
+                    }
+                    else
+                    {
+                        ret = ApiResponse.Payload(executionResult.ScalarValue);
                     }
                 }
 
-                prepareResultsMetric.End ();
-                routineExecutionMetric.End ();
+                prepareResultsMetric.End();
+                routineExecutionMetric.End();
 
                 // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter)
-                this.Response.Headers.Add ("Server-Timing", routineExecutionMetric.GetServerTimeHeader ());
+                this.Response.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
 
-                return Ok (ret);
-            } catch (Exception ex) {
-                if (routineExecutionMetric != null) {
-                    routineExecutionMetric.Exception (ex);
+                return Ok(ret);
+            }
+            catch (Exception ex)
+            {
+                if (routineExecutionMetric != null)
+                {
+                    routineExecutionMetric.Exception(ex);
                 }
 
                 Connection dbConn = null;
 
-                if (endpoint != null) {
+                if (endpoint != null)
+                {
                     // TODO: Fix!
-                    dbConn = endpoint.GetSqlConnection ();
+                    dbConn = endpoint.GetSqlConnection();
 
                     if (debugInfo == null) debugInfo = "";
 
-                    if (dbConn != null) {
+                    if (dbConn != null)
+                    {
                         debugInfo = $"{ endpoint.Pedigree } - { dbConn.InitialCatalog } - { debugInfo }";
-                    } else {
+                    }
+                    else
+                    {
                         debugInfo = $"{ endpoint.Pedigree } - (no connection) - { debugInfo }";
                     }
 
@@ -447,17 +522,23 @@ namespace jsdal_server_core.Controllers {
 
                 var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle);
 
-                if (pluginList != null) {
+                if (pluginList != null)
+                {
                     string externalRef;
 
-                    if (dbConn != null) {
-                        using (var con = new SqlConnection (dbConn.ConnectionStringDecrypted)) {
-                            try {
-                                con.Open ();
-                                ProcessPluginExectionExceptionHandlers (pluginList, con, ex, out externalRef);
-                                ((dynamic) exceptionResponse.Data).ExternalRef = externalRef;
-                            } catch (Exception e) {
-                                SessionLog.Exception (e);
+                    if (dbConn != null)
+                    {
+                        using (var con = new SqlConnection(dbConn.ConnectionStringDecrypted))
+                        {
+                            try
+                            {
+                                con.Open();
+                                ProcessPluginExectionExceptionHandlers(pluginList, con, ex, out externalRef);
+                                ((dynamic)exceptionResponse.Data).ExternalRef = externalRef;
+                            }
+                            catch (Exception e)
+                            {
+                                SessionLog.Exception(e);
                             }
 
                         }
@@ -465,52 +546,67 @@ namespace jsdal_server_core.Controllers {
                 }
 
                 // return it as "200 (Ok)" because the exception has been handled
-                return Ok (exceptionResponse);
+                return Ok(exceptionResponse);
                 //return BadRequest(exceptionResponse);
             }
         }
 
-        private static void ProcessPluginExectionExceptionHandlers (List<jsDALPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef) {
+        private static void ProcessPluginExectionExceptionHandlers(List<jsDALPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef)
+        {
             externalRef = null;
             if (pluginList == null) return;
-            foreach (var plugin in pluginList) {
-                try {
+            foreach (var plugin in pluginList)
+            {
+                try
+                {
                     string msg = null;
                     string externalRefTmp = null;
 
-                    plugin.OnExecutionException (con, ex, out externalRefTmp, out msg);
+                    plugin.OnExecutionException(con, ex, out externalRefTmp, out msg);
 
-                    if (!string.IsNullOrWhiteSpace (externalRefTmp)) {
+                    if (!string.IsNullOrWhiteSpace(externalRefTmp))
+                    {
                         externalRef = externalRefTmp;
                     }
-                } catch (Exception e) {
-                    SessionLog.Error ("Plugin {0} OnExecutionException failed", plugin.Name);
-                    SessionLog.Exception (e);
+                }
+                catch (Exception e)
+                {
+                    SessionLog.Error("Plugin {0} OnExecutionException failed", plugin.Name);
+                    SessionLog.Exception(e);
                 }
             }
         }
 
-        private static MethodInfo initPluginMethod = typeof (jsDALPlugin).GetMethod ("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static List<jsDALPlugin> InitPlugins (Application app, Dictionary<string, string> queryString) {
-            var plugins = new List<jsDALPlugin> ();
+        private static MethodInfo initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static List<jsDALPlugin> InitPlugins(Application app, Dictionary<string, string> queryString)
+        {
+            var plugins = new List<jsDALPlugin>();
 
-            if (PluginManager.PluginAssemblies != null && app.Plugins != null) {
-                foreach (string pluginGuid in app.Plugins) {
-                    var plugin = PluginManager.PluginAssemblies.SelectMany (kv => kv.Value).FirstOrDefault (p => p.Guid.ToString ().Equals (pluginGuid, StringComparison.OrdinalIgnoreCase));
+            if (PluginManager.PluginAssemblies != null && app.Plugins != null)
+            {
+                foreach (string pluginGuid in app.Plugins)
+                {
+                    var plugin = PluginManager.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
-                    if (plugin != null) {
-                        try {
-                            var concrete = (jsDALPlugin) plugin.Assembly.CreateInstance (plugin.TypeInfo.FullName);
+                    if (plugin != null)
+                    {
+                        try
+                        {
+                            var concrete = (jsDALPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
 
-                            initPluginMethod.Invoke (concrete, new object[] { queryString });
+                            initPluginMethod.Invoke(concrete, new object[] { queryString });
 
-                            plugins.Add (concrete);
-                        } catch (Exception ex) {
-                            SessionLog.Error ("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
-                            SessionLog.Exception (ex);
+                            plugins.Add(concrete);
                         }
-                    } else {
-                        SessionLog.Warning ("The specified plugin GUID '{0}' was not found in the list of loaded plugins.", pluginGuid);
+                        catch (Exception ex)
+                        {
+                            SessionLog.Error("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
+                            SessionLog.Exception(ex);
+                        }
+                    }
+                    else
+                    {
+                        SessionLog.Warning("The specified plugin GUID '{0}' was not found in the list of loaded plugins.", pluginGuid);
                     }
                 }
             }
@@ -518,15 +614,17 @@ namespace jsdal_server_core.Controllers {
             return plugins;
         }
 
-        public static SqlDbType GetSqlDbTypeFromParameterType (string parameterDataType) {
-            switch (parameterDataType.ToLower ()) {
+        public static SqlDbType GetSqlDbTypeFromParameterType(string parameterDataType)
+        {
+            switch (parameterDataType.ToLower())
+            {
                 case "date":
                     return SqlDbType.Date;
                 case "datetime":
                     return SqlDbType.DateTime;
                 case "time":
                     return SqlDbType.VarChar; // send as a simple string and let SQL take care of it
-                    //return SqlDbType.Time;
+                                              //return SqlDbType.Time;
                 case "smalldatetime":
                     return SqlDbType.SmallDateTime;
                 case "int":
@@ -566,7 +664,7 @@ namespace jsdal_server_core.Controllers {
                 case "tinyint":
                     return SqlDbType.TinyInt;
                 default:
-                    throw new NotSupportedException ("GetSqlDbTypeFromParameterType::Unsupported data type: " + parameterDataType);
+                    throw new NotSupportedException("GetSqlDbTypeFromParameterType::Unsupported data type: " + parameterDataType);
             }
         }
     }
