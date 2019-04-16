@@ -114,7 +114,7 @@ namespace jsdal_server_core
 
             services.AddMvc()
                     .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
-                    .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+                    .SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
             ;
 
 
@@ -228,6 +228,7 @@ namespace jsdal_server_core
             app.UseWebSockets();
             app.UseCookiePolicy();
 
+            app.UseHsts();
 
             if (env.IsDevelopment())
             {
@@ -243,6 +244,4 @@ namespace jsdal_server_core
                         });
         }
     }
-
-
 }

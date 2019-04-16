@@ -500,16 +500,20 @@ namespace jsdal_server_core
                 case SqlDbType.UniqueIdentifier:
                     return new Guid((string)value);
                 case SqlDbType.DateTime:
-
-
-
-
                     //string text = "2013-07-03T02:16:03.000+01:00";
                     // we expect ISO 8601 format (with time offset included)
-                    if (DateTime.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", null, System.Globalization.DateTimeStyles.None, out DateTime dt))
+
+                    // if (DateTime.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", null, System.Globalization.DateTimeStyles.None, out DateTime dt))
+                    // {
+                    //     return dt;
+                    // }
+
+                    // DateTimeOffset expect the Date & Time to be in LOCAL time
+                    if (DateTimeOffset.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dto))
                     {
-                        return dt;
+                        return dto.DateTime;
                     }
+
                     return null; // TODO: consider just returning the original value and hope for the best?
                                  //return value; 
                 case SqlDbType.Bit:
