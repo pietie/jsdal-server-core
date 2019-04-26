@@ -8,10 +8,11 @@ namespace jsdal_server_core.Performance
     {
         public List<ExecutionBase> _childStages;
 
-        public DateTime? CreateDate { get; set; }
+        public DateTime? CreatedUtc { get; set; }
+        public DateTime? EndedUtc { get; protected set; }
+
         protected bool IsOpen { get { return this._stopwatch?.IsRunning ?? false; } }
         //?public DateTime StartedUtc { get; protected set; }
-        public DateTime? EndedUtc { get; protected set; }
 
         public Exception ExceptionError { get; protected set; }
 
@@ -23,7 +24,7 @@ namespace jsdal_server_core.Performance
 
         public ExecutionBase(string name)
         {
-            this.CreateDate = DateTime.Now;
+            this.CreatedUtc = DateTime.UtcNow;
             this._childStages = new List<ExecutionBase>();
             _stopwatch = Stopwatch.StartNew();
             this.Name = name;
@@ -61,6 +62,14 @@ namespace jsdal_server_core.Performance
 
             this.DurationInMS = this._stopwatch.ElapsedMilliseconds;
             this.EndedUtc = DateTime.UtcNow;
+
+            var ms = this.EndedUtc.Value.Subtract(this.CreatedUtc.Value).TotalMilliseconds;
+            var tickDiff = this.EndedUtc.Value.Ticks - this.CreatedUtc.Value.Ticks;
+
+            var epochStart = this.CreatedUtc.Value.ToEpochMS();
+            var epochEnd = this.EndedUtc.Value.ToEpochMS();
+
+            var epochDiff = epochEnd - epochStart;
 
             Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
         }

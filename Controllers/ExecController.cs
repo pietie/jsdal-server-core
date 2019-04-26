@@ -616,55 +616,60 @@ namespace jsdal_server_core.Controllers
             return plugins;
         }
 
-        public static SqlDbType GetSqlDbTypeFromParameterType(string parameterDataType)
+        public static (SqlDbType, string) GetSqlDbTypeFromParameterType(string parameterDataType)
         {
+            string defUdtType = null;
+
             switch (parameterDataType.ToLower())
             {
                 case "date":
-                    return SqlDbType.Date;
+                    return (SqlDbType.Date, defUdtType);
                 case "datetime":
-                    return SqlDbType.DateTime;
+                    return (SqlDbType.DateTime, defUdtType);
                 case "time":
-                    return SqlDbType.VarChar; // send as a simple string and let SQL take care of it
-                                              //return SqlDbType.Time;
+                    return (SqlDbType.VarChar, defUdtType); // send as a simple string and let SQL take care of it
                 case "smalldatetime":
-                    return SqlDbType.SmallDateTime;
+                    return (SqlDbType.SmallDateTime, defUdtType);
                 case "int":
-                    return SqlDbType.Int;
+                    return (SqlDbType.Int, defUdtType);
                 case "smallint":
-                    return SqlDbType.SmallInt;
+                    return (SqlDbType.SmallInt, defUdtType);
                 case "bigint":
-                    return SqlDbType.BigInt;
+                    return (SqlDbType.BigInt, defUdtType);
                 case "bit":
-                    return SqlDbType.Bit;
+                    return (SqlDbType.Bit, defUdtType);
                 case "nvarchar":
-                    return SqlDbType.NVarChar;
+                    return (SqlDbType.NVarChar, defUdtType);
                 case "varchar":
-                    return SqlDbType.VarChar;
+                    return (SqlDbType.VarChar, defUdtType);
                 case "text":
-                    return SqlDbType.Text;
+                    return (SqlDbType.Text, defUdtType);
                 case "ntext":
-                    return SqlDbType.NText;
+                    return (SqlDbType.NText, defUdtType);
                 case "varbinary":
-                    return SqlDbType.VarBinary;
+                    return (SqlDbType.VarBinary, defUdtType);
                 case "decimal":
-                    return SqlDbType.Decimal;
+                    return (SqlDbType.Decimal, defUdtType);
                 case "uniqueidentifier":
-                    return SqlDbType.UniqueIdentifier;
+                    return (SqlDbType.UniqueIdentifier, defUdtType);
                 case "money":
-                    return SqlDbType.Money;
+                    return (SqlDbType.Money, defUdtType);
                 case "char":
-                    return SqlDbType.Char;
+                    return (SqlDbType.Char, defUdtType);
                 case "nchar":
-                    return SqlDbType.NChar;
+                    return (SqlDbType.NChar, defUdtType);
                 case "xml":
-                    return SqlDbType.Xml;
+                    return (SqlDbType.Xml, defUdtType);
                 case "float":
-                    return SqlDbType.Float;
+                    return (SqlDbType.Float, defUdtType);
                 case "image":
-                    return SqlDbType.Image;
+                    return (SqlDbType.Image, defUdtType);
                 case "tinyint":
-                    return SqlDbType.TinyInt;
+                    return (SqlDbType.TinyInt, defUdtType);
+                case "geography":
+                    return (SqlDbType.Udt, "GEOGRAPHY");
+                case "geometry":
+                    return (SqlDbType.Udt, "GEOMETRY");
                 default:
                     throw new NotSupportedException("GetSqlDbTypeFromParameterType::Unsupported data type: " + parameterDataType);
             }

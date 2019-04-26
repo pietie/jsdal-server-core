@@ -1,6 +1,8 @@
 declare module jsDAL {
     interface Sproc {
-     }
+    }
+
+    type LatLng = { lat: number, lng: number, srid?: number };
 }
 
 interface IDALConfig {
@@ -13,6 +15,7 @@ interface IDALConfig {
     $captcha?: string;
     HttpMethod?: string;
 }
+
 
 
 interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {

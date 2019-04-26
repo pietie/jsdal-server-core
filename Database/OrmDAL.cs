@@ -13,6 +13,7 @@ using jsdal_plugin;
 using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Microsoft.SqlServer.Types;
+using Newtonsoft.Json;
 
 namespace jsdal_server_core
 {
@@ -87,13 +88,14 @@ namespace jsdal_server_core
                     foreach (var p in parameterList)
                     {
                         if (p.IsResult) continue;
-                        var parm = CreateParameter(dbCmd, p.Name, Controllers.ExecController.GetSqlDbTypeFromParameterType(p.SqlDataType));
+
+                        (var dbType, _) = Controllers.ExecController.GetSqlDbTypeFromParameterType(p.SqlDataType);
+                        var parm = CreateParameter(dbCmd, p.Name, dbType);
                         dbCmd.Parameters.Add(parm);
                     }
                 }
 
                 try
-
                 {
                     using (var reader = dbCmd.ExecuteReader(CommandBehavior.SchemaOnly))
                     {
@@ -250,11 +252,13 @@ namespace jsdal_server_core
                         {
                             if (expectedParm.IsResult) return;
 
-                            var sqlType = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
+                            (var sqlType, var udtType) = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
                             object parmValue = null;
 
                             //??var newSqlParm = cmd.Parameters.Add(p.Name, sqlType, p.MaxLength);
                             var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
+
+                            newSqlParm.UdtTypeName = udtType;
 
                             if (!expectedParm.IsOutput)
                             {
@@ -288,7 +292,7 @@ namespace jsdal_server_core
                                 }
                                 else
                                 {
-                                    parmValue = ConvertParameterValue(sqlType, val.ToString());
+                                    parmValue = ConvertParameterValue(sqlType, val.ToString(), udtType);
                                 }
 
                                 newSqlParm.Value = parmValue;
@@ -475,7 +479,7 @@ namespace jsdal_server_core
 
         }
 
-        private static object ConvertParameterValue(SqlDbType sqlType, string value)
+        private static object ConvertParameterValue(SqlDbType sqlType, string value, string udtType)
         {
             // if the expected value is a string return as is
             if ((new SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText, SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar }).Contains(sqlType))
@@ -526,6 +530,27 @@ namespace jsdal_server_core
                     return double.Parse(value);
                 case SqlDbType.Decimal:
                     return decimal.Parse(value);
+                case SqlDbType.Udt:
+                    {
+                        // TODO: Refractor into separate function
+                        // TODO: Add support for geometry
+                        if (udtType.Equals("geography", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // for geography we only support { lat: .., lng: ...} for now - in future we might support WKT strings
+                            var obj = JsonConvert.DeserializeObject<dynamic>(value);
+                            int srid = 4326;
+
+                            if (obj["srid"] != null)
+                            {
+                                srid = (int)obj.srid;
+                            }
+
+                            return SqlGeography.Point((double)obj.lat, (double)obj.lng, srid);
+                        }
+
+                        return value;
+
+                    }
 
 
                 //  default:
