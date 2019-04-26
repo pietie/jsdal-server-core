@@ -19,6 +19,15 @@ namespace jsdal_server_core.Hubs
             return this.routineExecution?.EndedUtc;
         }
 
+        [JsonProperty("id")]
+        public long id
+        {
+            get
+            {
+                return this.routineExecution.ExecutionId;
+            }
+        }
+
         [JsonProperty("n")]
         public string name
         {
