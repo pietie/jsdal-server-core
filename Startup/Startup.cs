@@ -222,6 +222,7 @@ namespace jsdal_server_core
                 routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
                 routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
                 routes.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
+                routes.MapHub<Hubs.ExecHub>("/exec-hub");
             });
 
             app.UseAuthentication();

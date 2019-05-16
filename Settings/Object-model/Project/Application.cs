@@ -278,15 +278,17 @@ namespace jsdal_server_core.Settings.ObjectModel
             */
         }
 
-        public CommonReturnValue MayAccessDbSource(Microsoft.AspNetCore.Http.HttpRequest req)
+        public CommonReturnValue MayAccessDbSource(string referer)
         {
+            if (referer != null && referer.Equals("$WEB SOCKETS$")) return CommonReturnValue.success();
+
             if (this.WhitelistedDomainsCsv == null)
             {
                 return CommonReturnValue.userError("No access list exists.");
             }
 
-            var referer = req.Headers["Referer"].FirstOrDefault();
-            //var host = req.Host.Host;
+            //var referer = req.Headers["Referer"].FirstOrDefault();
+            
             var whitelistedIPs = this.WhitelistedDomainsCsv.Split(',');
 
             if (referer != null)

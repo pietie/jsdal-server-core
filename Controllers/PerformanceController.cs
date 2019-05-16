@@ -15,7 +15,19 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/performance/tmp-executionlist")]
         public ApiResponse TmpGetRawExecutionList()
         {
-            return ApiResponse.Payload(ExecTracker.ExecutionList);
+            return null;
+           // return ApiResponse.Payload(ExecTracker.ExecutionList);
+        }
+
+        [Authorize(Roles = "admin")]
+        [HttpGet("/api/performance/top")]
+        public ApiResponse GetTopResources()
+        {
+            int topN = 20;
+
+            if (topN > 30) topN = 30; // constraint max to something reasonable
+
+            return ApiResponse.Payload(PerformanceAggregator.GetTopN(topN));
         }
     }
 

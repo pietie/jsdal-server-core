@@ -8,7 +8,7 @@ namespace jsdal_server_core
     {
         private static readonly string PREFIX_MARKER = "$jsDAL$";
 
-        public static object Parse(HttpRequest request, object val)
+        public static object Parse(string remoteIpAddress, object val)
         {
             if (val == null) return val;
             
@@ -21,7 +21,7 @@ namespace jsdal_server_core
 
             if (str.Equals("RemoteClient.IP"))
             {
-                return request.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                return remoteIpAddress;
             }
             if (str.Equals("DBNull",StringComparison.OrdinalIgnoreCase))
             {

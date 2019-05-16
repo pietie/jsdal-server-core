@@ -131,16 +131,19 @@ namespace jsdal_server_core
             public string userError { get; set; }
         }
 
-        public static ExecutionResult ExecRoutineQuery(HttpRequest req, HttpResponse res,
+        public static ExecutionResult ExecRoutineQuery(
                Controllers.ExecController.ExecType type,
                string schemaName,
                string routineName,
                Endpoint endpoint,
                Dictionary<string, string> inputParameters,
+               Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders,
+               string remoteIpAddress,
                List<jsDALPlugin> plugins,
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
                ExecutionBase execRoutineQueryMetric,
+               out Dictionary<string, string> responseHeaders,
                out int rowsAffected
            )
         {
@@ -148,6 +151,7 @@ namespace jsdal_server_core
             SqlCommand cmd = null;
 
             rowsAffected = 0;
+            responseHeaders = new Dictionary<string, string>();
 
             try
             {
@@ -173,7 +177,7 @@ namespace jsdal_server_core
 
                 try
                 {
-                    metaResp = processMetadata(req, res, cachedRoutine);
+                    metaResp = ProcessMetadata(requestHeaders, ref responseHeaders, cachedRoutine);
                 }
                 catch (Exception) { /*ignore metadata failures*/ }
 
@@ -278,7 +282,7 @@ namespace jsdal_server_core
                                 object val = inputParameters[expectedParmName];
 
                                 // look for special jsDAL Server variables
-                                val = jsDALServerVariables.Parse(req, val);
+                                val = jsDALServerVariables.Parse(remoteIpAddress, val);
 
                                 if (val == null)
                                 {
@@ -594,11 +598,11 @@ namespace jsdal_server_core
         }
 
 
-        private static string processMetadata(HttpRequest req, HttpResponse res, CachedRoutine cachedRoutine)
+        private static string ProcessMetadata(Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders, ref Dictionary<string, string> responseHeaders, CachedRoutine cachedRoutine)
         {
             if (cachedRoutine?.jsDALMetadata?.jsDAL?.security?.requiresCaptcha ?? false)
             {
-                if (!req.Headers.ContainsKey("captcha-val"))
+                if (!requestHeaders.ContainsKey("captcha-val"))
                 {
                     System.Threading.Thread.Sleep(1000 * 5);  // TODO: Make this configurable? We intentionally slow down requests that do not conform 
 
@@ -610,9 +614,12 @@ namespace jsdal_server_core
                     return "The setting GoogleRecaptchaSecret is not configured on this jsDAL server.";
                 }
 
-                var capResp = validateGoogleRecaptcha(req.Headers["captcha-val"]);
 
-                res.Headers["captcha-ret"] = capResp.success ? "1" : "0";
+                var capResp = validateGoogleRecaptcha(requestHeaders["captcha-val"].FirstOrDefault());
+
+                if (responseHeaders == null) responseHeaders = new Dictionary<string, string>();
+
+                responseHeaders["captcha-ret"] = capResp.success ? "1" : "0";
 
                 if (capResp.success) return null;
                 else return "Captcha failed.";

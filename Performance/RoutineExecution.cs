@@ -7,23 +7,27 @@ namespace jsdal_server_core.Performance
     {
         private static long ExecutionSequence;
         private long _executionId;
-        public long ExecutionId { get  { return _executionId; }}
+        public long ExecutionId { get { return _executionId; } }
         public string Schema { get; set; }
         public string EndpointId { get; set; }
         public ExecutionRoutineType ExecutionRoutineType { get; set; }
 
-        public int RowsAffected { get;set; }
-
-// TODO: public for now so we can expose it to frontend for testing
-        
+        public int RowsAffected { get; private set; }
 
         public RoutineExecution(string endpointId, string schema, string routine) : base(routine)
         {
-            this._executionId =  System.Threading.Interlocked.Increment(ref RoutineExecution.ExecutionSequence);
+            this._executionId = System.Threading.Interlocked.Increment(ref RoutineExecution.ExecutionSequence);
             this.Schema = schema;
             this.EndpointId = endpointId;
-        }   
+        }
 
+        public void End(int rowsAffected)
+        {
+            base.End();
+            this.RowsAffected = rowsAffected;
+
+            PerformanceAggregator.Add(this);
+        }
     }
 
 

@@ -7,12 +7,13 @@ namespace jsdal_server_core.Performance
     {
 
         // TODO: Come up with a much smarter structure to use
-        public static List<RoutineExecution> ExecutionList = new List<RoutineExecution>();
+        //public static List<RoutineExecution> ExecutionList = new List<RoutineExecution>();
         public static RoutineExecution Begin(string endpointId, string schema, string routine)
         {
             var ret = new RoutineExecution(endpointId, schema, routine);
 
-            ExecutionList.Add(ret);
+            //ExecutionList.Add(ret);//? not used
+            //PerformanceAggregator.Add(ret);
             RealtimeTracker.Add(ret);
 
             return ret;

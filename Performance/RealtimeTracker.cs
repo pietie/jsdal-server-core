@@ -9,7 +9,6 @@ namespace jsdal_server_core.Performance
     public class RealtimeTracker
     {
         private static SortedList<long, RealtimeInfo> List = new SortedList<long, RealtimeInfo>();
-        //private static List<RealtimeInfo> List = new List<RealtimeInfo>();
 
         public static List<RealtimeInfo> RealtimeItems
         {
@@ -78,7 +77,6 @@ namespace jsdal_server_core.Performance
             }
             catch (Exception)
             {
-
                 throw;
             }
         }

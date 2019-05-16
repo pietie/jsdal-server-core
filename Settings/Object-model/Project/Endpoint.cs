@@ -246,9 +246,19 @@ namespace jsdal_server_core.Settings.ObjectModel
                         bool resultSetsUpdated = newCachedRoutine.ResultSetHash != existing.ResultSetHash;
                         bool jsDALMetadataUpdated = false;
 
-                        if (existing.jsDALMetadata == null && newCachedRoutine.jsDALMetadata != null) jsDALMetadataUpdated = true;
-                        else if (existing.jsDALMetadata != null && newCachedRoutine.jsDALMetadata == null) jsDALMetadataUpdated = true;
-                        else jsDALMetadataUpdated = newCachedRoutine.jsDALMetadata != null && newCachedRoutine.jsDALMetadata.Equals(existing.jsDALMetadata);
+                        if (existing.jsDALMetadata == null && newCachedRoutine.jsDALMetadata != null)
+                        {
+                            jsDALMetadataUpdated = true;
+                        }
+                        else if (existing.jsDALMetadata != null && newCachedRoutine.jsDALMetadata == null)
+                        {
+                            jsDALMetadataUpdated = true;
+                        }
+                        else if(newCachedRoutine.jsDALMetadata != null)
+                        {
+                            var newMatchesExisting = newCachedRoutine.jsDALMetadata.Equals(existing.jsDALMetadata);
+                            jsDALMetadataUpdated = newCachedRoutine.jsDALMetadata != null && !newMatchesExisting;
+                        }
 
                         // no metadata related change
                         if (!parametersUpdated && !resultSetsUpdated && !jsDALMetadataUpdated) return;

@@ -41,8 +41,9 @@ namespace jsdal_server_core.Hubs
                 while (true)
                 {
                     this.channel.Writer.WriteAsync(new MainStats());
+
                     // TODO: Provide way to exit this thread?
-                    Thread.Sleep(2000);
+                    Thread.Sleep(3500);
                 }
             });
         }
