@@ -120,6 +120,30 @@ namespace jsdal_server_core.Controllers
 
                 var etagFromRequest = this.Request.Headers["If-None-Match"];
 
+                // worker-state
+                {
+                    string workerStateHeaderValue = null;
+                    var worker = WorkSpawner.GetWorkerByEndpoint(ep);
+
+                    if (worker != null)
+                    {
+                        if (worker.IsRunning)
+                        {
+                            workerStateHeaderValue = "running - " + worker.Status;
+                        }
+                        else
+                        {
+                            workerStateHeaderValue = "stopped - " +  worker.Status;
+                        }
+                    }
+                    else
+                    {
+                        workerStateHeaderValue = "no-worker";
+                    }
+
+                    this.Response.Headers.Add("w-state", workerStateHeaderValue);
+                }
+
                 if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etagForLatestFile))
                 {
                     if (etagForLatestFile == etagFromRequest) return StatusCode(StatusCodes.Status304NotModified);
@@ -281,7 +305,7 @@ namespace jsdal_server_core.Controllers
             return "\"" + BitConverter.ToString(md5data).Replace("-", "").ToLower() + "\"";
         }
 
-     
+
         [HttpGet]
         [Route("/api/hostname")]
         public string HostName()
@@ -306,7 +330,7 @@ namespace jsdal_server_core.Controllers
             //     return Ok(content);
             // }
 
-            
+
             var tsdFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
 
             if (!System.IO.File.Exists(tsdFilePath)) return NotFound();
@@ -351,7 +375,7 @@ namespace jsdal_server_core.Controllers
         // }
 
 
-           
+
         /*  15/05/2018, PL: Commented out..now sure where this is used..if at all... TODO: check jsdal-cli
                 [HttpGet("api/meta")]
                 public List<dynamic> GetMetadataUpdates([FromQuery] string dbSourceGuid, [FromQuery] long maxRowver)
