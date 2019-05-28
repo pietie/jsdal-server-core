@@ -617,7 +617,7 @@ namespace jsdal_server_core.Controllers
             Endpoint endpoint = null;
             responseHeaders = null;
 
-            List<jsDALPlugin> pluginList = null;
+            List<ExecutionPlugin> pluginList = null;
 
             // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             RoutineExecution routineExecutionMetric = null;
@@ -783,6 +783,7 @@ namespace jsdal_server_core.Controllers
 
                 var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle);
 
+// TODO: Get Execution plugin list specifically
                 if (pluginList != null)
                 {
                     string externalRef;
@@ -794,7 +795,7 @@ namespace jsdal_server_core.Controllers
                             try
                             {
                                 con.Open();
-                                ProcessPluginExectionExceptionHandlers(pluginList, con, ex, out externalRef);
+                                ProcessPluginExecutionExceptionHandlers(pluginList, con, ex, out externalRef);
                                 ((dynamic)exceptionResponse.Data).ExternalRef = externalRef;
                             }
                             catch (Exception e)
@@ -811,10 +812,11 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        private static void ProcessPluginExectionExceptionHandlers(List<jsDALPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef)
+        private static void ProcessPluginExecutionExceptionHandlers(List<ExecutionPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef)
         {
             externalRef = null;
             if (pluginList == null) return;
+            
             foreach (var plugin in pluginList)
             {
                 try
@@ -837,10 +839,10 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        private static MethodInfo initPluginMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static List<jsDALPlugin> InitPlugins(Application app, Dictionary<string, string> queryString)
+        private static MethodInfo initPluginMethod = typeof(ExecutionPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static List<ExecutionPlugin> InitPlugins(Application app, Dictionary<string, string> queryString)
         {
-            var plugins = new List<jsDALPlugin>();
+            var plugins = new List<ExecutionPlugin>();
 
             if (PluginManager.PluginAssemblies != null && app.Plugins != null)
             {
@@ -852,7 +854,7 @@ namespace jsdal_server_core.Controllers
                     {
                         try
                         {
-                            var concrete = (jsDALPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
+                            var concrete = (ExecutionPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
 
                             initPluginMethod.Invoke(concrete, new object[] { queryString });
 

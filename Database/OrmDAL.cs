@@ -26,7 +26,7 @@ namespace jsdal_server_core
 
                 cmd.Connection = con;
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.CommandText = "ormV2.GetRoutineListCnt";
+                cmd.CommandText = "ormv2.GetRoutineListCnt";
                 cmd.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = maxRowDate ?? 0;
 
                 var scalar = cmd.ExecuteScalar();
@@ -139,7 +139,7 @@ namespace jsdal_server_core
                Dictionary<string, string> inputParameters,
                Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders,
                string remoteIpAddress,
-               List<jsDALPlugin> plugins,
+               List<ExecutionPlugin> plugins,
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
                ExecutionBase execRoutineQueryMetric,
@@ -465,7 +465,7 @@ namespace jsdal_server_core
         } // execRoutine
 
 
-        private static void ProcessPlugins(List<jsDALPlugin> pluginList, SqlConnection con)
+        private static void ProcessPlugins(List<ExecutionPlugin> pluginList, SqlConnection con)
         {
             foreach (var plugin in pluginList)
             {

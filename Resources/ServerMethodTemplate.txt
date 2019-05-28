@@ -1,0 +1,1 @@
+<<FUNC_NAME>>: function(<<PARM_LIST>>) { return S("<<FUNC_NAME>>"<<ARG_SEP>><<PARM_LIST>>); }

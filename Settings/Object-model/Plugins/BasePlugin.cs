@@ -24,7 +24,7 @@ namespace jsdal_server_core.Settings.ObjectModel
     {
         public ExecPlugin()
         {
-            this.Type = PluginType.ExecPlugin;
+            this.Type = PluginType.Execution;
         }
     }
 
@@ -71,12 +71,12 @@ namespace jsdal_server_core.Settings.ObjectModel
     }
 
 
-    public class DbNotifyMethodPlugin : BasePlugin // called/pushed from a SQL DB
-    {
-        public DbNotifyMethodPlugin()
-        {
-            this.Type = PluginType.DbNotifyMethod;
-        }
-    }
+    // public class DbNotifyMethodPlugin : BasePlugin // called/pushed from a SQL DB
+    // {
+    //     public DbNotifyMethodPlugin()
+    //     {
+    //         this.Type = PluginType.DbNotifyMethod;
+    //     }
+    // }
 
 }

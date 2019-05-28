@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using System.Diagnostics;
 using Microsoft.CodeAnalysis.Emit;
 using jsdal_plugin;
+using OM = jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core
 {
@@ -17,18 +18,65 @@ namespace jsdal_server_core
 
         public static void CompileListOfAvailablePlugins()
         {
-            PluginAssemblies = new Dictionary<Assembly, List<PluginInfo>>();
-
-            LoadPluginsFromSource();
-
-            if (Directory.Exists("./plugins"))
+            try
             {
-                var dllCollection = Directory.EnumerateFiles("plugins", "*.dll", SearchOption.TopDirectoryOnly);
+                PluginAssemblies = new Dictionary<Assembly, List<PluginInfo>>();
 
-                foreach (var dll in dllCollection)
+                LoadPluginsFromSource();
+
+                if (Directory.Exists("./plugins"))
                 {
-                    LoadPluginDLL(dll);
+                    var dllCollection = Directory.EnumerateFiles("plugins", "*.dll", SearchOption.TopDirectoryOnly);
+
+                    foreach (var dll in dllCollection)
+                    {
+                        // skip jsdal-plugin base
+                        if (dll.Equals("plugins\\jsdal-plugin.dll", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        LoadPluginDLL(dll);
+                    }
+                }       
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+            }
+        }
+
+        public static void InitServerWidePlugins()
+        {
+            try
+            {
+                if (PluginAssemblies == null) return;
+
+                var pluginInfoCollection = PluginAssemblies.SelectMany(a => a.Value).Where(pi => pi.Type == OM.PluginType.ServerMethod || pi.Type == OM.PluginType.BackgroundThread);
+
+                foreach (var pluginInfo in pluginInfoCollection)
+                {
+                    // try
+                    // {
+
+
+                        if (pluginInfo.Type == OM.PluginType.BackgroundThread)
+                        {
+                            BackgroundThreadManager.Register(pluginInfo);
+                        }
+                        else if (pluginInfo.Type == OM.PluginType.ServerMethod)
+                        {
+                            ServerMethodManager.Register(pluginInfo);
+                        }
+                    // }
+                    // catch (Exception ex)
+                    // {
+                    //     SessionLog.Error($"Failed to instantiate plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. See exception that follows.");
+                    //     SessionLog.Exception(ex);
+                    // }
                 }
+
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
             }
         }
 
@@ -141,7 +189,7 @@ namespace jsdal_server_core
             }
         }
 
-           // TODO: This needs to be sourcs from somewhere - a Project or DBSource or just system-wide.
+        // TODO: This needs to be sourcs from somewhere - a Project or DBSource or just system-wide.
         public static string TmpGetPluginSource()
         {
             return @"
@@ -209,32 +257,70 @@ namespace Plugins
         {
             if (pluginAssembly.DefinedTypes != null)
             {
-                var pluginTypeList = pluginAssembly.DefinedTypes.Where(typ => typ.IsSubclassOf(typeof(jsDALPlugin))).ToList();
+                var pluginTypeList = pluginAssembly.DefinedTypes.Where(typ => typ.IsSubclassOf(typeof(PluginBase))).ToList();
 
                 if (pluginTypeList != null && pluginTypeList.Count > 0)
                 {
                     foreach (var pluginType in pluginTypeList)
                     {
-                        jsDALPlugin concrete;
                         var pluginInfo = new PluginInfo();
 
                         try
                         {
-                            var guid = pluginType.GetCustomAttribute(typeof(System.Runtime.InteropServices.GuidAttribute)) as System.Runtime.InteropServices.GuidAttribute;
+                            var pluginData = pluginType.GetCustomAttribute(typeof(PluginDataAttribute)) as PluginDataAttribute;
 
-                            if (guid == null || string.IsNullOrEmpty(guid.Value))
+                            if (pluginData == null)
                             {
-                                SessionLog.Error("Plugin '{0}' does not have a Guid attribute defined on the class level. Add a System.Runtime.InteropServices.GuidAttribute to the class with a unique Guid value.", pluginType.FullName);
+                                SessionLog.Error($"Plugin '{pluginType.FullName}' from assembly '{pluginAssembly.FullName}' does not have a PluginData attribute defined on the class level. Add a jsdal_plugin.PluginDataAttribute to the class.");
                                 continue;
                             }
 
-                            concrete = (jsDALPlugin)pluginAssembly.CreateInstance(pluginType.FullName);
+                            if (!Guid.TryParse(pluginData.Guid, out var pluginGuid))
+                            {
+                                SessionLog.Error("Plugin '{0}' does not have a valid Guid value set on its PluginData attribute.", pluginType.FullName);
+                                continue;
+                            }
 
+                            var conflict = PluginAssemblies.FirstOrDefault(a => a.Value.FirstOrDefault(pi => pi.Guid.Equals(pluginGuid)) != null);
+
+                            if (conflict.Key != null)
+                            {
+                                var existingPI = conflict.Value.FirstOrDefault(pi => pi.Guid.Equals(pluginGuid));
+
+                                if (existingPI != null)
+                                {
+                                    SessionLog.Error($"Plugin '{pluginType.FullName}' has a conflicting Guid. The conflict is on assembly {conflict.Key.FullName} and plugin '{existingPI.Name}' with Guid value {existingPI.Guid}.");
+                                    continue;
+                                }
+                            }
+
+                            if (pluginType.IsSubclassOf(typeof(ExecutionPlugin)))
+                            {
+                                pluginInfo.Type = OM.PluginType.Execution;
+                            }
+                            else if (pluginType.IsSubclassOf(typeof(BackgroundThreadPlugin)))
+                            {
+                                pluginInfo.Type = OM.PluginType.BackgroundThread;
+                            }
+                            else if (pluginType.IsSubclassOf(typeof(ServerMethodPlugin)))
+                            {
+                                pluginInfo.Type = OM.PluginType.ServerMethod;
+
+
+                                // TODO: Additional validation: Look for at least on ServerMethod? otherwise just a warning?
+                                //      What about unique names of ServerMethods?
+                                //      Validate Custom Namespace validity (must be JavaScript safe)
+                            }
+                            else
+                            {
+                                SessionLog.Error($"Unknown plugin type '{pluginType.FullName}'.");
+                                continue;
+                            }
                             pluginInfo.Assembly = pluginAssembly;
-                            pluginInfo.Name = concrete.Name;
-                            pluginInfo.Description = concrete.Description;
+                            pluginInfo.Name = pluginData.Name;
+                            pluginInfo.Description = pluginData.Description;
                             pluginInfo.TypeInfo = pluginType;
-                            pluginInfo.Guid = Guid.Parse(guid.Value);
+                            pluginInfo.Guid = pluginGuid;
 
                             //pluginInfo.InitMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
 
@@ -246,21 +332,18 @@ namespace Plugins
                             SessionLog.Exception(ex);
                         }
 
-
                         if (!PluginAssemblies.ContainsKey(pluginAssembly)) PluginAssemblies.Add(pluginAssembly, new List<PluginInfo>());
                         PluginAssemblies[pluginAssembly].Add(pluginInfo);
                     }
-
-
                 }
                 else
                 {
-                    SessionLog.Warning("Failed to find any jsDAL Server plugins in the assembly '{0}'. Make sure you have public class available that derives from jsDALPlugin.", pluginAssembly.Location);
+                    SessionLog.Warning("Failed to find any jsDAL Server plugins in the assembly '{0}'. Make sure you have a public class available that derives from one of the plugin types.", pluginAssembly.Location);
                 }
             }
             else
             {
-                SessionLog.Warning("Failed to find any jsDAL Server plugins in the assembly '{0}'. Make sure you have public class available that derives from jsDALPlugin.", pluginAssembly.Location);
+                SessionLog.Warning("Failed to find any jsDAL Server plugins in the assembly '{0}'. Make sure you have a public class available that derives from one of the plugin types.", pluginAssembly.Location);
             }
         }
     }

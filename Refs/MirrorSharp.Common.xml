@@ -134,6 +134,31 @@
         <member name="P:MirrorSharp.Advanced.IRoslynSession.Project">
             <summary>Roslyn <see cref="T:Microsoft.CodeAnalysis.Project"/> associated with the current session.</summary>
         </member>
+        <member name="M:MirrorSharp.Advanced.IRoslynSession.AddMetadataReferencesFromFiles(System.String[])">
+            <summary>
+            Adds assembly references to the current session and attempts to discover corresponding XML documentation.
+            </summary>
+            <param name="paths">Paths to assemblies to be added.</param>
+            <remarks>
+            This method will attempt to automatically discover XML documentation files for the assemblies being added.
+            However it will always succeed, whether the XML documentation is available or not.
+            </remarks>
+            <seealso cref="P:Microsoft.CodeAnalysis.ProjectInfo.MetadataReferences"/>
+        </member>
+        <member name="M:MirrorSharp.Advanced.IRoslynSession.SetScriptMode(System.Boolean,System.Type)">
+            <summary>
+            Sets or unsets script mode for the Roslyn session.
+            </summary>
+            <param name="isScript">Whether the session should use script mode.</param>
+            <param name="hostObjectType">Host object type for the session; must be <c>null</c> if <paramref name="isScript" /> is <c>false</c>.</param>
+            <remarks>
+            Members of <paramref name="hostObjectType" /> are directly available to the script. For example
+            if you set <c>hostObjectType</c> is <see cref="T:System.Random" />, you can use <see cref="M:System.Random.Next" />
+            in the script by just writing <c>Next()</c>.
+            </remarks>
+            <seealso cref="P:Microsoft.CodeAnalysis.ProjectInfo.IsSubmission"/>
+            <seealso cref="P:Microsoft.CodeAnalysis.ProjectInfo.HostObjectType"/>
+        </member>
         <member name="T:MirrorSharp.Advanced.ISetOptionsFromClientExtension">
             <summary>An interface used to implement custom (extension) options.</summary>
         </member>
@@ -179,19 +204,45 @@
         <member name="P:MirrorSharp.Advanced.IWorkSession.ExtensionData">
             <summary>Arbitrary data associated with the current session.</summary>
         </member>
-        <member name="T:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2">
+        <member name="T:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3">
             <summary>Base class for Roslyn-based language options. Should not be used directly.</summary>
-            <typeparam name="TParseOptions">Type of <see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.ParseOptions" /> for this language.</typeparam>
-            <typeparam name="TCompilationOptions">Type of <see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.CompilationOptions" /> for this language.</typeparam>
+            <typeparam name="TSelf">Type of the specific subclass (provided by that subclass).</typeparam>
+            <typeparam name="TParseOptions">Type of <see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.ParseOptions" /> for this language.</typeparam>
+            <typeparam name="TCompilationOptions">Type of <see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.CompilationOptions" /> for this language.</typeparam>
         </member>
-        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.ParseOptions">
-            <summary><see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.ParseOptions" /> for this language.</summary>
+        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.ParseOptions">
+            <summary><see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.ParseOptions" /> for this language.</summary>
         </member>
-        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.CompilationOptions">
-            <summary><see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.CompilationOptions" /> for this language.</summary>
+        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.CompilationOptions">
+            <summary><see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.CompilationOptions" /> for this language.</summary>
         </member>
-        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`2.MetadataReferences">
+        <member name="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.MetadataReferences">
             <summary><see cref="T:Microsoft.CodeAnalysis.MetadataReference" />s for this language.</summary>
+        </member>
+        <member name="M:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.SetScriptMode(System.Boolean,System.Type)">
+            <summary>Sets or unsets script mode for this language.</summary>
+            <param name="isScript">Whether the language should use script mode.</param>
+            <param name="hostObjectType">Host object type for the session; must be <c>null</c> if <paramref name="isScript" /> is <c>false</c>.</param>
+            <returns>Current instance (for convenience).</returns>
+            <remarks>
+            Members of <paramref name="hostObjectType" /> are directly available to the script. For example
+            if you set <c>hostObjectType</c> is <see cref="T:System.Random" />, you can use <see cref="M:System.Random.Next" />
+            in the script by just writing <c>Next()</c>.
+            </remarks>
+            <seealso cref="P:Microsoft.CodeAnalysis.ProjectInfo.IsSubmission"/>
+            <seealso cref="P:Microsoft.CodeAnalysis.ProjectInfo.HostObjectType"/>
+        </member>
+        <member name="M:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.AddMetadataReferencesFromFiles(System.String[])">
+            <summary>
+            Adds assembly references to <see cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.MetadataReferences"/> and attempts to discover corresponding XML documentation.
+            </summary>
+            <param name="paths">Paths to assemblies to be added.</param>
+            <returns>Current instance (for convenience).</returns>
+            <remarks>
+            This method will attempt to automatically discover XML documentation files for the assemblies being added.
+            However it will always succeed, whether the XML documentation is available or not.
+            </remarks>
+            <seealso cref="P:MirrorSharp.Advanced.MirrorSharpRoslynOptions`3.MetadataReferences"/>
         </member>
         <member name="T:MirrorSharp.MirrorSharpCSharpOptions">
             <summary>MirrorSharp options for C#</summary>
@@ -200,11 +251,11 @@
             <summary>MirrorSharp options object.</summary>
         </member>
         <member name="M:MirrorSharp.MirrorSharpOptions.#ctor">
-            <summary>Creates a new instance of <see cref="T:MirrorSharp.MirrorSharpOptions" />.</summary>
+            <summary>!!Creates a new instance of <see cref="T:MirrorSharp.MirrorSharpOptions" />.</summary>
         </member>
         <member name="P:MirrorSharp.MirrorSharpOptions.CSharp">
             <summary>MirrorSharp options for C#.</summary>
-            <remarks>These options are ignored if <see cref="M:MirrorSharp.MirrorSharpOptions.DisableCSharp" /> was called.</remarks>
+            <remarks>!!!!!These options are ignored if <see cref="M:MirrorSharp.MirrorSharpOptions.DisableCSharp" /> was called.</remarks>
         </member>
         <member name="P:MirrorSharp.MirrorSharpOptions.SetOptionsFromClient">
             <summary>Defines a <see cref="T:MirrorSharp.Advanced.ISetOptionsFromClientExtension" /> used to support extra options.</summary>
@@ -223,6 +274,11 @@
         </member>
         <member name="M:MirrorSharp.MirrorSharpOptions.DisableCSharp">
             <summary>Disables C# — the language will not be available to the client.</summary>
+            <returns>Current <see cref="T:MirrorSharp.MirrorSharpOptions" /> object, for convenience.</returns>
+        </member>
+        <member name="M:MirrorSharp.MirrorSharpOptions.SetupCSharp(System.Action{MirrorSharp.MirrorSharpCSharpOptions})">
+            <summary>Configures C# support in the <see cref="T:MirrorSharp.MirrorSharpOptions" />.</summary>
+            <param name="setup">Setup delegate used to configure <see cref="T:MirrorSharp.MirrorSharpCSharpOptions" /></param>
             <returns>Current <see cref="T:MirrorSharp.MirrorSharpOptions" /> object, for convenience.</returns>
         </member>
         <member name="T:Argument">

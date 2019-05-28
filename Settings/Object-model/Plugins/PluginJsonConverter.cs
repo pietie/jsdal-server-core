@@ -13,7 +13,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             var type = (PluginType)(long)((JValue)(target["Type"])).Value;
 
-            if (type == PluginType.ExecPlugin)
+            if (type == PluginType.Execution)
             {
                 var sr = new ExecPlugin();
 
@@ -33,17 +33,17 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 return sr;
             }
-            else if (type == PluginType.DbNotifyMethod)
-            {
-                var rr = new DbNotifyMethodPlugin();
+            // else if (type == PluginType.DbNotifyMethod)
+            // {
+            //     var rr = new DbNotifyMethodPlugin();
 
-                // if (target["Name"] != null) rr.Name = target["Name"].ToString();
-                // if (target["Id"] != null) rr.Id = target["Id"].ToString();
-                // if (target["Match"] != null) rr.Match = target["Match"].ToString();
+            //     // if (target["Name"] != null) rr.Name = target["Name"].ToString();
+            //     // if (target["Id"] != null) rr.Id = target["Id"].ToString();
+            //     // if (target["Match"] != null) rr.Match = target["Match"].ToString();
 
-                return rr;
+            //     return rr;
 
-            }
+            // }
 
             throw new NotSupportedException(string.Format("Type {0} unexpected.", type));
         }

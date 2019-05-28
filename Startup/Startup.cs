@@ -19,7 +19,6 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 
-using MirrorSharp.Owin;
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
@@ -28,7 +27,9 @@ using System.Reflection;
 
 using Microsoft.CodeAnalysis.CSharp;
 using MirrorSharp.Advanced;
+using Extensions;
 using System.IO;
+using MirrorSharp;
 
 namespace jsdal_server_core
 {
@@ -41,7 +42,7 @@ namespace jsdal_server_core
         {
             Configuration = configuration;
             //  var configurationBuilder = new ConfigurationBuilder();
-                
+
             //  configurationBuilder.AddJsonFile("./appsettings.json", false, true);
 
             //  var c = configurationBuilder.Build();
@@ -49,7 +50,7 @@ namespace jsdal_server_core
             HostingEnvironment = env;
 
             Console.WriteLine($"WebRootPath: {env.WebRootPath}");
-            Console.WriteLine($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)"); 
+            Console.WriteLine($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)");
         }
 
 
@@ -62,7 +63,7 @@ namespace jsdal_server_core
                     builder => builder
                         .SetIsOriginAllowedToAllowWildcardSubdomains()
                         //.SetIsOriginAllowed(s=>s.Equals("http://localhost:4200"))
-                        .SetIsOriginAllowed(s=>true)
+                        .SetIsOriginAllowed(s => true)
                         //.AllowAnyOrigin()
                         .AllowAnyMethod()
                         .AllowCredentials()
@@ -133,15 +134,17 @@ namespace jsdal_server_core
         {
             //app.UseDeveloperExceptionPage();
 
-            applicationLifetime.ApplicationStopped.Register(()=>{
+            applicationLifetime.ApplicationStopped.Register(() =>
+            {
                 Console.WriteLine("!!!  Stopped reached");
             });
 
-            applicationLifetime.ApplicationStopping.Register(()=>{
+            applicationLifetime.ApplicationStopping.Register(() =>
+            {
                 Console.WriteLine("!!!  Stopping reached");
             });
 
-      
+
 
             //       loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             //     loggerFactory.AddDebug();
@@ -169,7 +172,7 @@ namespace jsdal_server_core
 
 
             app.UseWebSockets(webSocketOptions);
-                    app.UseCors("CorsPolicy");
+            app.UseCors("CorsPolicy");
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
@@ -197,20 +200,27 @@ namespace jsdal_server_core
                                             }
             );
 
-            var mirrorSharpOptions = new MirrorSharp.MirrorSharpOptions()
+            var mirrorSharpOptions = new MirrorSharpOptions()
             {
                 SelfDebugEnabled = true,
                 IncludeExceptionDetails = true,
-                CSharp = {
-                            MetadataReferences = ImmutableList.Create<MetadataReference>(all),
-                            CompilationOptions = compilationOptions
-                         }
-            };
- 
+                //SetOptionsFromClient = SetOptionsFromClientExtension()
+                // CSharp = {
+                //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
+                //             CompilationOptions = compilationOptions
+                //          },
+                ExceptionLogger = new MirrorSharpExceptionLogger()
+            }.SetupCSharp(cs =>
+            {
+                //cs.MetadataReferences = cs.MetadataReferences.Clear();
+                //cs.AddMetadataReferencesFromFiles(all);
+                cs.MetadataReferences = ImmutableList.Create<MetadataReference>(all);
+                cs.CompilationOptions = compilationOptions;
+
+            });
+
 
             app.UseMirrorSharp(mirrorSharpOptions);
-
-          
 
             app.UseDefaultFiles();
             app.UseStaticFiles();

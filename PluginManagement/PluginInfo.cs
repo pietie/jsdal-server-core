@@ -7,7 +7,6 @@ namespace jsdal_server_core
     {
         public PluginInfo()
         {
-            // this.Guid = Guid.NewGuid();
         }
         public Guid Guid { get; set; }
         public string Name { get; set; }
@@ -16,5 +15,9 @@ namespace jsdal_server_core
         public TypeInfo TypeInfo { get; set; }
 
         public Assembly Assembly { get; set; }
+
+        public Settings.ObjectModel.PluginType Type { get; set; }
     }
+
+     
 }

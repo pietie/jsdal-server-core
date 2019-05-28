@@ -34,7 +34,9 @@
 
 	<ItemGroup>
 
-		<PackageReference Include="Microsoft.AspNetCore.All"/>
+		<PackageReference Include="JetBrains.Annotations" Version="2019.1.1" />
+
+		<PackageReference Include="Microsoft.AspNetCore.All" />
 
 
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer">
@@ -55,7 +57,15 @@
 			<Version>2.2.1</Version>
 		</PackageReference>
 
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.10.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="3.0.0" />
+
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.0.0" />
+
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="3.0.0" />
+
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.0.0" />
+
+		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="3.0.0" />
 
 		<PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290" />
 

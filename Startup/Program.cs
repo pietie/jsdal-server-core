@@ -77,6 +77,10 @@ namespace jsdal_server_core
                 }
 
                 PluginManager.CompileListOfAvailablePlugins();
+                PluginManager.InitServerWidePlugins();
+
+                // TODO: tmp...what is most appropriate time and place?
+                ServerMethodManager.GenerateJavascript();
 
                 _startDate = DateTime.Now;
 

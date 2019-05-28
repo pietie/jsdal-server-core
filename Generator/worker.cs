@@ -213,7 +213,7 @@ namespace jsdal_server_core
                     catch (Exception ex)
                     {
                         this.log.Exception(ex);
-                        SessionLog.Exception(ex);
+                        SessionLog.Exception(new Exception($"{this.Endpoint.Pedigree} exception: ", ex));
 
                         exceptionThrottler.Add(DateTime.Now, ex);
 

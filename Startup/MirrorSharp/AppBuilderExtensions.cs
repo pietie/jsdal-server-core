@@ -1,24 +1,26 @@
+using System;
+using JetBrains.Annotations;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Options;
-using MirrorSharp.Owin.Internal;
+using MirrorSharp.Advanced;
 
+namespace Extensions {
 
-namespace MirrorSharp.Owin
-{
-    /// <summary>MirrorSharp-related extensions for the <see cref="IAppBuilder" />.</summary>
-    public static class AppBuilderExtensions
-    {
-        /// <summary>Adds MirrorSharp middleware to the <see cref="IAppBuilder" />.</summary>
+    public static class ApplicationBuilderExtensions {
+        /// <summary>Adds MirrorSharp middleware to the <see cref="IApplicationBuilder" />.</summary>
         /// <param name="app">The app builder.</param>
         /// <param name="options">The <see cref="MirrorSharpOptions" /> object used by the MirrorSharp middleware.</param>
+        public static IApplicationBuilder UseMirrorSharp(this IApplicationBuilder app, MirrorSharp.MirrorSharpOptions options = null) {
+            //Argument.NotNull(nameof(app), app);
+            app.UseMiddleware<Middleware>(options ?? new MirrorSharp.MirrorSharpOptions());
+            return app;
+        }
+    }
 
-        public static IApplicationBuilder UseMirrorSharp(this IApplicationBuilder app, MirrorSharpOptions options = null)
+    public class MirrorSharpExceptionLogger : MirrorSharp.Advanced.IExceptionLogger
+    {
+        public void LogException(Exception exception, IWorkSession session)
         {
-            //!?app.Use(typeof(Middleware), options ?? new MirrorSharpOptions());
-            var o = Options.Create(options);
-            return app.UseMiddleware<MirrorSharpMiddleware>(o);
-
-
+            
         }
     }
 }
