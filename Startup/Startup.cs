@@ -1,16 +1,12 @@
 ﻿using System;
 
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -19,17 +15,15 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 
+
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-
-using System.Reflection;
-
 using Microsoft.CodeAnalysis.CSharp;
-using MirrorSharp.Advanced;
 using Extensions;
 using System.IO;
 using MirrorSharp;
+using Newtonsoft.Json;
 
 namespace jsdal_server_core
 {
@@ -110,12 +104,28 @@ namespace jsdal_server_core
             services.AddSignalR()
                 .AddJsonProtocol(options =>
                 {
-                    options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver();
+                    options.UseCamelCase = false;
+
+                    // TODO: temp solution until .NET Core 3 ships with the PayloadSerializerSettings property again...or until I figure out what dependency I have missing!
+                    // var field = options.GetType().GetField("_serializerOptions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    // var val = field.GetValue(options);
+                    // var so = (System.Text.Json.Serialization.JsonSerializerOptions)field.GetValue(options);
+
+
+                    //!?options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver();
                 });
 
-            services.AddMvc()
-                    .AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
-                    .SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            services.AddMvc(options => { options.EnableEndpointRouting = false; })
+             .AddNewtonsoftJson(options =>
+                    {
+
+                        //options.SerializerSettings = new JsonSerializerSettings() { };
+                        options.SerializerSettings.ContractResolver = new DefaultContractResolver();
+
+                        //new DefaultContractResolver();
+                    })
+                    //.AddJsonOptions(options => options.SerializerSettings.ContractResolver = new DefaultContractResolver())
+                    .SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
             ;
 
 

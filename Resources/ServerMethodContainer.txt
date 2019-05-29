@@ -2,8 +2,12 @@
 /// <<DATE>>
 var DAL;
 (function (dal) {
-    var S = DAL.ExecServerMethod;
+    var S = function() { console.error("window['jsDAL'] is not configured."); };
 	
+	document.addEventListener('DOMContentLoaded', () => {
+		if (window['jsDAL']) S = window['jsDAL'].ExecServerMethod;
+	});
+
 <<ROUTINES>>
 
 })(DAL || (DAL = {}));

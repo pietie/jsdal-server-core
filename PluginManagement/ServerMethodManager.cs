@@ -6,14 +6,15 @@ using jsdal_plugin;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.IO;
+using OM = jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core
 {
     class ServerMethodRegistration
     {
 
-        private Dictionary<string, List<string>> JavaScriptDefinitions;
-        private Dictionary<string, List<string>> TypescriptDefinitions;
+        private Dictionary<string, List<Definition>> JavaScriptDefinitions;
+        private Dictionary<string, List<Definition>> TypescriptDefinitions;
         private byte[] JavaScriptDefinitionsHash;
         private byte[] TypescriptDefinitionsHash;
 
@@ -47,22 +48,24 @@ namespace jsdal_server_core
         private const string SERVER_TSD_METHOD_NONSTATIC_TEMPLATE = "<<FUNC_NAME>>(<<PARM_LIST>>): <<RET_TYPE>>;";
         private const string SERVER_TSD_METHOD_TEMPLATE = "static <<FUNC_NAME>>(<<PARM_LIST>>): <<RET_TYPE>>;";
 
-        private string GenerateAndCacheJsInterface()
+        private class Definition
+        {
+            public string MethodName { get; set; }
+            public string Line { get; set; }
+        }
+
+        private void GenerateAndCacheJsInterface()
         {
             try
             {
-                var sbJavascriptAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodContainer);
-                var sbTSDAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer);
-
-
-                var definitionsJS = JavaScriptDefinitions = new Dictionary<string, List<string>>();
-                var definitionsTSD = TypescriptDefinitions = new Dictionary<string, List<string>>();
+                var definitionsJS = JavaScriptDefinitions = new Dictionary<string, List<Definition>>();
+                var definitionsTSD = TypescriptDefinitions = new Dictionary<string, List<Definition>>();
 
                 JavaScriptDefinitionsHash = TypescriptDefinitionsHash = null;
 
                 // add default namespace 
-                definitionsJS.Add("ServerMethods", new List<string>());
-                definitionsTSD.Add("ServerMethods", new List<string>());
+                definitionsJS.Add("ServerMethods", new List<Definition>());
+                definitionsTSD.Add("ServerMethods", new List<Definition>());
 
                 foreach (var method in this.Methods)
                 {
@@ -71,7 +74,8 @@ namespace jsdal_server_core
 
                     if (!string.IsNullOrEmpty(method.Namespace))
                     {
-                        namespaceKey += $".{method.Namespace}";
+                        //namespaceKey += $".{method.Namespace}";
+                        namespaceKey = method.Namespace;
                         namespaceKeyTSD = method.Namespace;
                     }
 
@@ -79,12 +83,12 @@ namespace jsdal_server_core
 
                     if (!definitionsJS.ContainsKey(namespaceKey))
                     {
-                        definitionsJS.Add(namespaceKey, new List<string>());
+                        definitionsJS.Add(namespaceKey, new List<Definition>());
                     }
 
                     if (!definitionsTSD.ContainsKey(namespaceKeyTSD))
                     {
-                        definitionsTSD.Add(namespaceKeyTSD, new List<string>());
+                        definitionsTSD.Add(namespaceKeyTSD, new List<Definition>());
                     }
 
                     var methodParameters = method.MethodInfo.GetParameters();
@@ -98,7 +102,7 @@ namespace jsdal_server_core
 
                     methodLineJS = methodLineJS.Replace("<<PARM_LIST>>", parmListJS);
 
-                    definitionsJS[namespaceKey].Add(methodLineJS);
+                    definitionsJS[namespaceKey].Add(new Definition() { MethodName = method.Name, Line = methodLineJS });
 
                     // TSD
                     string methodLineTSD = null;
@@ -118,14 +122,14 @@ namespace jsdal_server_core
 
                     methodLineTSD = methodLineTSD.Replace("<<PARM_LIST>>", parmListTSD);
 
-                    methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", Settings.ObjectModel.RoutineParameterV2.GetTypescriptTypeFromCSharp(method.MethodInfo.ReturnType));
+                    methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", $"IServerMethod<{Settings.ObjectModel.RoutineParameterV2.GetTypescriptTypeFromCSharp(method.MethodInfo.ReturnType)}>");
 
-                    definitionsTSD[namespaceKeyTSD].Add(methodLineTSD);
+                    definitionsTSD[namespaceKeyTSD].Add(new Definition() { MethodName = method.Name, Line = methodLineTSD });
                 }
 
 
-                var jsLines = string.Join("\n", definitionsJS.Select(kv => $"{kv.Key}§{string.Join('\n', kv.Value.ToArray())}").ToArray());
-                var tsdLines = string.Join("\n", definitionsTSD.Select(kv => $"{kv.Key}§{string.Join('\n', kv.Value.ToArray())}").ToArray());
+                var jsLines = string.Join("\n", definitionsJS.Select(kv => $"{kv.Key}§{string.Join('\n', kv.Value.Select(d => d.Line).ToArray())}").ToArray());
+                var tsdLines = string.Join("\n", definitionsTSD.Select(kv => $"{kv.Key}§{string.Join('\n', kv.Value.Select(d => d.Line).ToArray())}").ToArray());
 
                 using (var sha = System.Security.Cryptography.SHA256.Create())
                 {
@@ -138,71 +142,10 @@ namespace jsdal_server_core
                     this.TypescriptDefinitionsHash = tsdHash;
                 }
 
-
-
-                return null;
-
-                var now = DateTime.Now;
-
-                // JavaScript
-                {
-                    var sbJS = new StringBuilder();
-
-                    foreach (var kv in definitionsJS)
-                    {
-
-                        sbJS.AppendLine($"\t{kv.Key} = {{");
-
-                        sbJS.Append(string.Join(",\r\n", kv.Value.Select(l => "\t\t" + l).ToArray()));
-
-                        sbJS.AppendLine("\r\n\t};\r\n");
-                    }
-
-                    sbJavascriptAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
-                        .Replace("<<ROUTINES>>", sbJS.ToString())
-                        .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
-                        ;
-                }
-
-                // TSD
-                {
-                    var sbTSD = new StringBuilder();
-
-                    foreach (var kv in definitionsTSD)
-                    {
-                        var insideCustomNamespace = false;
-
-                        if (!kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
-                        {
-                            insideCustomNamespace = true;
-
-                            sbTSD.AppendLine($"\t\tstatic {kv.Key}: {{");
-                        }
-
-                        sbTSD.Append(string.Join("\r\n", kv.Value.Select(l => (insideCustomNamespace ? "\t" : "") + "\t\t" + l).ToArray()));
-
-                        if (insideCustomNamespace)
-                        {
-                            sbTSD.AppendLine("\r\n\t\t};\r\n");
-                        }
-                    }
-
-                    sbTSDAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
-                        .Replace("<<MethodsStubs>>", sbTSD.ToString())
-                        .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
-                        ;
-                }
-
-                File.WriteAllText("./data/Test.js", sbJavascriptAll.ToString());
-                File.WriteAllText("./data/Test.d.ts", sbTSDAll.ToString());
-
-                return sbJavascriptAll.ToString();
             }
             catch (Exception ex)
             {
                 SessionLog.Exception(ex);
-                // TODO: Return JS that console.errors some generic failure notice?
-                return null;
             }
         }
 
@@ -233,12 +176,123 @@ namespace jsdal_server_core
             this.GenerateAndCacheJsInterface();
         }
 
-        public static (string /*Js*/, string/*TSD*/) GenerateOutputFiles(IEnumerable<ServerMethodRegistration> registrations)
+        public static (string /*js*/, string/*TSD*/) GenerateOutputFiles(OM.Application app, IEnumerable<ServerMethodRegistration> registrations)
         {
-            // TODO: Merge dictionaries and then build outputs
-            // TODO: Also warning/error on method name conflicts
-  
-            return (null, null);
+            // TODO: The merged dictionaries can be cached per App and only recalculated each time the plugin config on an app changes? (or inline methods are recompiled)
+            var combinedJS = new Dictionary<string/*Namespace*/, List<Definition>>();
+            var combinedTSD = new Dictionary<string/*Namespace*/, List<Definition>>();
+
+            foreach (var reg in registrations)
+            {
+                foreach (var namespaceKV in reg.JavaScriptDefinitions)
+                {
+                    // js
+                    foreach (var definition in namespaceKV.Value)
+                    {
+                        if (!combinedJS.ContainsKey(namespaceKV.Key))
+                        {
+                            combinedJS.Add(namespaceKV.Key, new List<Definition>());
+                        }
+
+                        if (combinedJS[namespaceKV.Key].FirstOrDefault(m => m.MethodName.Equals(definition.MethodName, StringComparison.Ordinal)) != null)
+                        {
+                            // TODO: Consider allowing overloads
+                            SessionLog.Warning($"{app.Project.Name}/{app.Name} - ServerMethods - conflicting method name '{definition.MethodName}'.");
+                            continue;
+                        }
+
+                        combinedJS[namespaceKV.Key].Add(definition);
+                    }
+                }
+
+                // tsd
+                foreach (var namespaceKV in reg.TypescriptDefinitions)
+                {
+                    // js
+                    foreach (var definition in namespaceKV.Value)
+                    {
+                        if (!combinedTSD.ContainsKey(namespaceKV.Key))
+                        {
+                            combinedTSD.Add(namespaceKV.Key, new List<Definition>());
+                        }
+
+                        if (combinedTSD[namespaceKV.Key].FirstOrDefault(m => m.MethodName.Equals(definition.MethodName, StringComparison.Ordinal)) != null)
+                        {
+                            // just skip, should have already been handled on the .js side
+                            continue;
+                        }
+
+                        combinedTSD[namespaceKV.Key].Add(definition);
+                    }
+                }
+            }
+
+
+            var sbJavascriptAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodContainer);
+            var sbTSDAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer);
+
+            var now = DateTime.Now;
+
+            // JavaScript
+            {
+                var sbJS = new StringBuilder();
+
+                foreach (var kv in combinedJS)
+                {
+                    string objName = null;
+
+                    if (kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
+                    {
+                        objName = "var x = dal.ServerMethods";
+                    }
+                    else
+                    {
+                        objName = $"x.{kv.Key}";
+                    }
+
+                    sbJS.AppendLine($"\t{objName} = {{");
+
+                    sbJS.Append(string.Join(",\r\n", kv.Value.Select(definition => "\t\t" + definition.Line).ToArray()));
+
+                    sbJS.AppendLine("\r\n\t};\r\n");
+                }
+
+                sbJavascriptAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<ROUTINES>>", sbJS.ToString())
+                    .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    ;
+            }
+
+            // TSD
+            {
+                var sbTSD = new StringBuilder();
+
+                foreach (var kv in combinedTSD)
+                {
+                    var insideCustomNamespace = false;
+
+                    if (!kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
+                    {
+                        insideCustomNamespace = true;
+
+                        sbTSD.AppendLine($"\t\tstatic {kv.Key}: {{");
+                    }
+
+                    sbTSD.AppendLine(string.Join("\r\n", kv.Value.Select(definition => (insideCustomNamespace ? "\t" : "") + "\t\t" + definition.Line).ToArray()));
+
+                    if (insideCustomNamespace)
+                    {
+                        sbTSD.AppendLine("\t\t};");
+                    }
+                }
+
+                sbTSDAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<MethodsStubs>>", sbTSD.ToString())
+                    .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    ;
+            }
+
+            return (sbJavascriptAll.ToString(), sbTSDAll.ToString());
         }
     }
 
@@ -334,27 +388,24 @@ namespace jsdal_server_core
 
                     if (registrations.Count() > 0)
                     {
-                        var (js, tsd) = ServerMethodRegistration.GenerateOutputFiles(registrations);
+                        try
+                        {
+                            var (js, tsd) = ServerMethodRegistration.GenerateOutputFiles(app, registrations);
+
+                            // TODO: Persist somewhere, ready to serve
+                            File.WriteAllText("./data/Test.js", js);
+                            File.WriteAllText("./data/Test.d.ts", tsd);
+
+                        }
+                        catch (Exception ex)
+                        {
+                            SessionLog.Error($"Failed to generate ServerMethod output files for {app.Project.Name}/{app.Name}.See exception that follows.");
+                            SessionLog.Exception(ex);
+                        }
                     }
 
-
-                    // foreach (var reg in registrations)
-                    // {
-                    //     var s = reg.GenerateMethodJavascript();
-                    // }
                 }
 
-                // foreach (var reg in ServerMethodManager.Registrations)
-                // {
-                //     // find apps that have it registered
-                //     var appCollection = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p=>p.Applications).Where(app=>app.IsPluginIncluded(reg.PluginGuid));
-
-                //     foreach(var app in appCollection)
-                //     {
-                //         reg.
-
-                //     }
-                // }
             }
             catch (Exception ex)
             {

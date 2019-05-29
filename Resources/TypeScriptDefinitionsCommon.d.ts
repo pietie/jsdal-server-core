@@ -16,7 +16,19 @@ interface IDALConfig {
     HttpMethod?: string;
 }
 
+interface IDALServerMethodConfig {
+    HttpMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    UseWebSockets?: boolean;
+    AsyncExecution?: boolean;
+}
 
+interface IServerMethod0<O/*Output*/, P/*Parametes*/>
+{
+    configure(config: IDALServerMethodConfig): IServerMethod0<O, P>;
+    afterExec(cb: (...any) => any): IServerMethod0<O, P>;
+    always(cb: (...fn: any[]) => any): IServerMethod0<O, P>;
+    exec(parameters?: P): Promise<ApiResponseNoResult<O>>; // TODO: Fix result type
+}
 
 interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {
     configure(config: IDALConfig): ISprocExecGeneric0<O, U>;
