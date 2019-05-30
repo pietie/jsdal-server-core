@@ -1,1 +1,1 @@
-<<FUNC_NAME>>: function(<<PARM_LIST>>) { return S("<<FUNC_NAME>>"<<ARG_SEP>><<PARM_LIST>>); }
+<<FUNC_NAME>>: function(<<HAS_PARMS>>) { return S("<<FUNC_NAME>>"<<ARG_SEP>><<HAS_PARMS>>); }

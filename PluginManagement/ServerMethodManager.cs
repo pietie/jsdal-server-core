@@ -8,6 +8,7 @@ using System.Text;
 using System.IO;
 using OM = jsdal_server_core.Settings.ObjectModel;
 
+
 namespace jsdal_server_core
 {
     class ServerMethodRegistration
@@ -52,6 +53,7 @@ namespace jsdal_server_core
         {
             public string MethodName { get; set; }
             public string Line { get; set; }
+            public List<string> TypesLines { get; set; }
         }
 
         private void GenerateAndCacheJsInterface()
@@ -79,7 +81,7 @@ namespace jsdal_server_core
                         namespaceKeyTSD = method.Namespace;
                     }
 
-                    var isCustomNamespace = !namespaceKeyTSD.Equals("ServerMethods", StringComparison.Ordinal);
+                    var isCustomNamespace = !namespaceKey.Equals("ServerMethods", StringComparison.Ordinal);
 
                     if (!definitionsJS.ContainsKey(namespaceKey))
                     {
@@ -95,12 +97,23 @@ namespace jsdal_server_core
 
                     // js
                     var methodLineJS = ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate.Replace("<<FUNC_NAME>>", method.Name);
-                    var parmListJS = string.Join(", ", (from parm in methodParameters
-                                                        select parm.Name).ToArray());
+                    // var parmListJS = string.Join(", ", (from parm in methodParameters
+                    //                                     select parm.Name).ToArray());
 
-                    methodLineJS = methodLineJS.Replace("<<ARG_SEP>>", (parmListJS.Length > 0) ? ", " : "");
+                    // methodLineJS = methodLineJS.Replace("<<ARG_SEP>>", (parmListJS.Length > 0) ? ", " : "");
 
-                    methodLineJS = methodLineJS.Replace("<<PARM_LIST>>", parmListJS);
+                    // methodLineJS = methodLineJS.Replace("<<PARM_LIST>>", parmListJS);
+
+                    if (methodParameters.Count() > 0)
+                    {
+                        methodLineJS = methodLineJS.Replace("<<ARG_SEP>>", ", ");
+                        methodLineJS = methodLineJS.Replace("<<HAS_PARMS>>", "o");
+                    }
+                    else
+                    {
+                        methodLineJS = methodLineJS.Replace("<<ARG_SEP>>", "");
+                        methodLineJS = methodLineJS.Replace("<<HAS_PARMS>>", "");
+                    }
 
                     definitionsJS[namespaceKey].Add(new Definition() { MethodName = method.Name, Line = methodLineJS });
 
@@ -116,16 +129,88 @@ namespace jsdal_server_core
                         methodLineTSD = SERVER_TSD_METHOD_TEMPLATE.Replace("<<FUNC_NAME>>", method.Name);
                     }
 
-                    var parmListTSD = string.Join(", ", (from parm in methodParameters
-                                                         select $"{parm.Name}:{Settings.ObjectModel.RoutineParameterV2.GetTypescriptTypeFromCSharp(parm.ParameterType)}"
-                                                         ).ToArray());
+                    var inputParmListLookup = from p in methodParameters
+                                              select new
+                                              {
+                                                  Name = p.Name,
+                                                  p.IsOut,
+                                                  p.ParameterType.IsByRef,
+                                                  p.ParameterType.IsArray,
+                                                  p.ParameterType.IsValueType,
+                                                  HasDefault = p.IsOptional,
+                                                  TypescriptDataType = GlobalTypescriptTypeLookup.GetTypescriptTypeFromCSharp(p.ParameterType)
+                                              };
 
-                    methodLineTSD = methodLineTSD.Replace("<<PARM_LIST>>", parmListTSD);
+                    var inputParmsFormatted = from p in inputParmListLookup
+                                              select $"{p.Name}{(p.HasDefault ? "?" : "")}: {p.TypescriptDataType}";
 
-                    methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", $"IServerMethod<{Settings.ObjectModel.RoutineParameterV2.GetTypescriptTypeFromCSharp(method.MethodInfo.ReturnType)}>");
 
-                    definitionsTSD[namespaceKeyTSD].Add(new Definition() { MethodName = method.Name, Line = methodLineTSD });
-                }
+                    string typeNameBase = $"{(isCustomNamespace ? namespaceKeyTSD + "_" : "")}{ method.Name }";
+                    string typeNameInputParms = $"{typeNameBase}_In";
+                    string typeNameOutputParms = $"{typeNameBase}_Out";
+                    string typeNameResult = $"{typeNameBase}_Res";
+
+                    string typeDefInputParms = null;
+                    string typeDefOutputParms = null;
+                    string typeDefResult = null;
+
+
+                    // if there are INPUT parameters
+                    if (inputParmsFormatted.Count() > 0)
+                    {
+                        methodLineTSD = methodLineTSD.Replace("<<PARM_LIST>>", "parameters?: __." + typeNameInputParms);
+
+                        typeDefInputParms = $"type {typeNameInputParms} = {"{" + string.Join(", ", inputParmsFormatted) + "}"};";
+                        typeNameInputParms = "__." + typeNameInputParms;
+                    }
+                    else
+                    {
+                        methodLineTSD = methodLineTSD.Replace("<<PARM_LIST>>", "");
+                        typeNameInputParms = "void";
+                    }
+
+                    // if there are OUTPUT parameters
+                    if (inputParmListLookup.Count(p => p.IsOut) > 0)
+                    {
+                        typeDefOutputParms = $"type {typeNameOutputParms} = {{ " + string.Join(", ", (from p in inputParmListLookup
+                                                                                                      where p.IsOut
+                                                                                                      select $"{p.Name}: {p.TypescriptDataType}")) + " };";
+                        typeNameOutputParms = "__." + typeNameOutputParms;
+                    }
+                    else
+                    {
+                        typeNameOutputParms = "void";
+                    }
+
+
+                    if (method.MethodInfo.ReturnType == typeof(void)) // no result
+                    {
+                        //IServerMethodVoid<OuputParameters, InputParameters>
+                        methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", $"IServerMethodVoid<{typeNameOutputParms}, {typeNameInputParms}>");
+                    }
+                    else
+                    {
+                        //IServerMethod<OuputParameters, ResultType, InputParameters>
+
+                        var retType = GlobalTypescriptTypeLookup.GetTypescriptTypeFromCSharp(method.MethodInfo.ReturnType);
+
+                        // if a built-in js/TS type
+                        if (new string[] { "number", "string", "date", "boolean", "any", "number[]", "string[]", "date[]", "boolean[]", "any[]" }.Contains(retType.ToLower()))
+                        {
+                            typeDefResult = null;
+                            methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", $"IServerMethod<{typeNameOutputParms}, {retType}, {typeNameInputParms}>");
+                        }
+                        else
+                        {
+                            typeDefResult = $"type {typeNameResult} = {retType};";
+                            methodLineTSD = methodLineTSD.Replace("<<RET_TYPE>>", $"IServerMethod<{typeNameOutputParms}, __.{typeNameResult}, {typeNameInputParms}>");
+                        }
+                    }
+
+
+
+                    definitionsTSD[namespaceKeyTSD].Add(new Definition() { MethodName = method.Name, Line = methodLineTSD, TypesLines = new List<string>() { typeDefInputParms, typeDefOutputParms, typeDefResult } });
+                } // foreach (var method in this.Methods)
 
 
                 var jsLines = string.Join("\n", definitionsJS.Select(kv => $"{kv.Key}§{string.Join('\n', kv.Value.Select(d => d.Line).ToArray())}").ToArray());
@@ -208,7 +293,6 @@ namespace jsdal_server_core
                 // tsd
                 foreach (var namespaceKV in reg.TypescriptDefinitions)
                 {
-                    // js
                     foreach (var definition in namespaceKV.Value)
                     {
                         if (!combinedTSD.ContainsKey(namespaceKV.Key))
@@ -225,6 +309,7 @@ namespace jsdal_server_core
                         combinedTSD[namespaceKV.Key].Add(definition);
                     }
                 }
+
             }
 
 
@@ -266,6 +351,8 @@ namespace jsdal_server_core
             // TSD
             {
                 var sbTSD = new StringBuilder();
+                var sbTypeDefs = new StringBuilder();
+                var sbComplexTypeDefs = new StringBuilder();
 
                 foreach (var kv in combinedTSD)
                 {
@@ -280,13 +367,27 @@ namespace jsdal_server_core
 
                     sbTSD.AppendLine(string.Join("\r\n", kv.Value.Select(definition => (insideCustomNamespace ? "\t" : "") + "\t\t" + definition.Line).ToArray()));
 
+                    var typeDefLines = kv.Value.SelectMany(def => def.TypesLines).Where(typeDef => typeDef != null).Select(l => "\t\t" + l).ToArray();
+
+                    sbTypeDefs.AppendLine(string.Join("\r\n", typeDefLines));
+
                     if (insideCustomNamespace)
                     {
                         sbTSD.AppendLine("\t\t};");
                     }
                 }
 
+                // TODO: this should only be for those types that apply to this particular App plugin inclusion..currently we generate types for EVERYTHING found 
+                // TSD: build types for Complex types we picked up
+                foreach (var def in GlobalTypescriptTypeLookup.Definitions)
+                {
+                    sbComplexTypeDefs.AppendLine($"\t\ttype {def.TypeName} = {def.Definition};");
+                }
+
+                sbTypeDefs.Insert(0, sbComplexTypeDefs);
+
                 sbTSDAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<ResultAndParameterTypes>>", sbTypeDefs.ToString())
                     .Replace("<<MethodsStubs>>", sbTSD.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
                     ;

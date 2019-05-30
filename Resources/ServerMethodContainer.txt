@@ -5,7 +5,12 @@ var DAL;
     var S = function() { console.error("window['jsDAL'] is not configured."); };
 	
 	document.addEventListener('DOMContentLoaded', () => {
-		if (window['jsDAL']) S = window['jsDAL'].ExecServerMethod;
+		if (window['jsDAL']) {
+             S = function(name, o)
+             {
+                 return new window['jsDAL'].ServerMethod(name, o);
+             }
+        }
 	});
 
 <<ROUTINES>>

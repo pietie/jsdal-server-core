@@ -22,13 +22,32 @@ interface IDALServerMethodConfig {
     AsyncExecution?: boolean;
 }
 
-interface IServerMethod0<O/*Output*/, P/*Parametes*/>
+interface IServerMethodVoid<OuputParameters, InputParameters>
 {
-    configure(config: IDALServerMethodConfig): IServerMethod0<O, P>;
-    afterExec(cb: (...any) => any): IServerMethod0<O, P>;
-    always(cb: (...fn: any[]) => any): IServerMethod0<O, P>;
-    exec(parameters?: P): Promise<ApiResponseNoResult<O>>; // TODO: Fix result type
+    configure(config: IDALServerMethodConfig): IServerMethodVoid<OuputParameters, InputParameters>;
+    afterExec(cb: (...any) => any): IServerMethodVoid<OuputParameters, InputParameters>;
+    always(cb: (...fn: any[]) => any): IServerMethodVoid<OuputParameters, InputParameters>;
+    exec(parameters?: InputParameters): Promise<IServerMethodVoidResult<InputParameters>>;
 }
+
+interface IServerMethod<OuputParameters, ResultType, InputParameters>
+{
+    configure(config: IDALServerMethodConfig): IServerMethod<OuputParameters, ResultType, InputParameters>;
+    afterExec(cb: (...any) => any): IServerMethod<OuputParameters, ResultType,InputParameters>;
+    always(cb: (...fn: any[]) => any): IServerMethod<OuputParameters, ResultType, InputParameters>;
+    exec(parameters?: InputParameters): Promise<IServerMethodResult<OuputParameters, ResultType>>;
+}
+
+interface IServerMethodResultBase<OuputParameters, T/*Result Type*/> {
+    Error?: string;
+}
+
+interface IServerMethodResult<OutputParameters, ResultType> extends IServerMethodResultBase<OutputParameters, ResultType> {
+    OutputParms?: OutputParameters,
+    Result: ResultType
+}
+
+interface IServerMethodVoidResult<OuputParameters> extends IServerMethodResultBase<OuputParameters, void> { OutputParms?: OuputParameters }
 
 interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {
     configure(config: IDALConfig): ISprocExecGeneric0<O, U>;

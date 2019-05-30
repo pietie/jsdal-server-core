@@ -21,7 +21,7 @@ namespace jsdal_server_core
     public class JsFileGenerator
     {
 
-        private static bool StartsWithNum(string s)
+        public static bool StartsWithNum(string s)
         {
             if (s == null) return false;
             var charCode = s[0];
@@ -31,7 +31,7 @@ namespace jsdal_server_core
         public static string MakeNameJsSafe(string s)
         {
             if (JsFileGenerator.StartsWithNum(s)) s = "_" + s;
-            return s.Replace(" ", "_").Replace("#", "");
+            return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_");
         }
 
         public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
