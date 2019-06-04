@@ -61,7 +61,7 @@ namespace jsdal_server_core
         {
             SessionLog.Exception(ex);
 
-            var id = ExceptionLogger.logException(ex, additionalInfo, appTitle);
+            var id = ExceptionLogger.LogException(ex, additionalInfo, appTitle);
 
             var ret = new ApiResponse();
 

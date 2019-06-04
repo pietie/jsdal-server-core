@@ -11,7 +11,7 @@ using OM = jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core
 {
-    class ServerMethodRegistration
+    public class ServerMethodRegistration
     {
 
         private Dictionary<string, List<Definition>> JavaScriptDefinitions;
@@ -269,6 +269,8 @@ namespace jsdal_server_core
 
             foreach (var reg in registrations)
             {
+                if (!app.IsPluginIncluded(reg.PluginGuid)) continue;
+                
                 foreach (var namespaceKV in reg.JavaScriptDefinitions)
                 {
                     // js
@@ -397,7 +399,7 @@ namespace jsdal_server_core
         }
     }
 
-    class ServerMethodRegistrationMethod
+    public class ServerMethodRegistrationMethod
     {
         public ServerMethodRegistrationMethod(ServerMethodRegistration reg)
         {
@@ -429,6 +431,11 @@ namespace jsdal_server_core
     public static class ServerMethodManager
     {
         private static List<ServerMethodRegistration> Registrations { get; set; }
+
+        public static ReadOnlyCollection<ServerMethodRegistration> GetRegistrations()
+        {
+            return Registrations.AsReadOnly();
+        }
 
         public static string TEMPLATE_ServerMethodContainer { get; private set; }
         public static string TEMPLATE_ServerMethodFunctionTemplate { get; private set; }

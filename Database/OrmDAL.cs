@@ -12,8 +12,8 @@ using Microsoft.AspNetCore.Http;
 using jsdal_plugin;
 using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
-using Microsoft.SqlServer.Types;
 using Newtonsoft.Json;
+using Microsoft.SqlServer.Types;
 
 namespace jsdal_server_core
 {
@@ -486,7 +486,7 @@ namespace jsdal_server_core
         private static object ConvertParameterValue(SqlDbType sqlType, string value, string udtType)
         {
             // if the expected value is a string return as is
-            if ((new SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText, SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar }).Contains(sqlType))
+            if ((new System.Data.SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText, SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar }).Contains(sqlType))
             {
                 return value;
             }
@@ -495,13 +495,6 @@ namespace jsdal_server_core
             {
                 return DBNull.Value;
             }
-            //            var valueType = value.GetType();
-
-
-            // if (valueType == typeof(string) && ((string)value).Equals("null", StringComparison.OrdinalIgnoreCase))
-            // {
-            //     return DBNull.Value;
-            // }
 
             switch (sqlType)
             {
@@ -557,8 +550,6 @@ namespace jsdal_server_core
                     }
 
 
-                //  default:
-                //      return value;
                 default:
                     {
                         var typeName = RoutineParameterV2.GetCSharpDataTypeFromSqlDbType(sqlType.ToString().ToLower());
@@ -724,9 +715,9 @@ namespace jsdal_server_core
                         {
                             rowValueList.Add(null);
                         }
-                        else if (val is Microsoft.SqlServer.Types.SqlGeography)
+                        else if (val is SqlGeography)
                         {
-                            var geo = (Microsoft.SqlServer.Types.SqlGeography)val;
+                            var geo = (SqlGeography)val;
 
                             if (!geo.IsNull)
                             {

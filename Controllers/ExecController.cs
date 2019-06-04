@@ -325,6 +325,12 @@ namespace jsdal_server_core.Controllers
 
             var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
+            var syncIOFeature = HttpContext.Features.Get<IHttpBodyControlFeature>();
+            if (syncIOFeature != null)
+            {
+                syncIOFeature.AllowSynchronousIO = true;
+            }
+
             if (isPOST)
             {
                 using (var sr = new StreamReader(req.Body))
@@ -783,7 +789,7 @@ namespace jsdal_server_core.Controllers
 
                 var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle);
 
-// TODO: Get Execution plugin list specifically
+                // TODO: Get Execution plugin list specifically
                 if (pluginList != null)
                 {
                     string externalRef;
@@ -816,7 +822,7 @@ namespace jsdal_server_core.Controllers
         {
             externalRef = null;
             if (pluginList == null) return;
-            
+
             foreach (var plugin in pluginList)
             {
                 try

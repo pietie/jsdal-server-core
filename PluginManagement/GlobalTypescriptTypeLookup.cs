@@ -115,12 +115,11 @@ namespace jsdal_server_core
             {
                 (var typeDefinition, var isExisting, var refId) = RegisterDefinition(type);
 
-                if (typeDefinition.IsComplete)
+
+                if (isExisting)
                 {
                     return $"__.{typeDefinition.TypeName}";
                 }
-
-                if (isExisting) return $"$ref.{refId}";
 
                 var availableProps = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(p => p.GetCustomAttribute(typeof(JsonPropertyAttribute)) != null);
                 var availableFields = type.GetFields(BindingFlags.Instance | BindingFlags.Public).Where(p => p.GetCustomAttribute(typeof(JsonPropertyAttribute)) != null);
@@ -133,15 +132,6 @@ namespace jsdal_server_core
 
 
                 var res = "{" + string.Join(", ", q1.Concat(q2)) + "}";
-
-                // TODO: In future, instead of running through ALL definitions all the time, just track which ones we actually need
-                foreach (var def in GlobalTypescriptTypeLookup.Definitions)
-                {
-                    var key = $"$ref.{def.RefId}";
-                    
-                   res = res.Replace(key, $"__.{def.TypeName}");
-                }
-
 
                 typeDefinition.Complete(res);
 

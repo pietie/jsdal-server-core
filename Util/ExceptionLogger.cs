@@ -35,7 +35,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                ExceptionLogger.logException(ex);
+                ExceptionLogger.LogException(ex);
             }
         }
 
@@ -62,7 +62,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                ExceptionLogger.logException(ex);
+                ExceptionLogger.LogException(ex);
                 return false;
             }
 
@@ -104,9 +104,9 @@ namespace jsdal_server_core
             }
         }
 
-        public static string logException(Exception ex, string additionalInfo = null, string appTitle = null)
+        public static string LogException(Exception ex, string additionalInfo = null, string appTitle = null)
         {
-             lock (exceptionList)
+            lock (exceptionList)
             {
                 if (ExceptionLogger.exceptionList.Count >= ExceptionLogger.MAX_ENTRIES)
                 {
@@ -165,15 +165,11 @@ namespace jsdal_server_core
         public ExceptionWrapper()
         {
 
-        
+
         }
 
         public ExceptionWrapper(Exception ex, string additionalInfo = null, string appTitle = null)
         {
-// TODO:!!?!?!?
-        }
-        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null)
-        { // TODO: do something intersting with additionalInfo
             this.created = DateTime.Now;
             this.appTitle = appTitle;
 
@@ -190,12 +186,16 @@ namespace jsdal_server_core
             this.id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             this.message = msg;
             this.stackTrace = ex.StackTrace;
-            this.execOptions = eo;
 
             if (ex.InnerException != null)
             {
                 this.innerException = new ExceptionWrapper(ex.InnerException);
             }
+        }
+        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null) : this(ex, additionalInfo, appTitle)
+        { // TODO: do something intersting with additionalInfo
+
+            this.execOptions = eo;
         }
 
     }

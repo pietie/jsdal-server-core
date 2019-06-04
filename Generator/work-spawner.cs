@@ -118,7 +118,7 @@ namespace jsdal_server_core
                     }
                     catch (Exception e)
                     {
-                        ExceptionLogger.logException(e);
+                        ExceptionLogger.LogException(e);
                         Console.WriteLine(e.ToString());
                     }
                 });

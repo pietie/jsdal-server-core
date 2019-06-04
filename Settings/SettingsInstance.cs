@@ -34,7 +34,7 @@ namespace jsdal_server_core.Settings
             }
             catch (Exception ex)
             {
-                ExceptionLogger.logException(ex);
+                ExceptionLogger.LogException(ex);
             }
         }
 
