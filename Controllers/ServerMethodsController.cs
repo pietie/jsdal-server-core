@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
@@ -56,6 +57,7 @@ namespace jsdal_server_core.Controllers
                 }
 
                 // TODO: Cache Reflection info on Plugin Types? e.g. MethodInfo + Parameter Info
+
                 // TODO: Use application to find applicable plugin method based on method name ... pass endpoint in for context?
                 //application.
 
@@ -65,23 +67,56 @@ namespace jsdal_server_core.Controllers
                 // TODO: To support overloading we need to match name + best fit parameter list
                 var methodCandidates = registrations.SelectMany(reg => reg.Methods)
                             .Where(m => m.Name.Equals(methodName, StringComparison.Ordinal))
-                            .Select(m => new { m.Registration, m.MethodInfo, Parameters = m.MethodInfo.GetParameters().ToList() })
-                            ;
+                            .Select(m => m);
+                //!.Select(m => new { m.Registration, m.MethodInfo, Parameters = m.MethodInfo.GetParameters().ToList() })
+                ;
 
                 if (methodCandidates.Count() == 0) return NotFound("Method name not found.");
 
                 //TODO: Possible to support default parameters? So then input params wont match method params...nice to have!
                 //TODO: Don't need to specify out params
 
-                // look for overload with same parameters as input
-                var inputParmsCsv = string.Join(",", inputParameters.Select(kv => kv.Key));
-                var method = methodCandidates.FirstOrDefault(m => string.Join(",", m.Parameters.Select(p => p.Name)).Equals(inputParmsCsv, StringComparison.Ordinal));
+                var weightedMethodList = new List<(int/*weight*/, string/*error*/, ServerMethodRegistrationMethod)>();
 
-                if (method == null) return NotFound("No matching overload found that matches input parameters.");
+                // find the best matching overload (if any)
+                foreach (var regMethod in methodCandidates)
+                {
+                    var methodParameters = regMethod.MethodInfo.GetParameters();
+
+                    if (inputParameters.Count > methodParameters.Length)
+                    {
+                        weightedMethodList.Add((1, "Too many parameters specified", regMethod));
+                        continue;
+                    }
+
+                    var matchedOnName = from methodParam in methodParameters
+                                        join inputParam in inputParameters on methodParam.Name equals inputParam.Key
+                                        select 1;
+
+
+                    weightedMethodList.Add((matchedOnName.Count(), null, regMethod));
+                }
+
+                var bestMatch = weightedMethodList.OrderByDescending(k => k.Item1).FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(bestMatch.Item2))
+                {
+                    // TODO: Extend error description
+                    return NotFound(bestMatch.Item2);
+                }
+
+                var method = bestMatch.Item3;
+
+                // look for overload with same parameters as input
+                // TODO: This not take into account that the order might be different!
+                // var inputParmsCsv = string.Join(",", inputParameters.Select(kv => kv.Key));
+                // var method = methodCandidates.FirstOrDefault(m => string.Join(",", m.Parameters.Select(p => p.Name)).Equals(inputParmsCsv, StringComparison.Ordinal));
+
+                // if (method == null) return NotFound("No matching overload found that matches input parameters.");
 
 
                 // match up input parameters with expected parameters and order according to MethodInfo expectation
-                var invokeParameters = (from methodParam in method.Parameters
+                var invokeParameters = (from methodParam in method.MethodInfo.GetParameters()
                                         join inputParam in inputParameters on methodParam.Name equals inputParam.Key
                                         orderby methodParam.Position
                                         select new
@@ -90,8 +125,11 @@ namespace jsdal_server_core.Controllers
                                             Type = methodParam.ParameterType,
                                             HasDefault = methodParam.HasDefaultValue,
                                             IsOptional = methodParam.IsOptional, // compiler dependent
+                                            IsOut = methodParam.IsOut,
+                                            IsByRef = methodParam.ParameterType.IsByRef,
                                             DefaultValue = methodParam.RawDefaultValue,
-                                            Value = inputParam.Value
+                                            Value = inputParam.Value,
+                                            Position = methodParam.Position
                                         })
                         ;
 
@@ -105,17 +143,23 @@ namespace jsdal_server_core.Controllers
                         object o = null;
                         Type expectedType = p.Type;
 
+                        if (p.IsOut || p.IsByRef)
+                        {
+                            // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
+                            expectedType = expectedType.GetElementType();
+                        }
+
                         var underlyingNullableType = Nullable.GetUnderlyingType(expectedType);
                         var isNullable = underlyingNullableType != null;
 
                         if (isNullable) expectedType = underlyingNullableType;
 
-                        if (p.Value.Equals("null", StringComparison.Ordinal))
+                        if (p.Value == null || p.Value.Equals("null", StringComparison.Ordinal))
                         {
                             // if null was passed it's null
                             o = null;
 
-                            if (!isNullable)
+                            if (!isNullable && expectedType.IsValueType)
                             {
                                 parameterConvertErrors.Add($"Unable to set parameter '{p.Name}' to null. The parameter is not nullable. Expected type: {p.Type.FullName}");
                                 continue;
@@ -127,11 +171,9 @@ namespace jsdal_server_core.Controllers
                         }
                         else if (expectedType.IsGenericType && expectedType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
                         { // assume json object was passed
-                          //      var keyValueTypes = expectedType.GetGenericArguments();
 
                             if (p.Value != null)
                             {
-                                //var dict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(p.Value);
                                 o = JsonConvert.DeserializeObject(p.Value, expectedType);
                             }
                         }
@@ -160,9 +202,25 @@ namespace jsdal_server_core.Controllers
 
                 // TODO: To support "Context" we need to instantiate a new instance with each call..or at least a new instance per EP and then cache that instance for a while?
 
-                var ret = method.MethodInfo.Invoke(method.Registration.PluginInstance, invokeParametersConverted.ToArray());
+                var inputParamArray = invokeParametersConverted.ToArray();
+
+                var ret = method.MethodInfo.Invoke(method.Registration.PluginInstance, inputParamArray);
+
+                // create a lookup of the indices of the out/ref parameters
+                var outputLookupIx = invokeParameters.Where(p => p.IsOut || p.IsByRef).Select(p => p.Position).ToArray();
+
+                var outputParametersWithValues = (from p in invokeParameters
+                                                  join o in outputLookupIx on p.Position equals o
+                                                  select new
+                                                  {
+                                                      p.Name,
+                                                      Value = inputParamArray[o]
+                                                  }).ToList(); // TODO: ToDictionary!!!
+                //var outputParam = inputParamArray.Where((o, i) => outputLookupIx.Contains(i));
 
                 // TODO: Content-type...Cache headers....Wrap in APIResponse?
+
+                // TODO: Match expected ApiResponse Result & Out values!
 
                 return Ok(ret);
             }
