@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using System.IO;
 using OM = jsdal_server_core.Settings.ObjectModel;
+using System.Globalization;
 
 
 namespace jsdal_server_core
@@ -65,6 +66,8 @@ namespace jsdal_server_core
 
                 JavaScriptDefinitionsHash = TypescriptDefinitionsHash = null;
 
+                var namespaceLookup = new List<string>();
+
                 // add default namespace 
                 definitionsJS.Add("ServerMethods", new List<Definition>());
                 definitionsTSD.Add("ServerMethods", new List<Definition>());
@@ -73,15 +76,22 @@ namespace jsdal_server_core
                 {
                     var namespaceKey = "ServerMethods";
                     var namespaceKeyTSD = "ServerMethods";
+                    var jsNamespaceVar = "null"; // null for main ServerMethod namespace
 
                     if (!string.IsNullOrEmpty(method.Namespace))
                     {
-                        //namespaceKey += $".{method.Namespace}";
                         namespaceKey = method.Namespace;
                         namespaceKeyTSD = method.Namespace;
                     }
 
                     var isCustomNamespace = !namespaceKey.Equals("ServerMethods", StringComparison.Ordinal);
+
+                    if (isCustomNamespace)
+                    {
+                        if (!namespaceLookup.Contains(namespaceKey)) { namespaceLookup.Add(namespaceKey); }
+                        jsNamespaceVar = $"_ns[{namespaceLookup.IndexOf(namespaceKey)}]";
+                    }
+
 
                     if (!definitionsJS.ContainsKey(namespaceKey))
                     {
@@ -96,13 +106,10 @@ namespace jsdal_server_core
                     var methodParameters = method.MethodInfo.GetParameters();
 
                     // js
-                    var methodLineJS = ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate.Replace("<<FUNC_NAME>>", method.Name);
-                    // var parmListJS = string.Join(", ", (from parm in methodParameters
-                    //                                     select parm.Name).ToArray());
-
-                    // methodLineJS = methodLineJS.Replace("<<ARG_SEP>>", (parmListJS.Length > 0) ? ", " : "");
-
-                    // methodLineJS = methodLineJS.Replace("<<PARM_LIST>>", parmListJS);
+                    var methodLineJS = ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate
+                                    .Replace("<<FUNC_NAME>>", method.Name)
+                                    .Replace("<<NAMESPACE>>", jsNamespaceVar);
+                    ;
 
                     if (methodParameters.Count() > 0)
                     {
@@ -270,7 +277,7 @@ namespace jsdal_server_core
             foreach (var reg in registrations)
             {
                 if (!app.IsPluginIncluded(reg.PluginGuid)) continue;
-                
+
                 foreach (var namespaceKV in reg.JavaScriptDefinitions)
                 {
                     // js
@@ -314,7 +321,6 @@ namespace jsdal_server_core
 
             }
 
-
             var sbJavascriptAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodContainer);
             var sbTSDAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer);
 
@@ -325,7 +331,7 @@ namespace jsdal_server_core
                 var sbJS = new StringBuilder();
 
                 foreach (var kv in combinedJS)
-                {
+                {// kv.Key is the namespace
                     string objName = null;
 
                     if (kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
@@ -344,7 +350,10 @@ namespace jsdal_server_core
                     sbJS.AppendLine("\r\n\t};\r\n");
                 }
 
+                var nsLookupArray = string.Join(',', combinedJS.Where(kv => kv.Key != "ServerMethods").Select(kv => $"\"{kv.Key}\"").ToArray());
+
                 sbJavascriptAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<NAMESPACE_LOOKUP>>", nsLookupArray)
                     .Replace("<<ROUTINES>>", sbJS.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
                     ;
@@ -389,7 +398,7 @@ namespace jsdal_server_core
                 sbTypeDefs.Insert(0, sbComplexTypeDefs);
 
                 sbTSDAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
-                    .Replace("<<ResultAndParameterTypes>>", sbTypeDefs.ToString())
+                    .Replace("<<ResultAndParameterTypes>>", sbTypeDefs.ToString().TrimEnd(new char[] { '\r', '\n' }))
                     .Replace("<<MethodsStubs>>", sbTSD.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
                     ;
@@ -447,7 +456,6 @@ namespace jsdal_server_core
             {
                 Registrations = new List<ServerMethodRegistration>();
 
-
                 ServerMethodManager.TEMPLATE_ServerMethodContainer = File.ReadAllText("./resources/ServerMethodContainer.txt");
                 ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate = File.ReadAllText("./resources/ServerMethodTemplate.txt");
                 ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer = File.ReadAllText("./resources/ServerMethodsTSDContainer.d.ts");
@@ -458,12 +466,30 @@ namespace jsdal_server_core
             }
         }
 
-        public static void Register(PluginInfo pluginInfo)
+        public async static void Register(PluginInfo pluginInfo)
         {
             try
             {
+
+                // TODO: Remove instance creation from here and move lower down to create per EP
                 // create new instance
+
                 var serverMethodPlugin = (ServerMethodPlugin)pluginInfo.Assembly.CreateInstance(pluginInfo.TypeInfo.FullName);
+
+                var initMethod = typeof(ServerMethodPlugin).GetMethod("InitSM", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                if (initMethod == null)
+                {
+                    // TODO: Complain
+                }
+
+                initMethod.Invoke(serverMethodPlugin, new object[] {
+                    new Func<System.Data.SqlClient.SqlConnection>(()=>{
+Console.WriteLine("Func called!");
+                        return new System.Data.SqlClient.SqlConnection();
+                    })
+                });
+
 
                 var classLevelAttrib = serverMethodPlugin.GetType().GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute;
 

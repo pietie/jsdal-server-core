@@ -152,33 +152,6 @@ namespace jsdal_server_core
                         Assembly assembly = Assembly.Load(ms.ToArray());
 
                         LoadPluginFromAssembly(assembly);
-                        // var whatthe = assembly.DefinedTypes.ToList();
-                        //                         var xxxxx = assembly.GetExportedTypes();
-                        //                         var tt = assembly.GetTypes();
-
-
-                        // // Type type = assembly.GetType("Plugins.TokenGuidAuthPlugin");
-
-                        // // var guid = pluginType.GetCustomAttribute(typeof(System.Runtime.InteropServices.GuidAttribute)) as System.Runtime.InteropServices.GuidAttribute;
-
-                        // // if (guid == null || string.IsNullOrEmpty(guid.Value))
-                        // // {
-                        // //     SessionLog.Error("Plugin '{0}' does not have a Guid attribute defined on the class level. Add a System.Runtime.InteropServices.GuidAttribute to the class with a unique Guid value.", pluginType.FullName);
-                        // //     continue;
-                        // // }
-
-                        // // jsDALPlugin plugin = (jsDALPlugin)Activator.CreateInstance(type);
-
-                        // // PluginInfo plugInfo = new PluginInfo();
-
-                        // // plugInfo.Assembly = assembly;
-                        // // plugInfo.Description = plugin.Description;
-                        // // //plugInfo.Guid = Gui
-                        // // plugInfo.Name = plugin.Name;
-
-                        // // PluginAssemblies.Add(assembly, new List<PluginInfo>() { plugInfo });
-
-
                     }
                 }
 

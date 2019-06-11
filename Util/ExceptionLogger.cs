@@ -124,7 +124,7 @@ namespace jsdal_server_core
                 return ew.id;
             }
         }
-        public static string logException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
+        public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
         {
             lock (exceptionList)
             {

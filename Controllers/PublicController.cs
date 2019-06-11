@@ -133,7 +133,7 @@ namespace jsdal_server_core.Controllers
                         }
                         else
                         {
-                            workerStateHeaderValue = "stopped - " +  worker.Status;
+                            workerStateHeaderValue = "stopped - " + worker.Status;
                         }
                     }
                     else
@@ -212,6 +212,30 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
+                var typescriptDefinitionsCommon = System.IO.File.ReadAllText("./resources/TypeScriptDefinitionsCommon.d.ts");
+
+                return Ok(typescriptDefinitionsCommon);
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("/api/tsd/servermethods")]
+        public IActionResult ServeServerMethodsTSD([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint)
+        {
+            try
+            {
+                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound();
+                }
+
+
                 var typescriptDefinitionsCommon = System.IO.File.ReadAllText("./resources/TypeScriptDefinitionsCommon.d.ts");
 
                 return Ok(typescriptDefinitionsCommon);

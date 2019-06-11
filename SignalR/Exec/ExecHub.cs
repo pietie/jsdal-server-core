@@ -34,19 +34,33 @@ namespace jsdal_server_core.Hubs
             return base.OnDisconnectedAsync(exception);
         }
 
-        public ApiResponse Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, ExecController.ExecType type, string appTitle)
+        public ApiResponse Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, int n, string appTitle)
         {
+            ExecController.ExecType type = (ExecController.ExecType)n;
             var endpointElems = endpoint.Split('/'); // TODO: error handling
 
-            var execOptions = new ExecController.ExecOptions() { project = endpointElems[0], application = endpointElems[1], endpoint = endpointElems[2], schema = schema, routine = routine, type = type };
-            (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, parameters, null/*requestHeaders*/, "$WEB SOCKETS$", null, appTitle, out var responseHeaders);
-
-            if (mayAccess != null && !mayAccess.isSuccess)
+            if (type != ExecController.ExecType.ServerMethod)
             {
-                throw new Exception("Unauthorised access");
-            }
 
-            return result;
+                var execOptions = new ExecController.ExecOptions() { project = endpointElems[0], application = endpointElems[1], endpoint = endpointElems[2], schema = schema, routine = routine, type = type };
+                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, parameters, null/*requestHeaders*/, "$WEB SOCKETS$", null, appTitle, out var responseHeaders);
+
+                if (mayAccess != null && !mayAccess.isSuccess)
+                {
+                    throw new Exception("Unauthorised access");
+                }
+
+                return result;
+            }
+            else
+            {
+                var execOptions = new ExecController.ExecOptions() { project = endpointElems[0], application = endpointElems[1], endpoint = endpointElems[2], schema = schema, routine = routine, type = type };
+                //ServerMethodsController.ExecuteGeneric()
+
+                // TODO: return type is a problem so create a new method perhaps?
+                // TODO: Figure out to exec ServerMethod from here
+                return null;
+            }
         }
 
         public Guid ExecAsync(string test)

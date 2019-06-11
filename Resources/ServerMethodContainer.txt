@@ -6,12 +6,14 @@ var DAL;
 	
 	document.addEventListener('DOMContentLoaded', () => {
 		if (window['jsDAL']) {
-             S = function(name, o)
+             S = function(ns, name, o)
              {
-                 return new window['jsDAL'].ServerMethod(name, o);
+                 return new window['jsDAL'].ServerMethod(ns, name, o);
              }
         }
 	});
+
+    var _ns = [<<NAMESPACE_LOOKUP>>];
 
 <<ROUTINES>>
 
