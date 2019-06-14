@@ -35,7 +35,7 @@ namespace jsdal_server_core.Controllers
         {
             var ret = SettingsInstance.Instance.AddProject(name);
 
-            if (ret.isSuccess)
+            if (ret.IsSuccess)
             {
                 SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();
@@ -51,7 +51,7 @@ namespace jsdal_server_core.Controllers
         {
             var ret = SettingsInstance.Instance.UpdateProject(name, newName);
 
-            if (ret.isSuccess)
+            if (ret.IsSuccess)
             {
                 Hubs.WorkerMonitor.Instance.NotifyObservers();
                 SettingsInstance.SaveSettingsToFile();
@@ -68,7 +68,7 @@ namespace jsdal_server_core.Controllers
         {
             var ret = SettingsInstance.Instance.DeleteProject(name);
 
-            if (ret.isSuccess)
+            if (ret.IsSuccess)
             {
                 SettingsInstance.SaveSettingsToFile();
                 return ApiResponse.Success();

@@ -134,6 +134,39 @@ namespace jsdal_server_core.Settings
             return CommonReturnValue.success();
         }
 
+        public CommonReturnValue GetInlinePlugin(string id, out string source)
+        {
+            source = null;
+            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
+
+            var existing = this.InlinePlugins.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
+
+            if (existing == null)
+            {
+                return CommonReturnValue.userError($"A plugin with the Id '{id}' does not exist");
+            }
+
+            try
+            {
+                if (System.IO.File.Exists(existing.Path))
+                {
+                    source = System.IO.File.ReadAllText(existing.Path);
+                    return CommonReturnValue.success();
+                }
+                else
+                {
+                    return CommonReturnValue.userError($"Failed to find source at: {existing.Path}");
+                }
+            }
+            catch (Exception e)
+            {
+                SessionLog.Warning("Failed to fetch file of plugin: {0}, {1}", existing.Name, existing.Id);
+                SessionLog.Exception(e);
+            }
+
+            return CommonReturnValue.success();
+        }
+
         public CommonReturnValue DeleteInlinePlugin(string id)
         {
             if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
@@ -154,7 +187,7 @@ namespace jsdal_server_core.Settings
                     System.IO.File.Delete(existing.Path);
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 SessionLog.Warning("Failed to delete file of plugin: {0}, {1}", existing.Name, existing.Id);
                 SessionLog.Exception(e);

@@ -46,7 +46,7 @@ namespace jsdal_server_core.Controllers
 
                 var ret = app.AddJsFile(jsFileName);
 
-                if (ret.isSuccess)
+                if (ret.IsSuccess)
                 {
                     SettingsInstance.SaveSettingsToFile();
                     //?!GeneratorThreadDispatcher.SetOutputFilesDirty(cs);

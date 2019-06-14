@@ -149,7 +149,7 @@ namespace jsdal_server_core.Controllers
                 { // DB-level
                     var ret = app.AddRule(type, value);
 
-                    if (ret.isSuccess)
+                    if (ret.IsSuccess)
                     {
                         SettingsInstance.SaveSettingsToFile();
 
@@ -170,7 +170,7 @@ namespace jsdal_server_core.Controllers
 
                     var ret = jsFile.AddRule(type, value);
 
-                    if (ret.isSuccess)
+                    if (ret.IsSuccess)
                     {
                         SettingsInstance.SaveSettingsToFile();
 
@@ -222,7 +222,7 @@ namespace jsdal_server_core.Controllers
                     ret = jsFile.UpdateRule(ruleId, value);
                 }
 
-                if (ret.isSuccess)
+                if (ret.IsSuccess)
                 {
                     SettingsInstance.SaveSettingsToFile();
 
@@ -259,7 +259,7 @@ namespace jsdal_server_core.Controllers
                 { // DB level
                     var ret = app.DeleteRule(ruleId);
 
-                    if (ret.isSuccess)
+                    if (ret.IsSuccess)
                     {
                         WorkSpawner.SetRulesDirty(app);
                         SettingsInstance.SaveSettingsToFile();
@@ -278,7 +278,7 @@ namespace jsdal_server_core.Controllers
 
                     var ret = jsFile.DeleteRule(ruleId);
 
-                    if (ret.isSuccess)
+                    if (ret.IsSuccess)
                     {
                         WorkSpawner.SetRulesDirty(app, jsFile);
                         SettingsInstance.SaveSettingsToFile();

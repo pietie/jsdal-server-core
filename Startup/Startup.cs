@@ -106,6 +106,11 @@ namespace jsdal_server_core
 
             var serializer = JsonSerializer.Create(settings);
 
+            services.Configure<Microsoft.AspNetCore.Server.HttpSys.HttpSysOptions>(options =>
+            {
+                options.AllowSynchronousIO = true;
+            });
+
             services.Add(new ServiceDescriptor(typeof(JsonSerializer),
                                                provider => serializer,
                                                ServiceLifetime.Transient));
@@ -150,6 +155,8 @@ namespace jsdal_server_core
                         EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
                         ValidationAlgorithm = ValidationAlgorithm.HMACSHA512
                     });
+
+
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)

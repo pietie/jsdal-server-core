@@ -14,7 +14,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public static CommonReturnValue success() { return new CommonReturnValue() { successVal = true }; }
 
-        public bool isSuccess { get { return successVal ?? false; } }
+        public bool IsSuccess { get { return successVal ?? false; } }
     }
 
     public class CommonReturnValueWithApplication : CommonReturnValue

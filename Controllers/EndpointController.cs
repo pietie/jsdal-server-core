@@ -173,7 +173,7 @@ namespace jsdal_server_core.Controllers
 
                 var ret = app.AddEndpoint(name);
 
-                if (ret.isSuccess)
+                if (ret.IsSuccess)
                 {
                     app.GetEndpoint(name, out var endpoint, out var _);
                     WorkSpawner.CreateNewWorker(endpoint);
@@ -201,7 +201,7 @@ namespace jsdal_server_core.Controllers
 
             var ret = dbSource.UpdateEndpoint(name, newName);
 
-            if (ret.isSuccess)
+            if (ret.IsSuccess)
             {
                 SettingsInstance.SaveSettingsToFile();
                 Hubs.WorkerMonitor.Instance.NotifyObservers();
@@ -260,7 +260,7 @@ namespace jsdal_server_core.Controllers
                 }
                 var ret = app.DeleteEndpoint(name);
 
-                if (ret.isSuccess)
+                if (ret.IsSuccess)
                 {
                     WorkSpawner.RemoveEndpoint(endpoint);
                     SettingsInstance.SaveSettingsToFile();
@@ -412,7 +412,7 @@ namespace jsdal_server_core.Controllers
                 if (isMetadata) ret = ep.UpdateMetadataConnection(dataSource, catalog, username, password, port.Value);
                 else ret = ep.UpdateExecConnection(dataSource, catalog, username, password, port.Value);
 
-                if (!ret.isSuccess)
+                if (!ret.IsSuccess)
                 {
                     return ApiResponse.ExclamationModal(ret.userErrorVal);
                 }

@@ -110,28 +110,28 @@ namespace jsdal_server_core.Controllers
             {
                 // var s = bodyIgnored.GetType();
                 // var t = bodyIgnored.Type;
-                
+
                 using (var sr = new System.IO.StreamReader(this.Request.Body))
                 {
-                    var code  = sr.ReadToEnd();
+                    var code = sr.ReadToEnd();
 
                     try
                     {
-                    var x = await CSharpScript.EvaluateAsync(code);
+                        var x = await CSharpScript.EvaluateAsync(code);
 
-                    int n =0;
+                        int n = 0;
                     }
-                    catch(CompilationErrorException ce)
+                    catch (CompilationErrorException ce)
                     {
-                            return ApiResponse.Payload(new { Error = ce.Message });
+                        return ApiResponse.Payload(new { Error = ce.Message });
                     }
-// CSharpScript
-  //                  var csharp = new CSharpLanguage();
+                    // CSharpScript
+                    //                  var csharp = new CSharpLanguage();
 
-                    
+
                 }
 
-               
+
 
                 return ApiResponse.Success();
             }
@@ -139,6 +139,12 @@ namespace jsdal_server_core.Controllers
             {
                 return ApiResponse.Exception(ex);
             }
+        }
+
+        [HttpGet("/api/util/new-guid")]
+        public string NewGuid()
+        {
+            return Guid.NewGuid().ToString().ToUpper();
         }
 
     }

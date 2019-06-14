@@ -298,7 +298,6 @@ namespace jsdal_server_core.Controllers
 
             var jsFiles = dbSource.JsFiles.Select(f => new { f.Filename, f.Id, f.Version }).ToList<dynamic>();
 
-
             return Ok(jsFiles);
         }
 

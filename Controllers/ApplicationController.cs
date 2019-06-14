@@ -44,7 +44,7 @@ namespace jsdal_server_core.Controllers
 
                 var ret = proj.AddApplication(name, jsNamespace, defaultRuleMode.Value);
 
-                if (!ret.isSuccess) return ApiResponse.ExclamationModal(ret.userErrorVal);
+                if (!ret.IsSuccess) return ApiResponse.ExclamationModal(ret.userErrorVal);
 
                 SettingsInstance.SaveSettingsToFile();
 
@@ -76,7 +76,7 @@ namespace jsdal_server_core.Controllers
 
                 var ret = app.Update(name, jsNamespace, defaultRuleMode);
 
-                if (!ret.isSuccess)
+                if (!ret.IsSuccess)
                 {
                     return ApiResponse.ExclamationModal(ret.userErrorVal);
                 }
@@ -233,7 +233,7 @@ namespace jsdal_server_core.Controllers
 
                 var ret = app.UpdatePluginList(pluginList);
 
-                if (ret.isSuccess)
+                if (ret.IsSuccess)
                 {
                     SettingsInstance.SaveSettingsToFile();
                     return ApiResponse.Success();

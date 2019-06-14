@@ -61,13 +61,18 @@ namespace jsdal_server_core
             }
         }
 
-        // TODO: Decide on better name...or allow for different validations (e.g. Plugins, ServerMethods, SignalR loops)
-        public static bool ParseAgainstBase<T>(string code, out string pluginName, out string pluginGuid, out string pluginDesc, out List<string> problems)
+        public class ParsedPlugin
+        {
+            public string Name { get; set; }
+            public Guid Guid { get; set; }
+            public string Description { get; set; }
+        }
+
+        // TODO: Decide on better name...or allow for different validations (e.g. Plugins, ServerMethods, SignalR loops, Background Threads?)
+        public static bool ParseAgainstBase<T>(string existingId, string code, out List<ParsedPlugin> parsedPlugins, out List<string> problems)
         {
             problems = new List<string>();
-            pluginName = null;
-            pluginGuid = null;
-            pluginDesc = null;
+            parsedPlugins = new List<ParsedPlugin>();
 
             try
             {
@@ -110,13 +115,17 @@ namespace jsdal_server_core
                             var guidPart = pluginDataAttrib.ConstructorArguments[1];
                             var descPart = pluginDataAttrib.ConstructorArguments[2];
 
+                            var newParsedPlugin = new ParsedPlugin();
+
+                            parsedPlugins.Add(newParsedPlugin);
+
                             if (namePart.IsNull || string.IsNullOrWhiteSpace(namePart.Value.ToString()))
                             {
                                 problems.Add($"Type '{pc.Symbol.ToDisplayString()}' has a PluginData attribute with a null or empty Name value.");
                             }
                             else
                             {
-                                pluginName = namePart.Value.ToString();
+                                newParsedPlugin.Name = namePart.Value.ToString();
                             }
 
                             if (guidPart.IsNull || string.IsNullOrWhiteSpace(guidPart.Value.ToString()) || !Guid.TryParse(guidPart.Value.ToString(), out var gg) || gg == Guid.Empty)
@@ -125,17 +134,27 @@ namespace jsdal_server_core
                             }
                             else
                             {
-                                pluginGuid = gg.ToString();
+                                newParsedPlugin.Guid = gg;
                             }
 
                             if (!descPart.IsNull)
                             {
-                                pluginDesc = descPart.Value.ToString();
-                                if (string.IsNullOrWhiteSpace(pluginDesc)) pluginDesc = null;
+                                newParsedPlugin.Description = descPart.Value.ToString();
+                                if (string.IsNullOrWhiteSpace(newParsedPlugin.Description)) newParsedPlugin.Description = null;
+                            }
+
+                            // if adding a new module
+                            if (existingId == null)
+                            {
+                                var existing = ServerMethods.ServerMethodManager.GetRegistrations().FirstOrDefault(r=>r.PluginGuid.Equals(newParsedPlugin.Guid.ToString(), StringComparison.OrdinalIgnoreCase));
+
+                                if (existing != null)
+                                {
+                                    problems.Add($"The type '{pc.Symbol.ToDisplayString()}' has a Plugin Guid that conflicts with an existing loaded plugin. The conflict occurred with '{existing.TypeInfo.FullName}'.");
+                                }
                             }
 
                         }
-
                     }
                     else
                     {

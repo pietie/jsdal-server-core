@@ -326,11 +326,11 @@ namespace jsdal_server_core.Controllers
 
             var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
-            var syncIOFeature = HttpContext.Features.Get<IHttpBodyControlFeature>();
-            if (syncIOFeature != null)
-            {
-                syncIOFeature.AllowSynchronousIO = true;
-            }
+            // var syncIOFeature = HttpContext.Features.Get<IHttpBodyControlFeature>();
+            // if (syncIOFeature != null)
+            // {
+            //     syncIOFeature.AllowSynchronousIO = true;
+            // }
 
             if (isPOST)
             {
@@ -356,7 +356,7 @@ namespace jsdal_server_core.Controllers
                 }
             }
 
-            if (mayAccess != null && !mayAccess.isSuccess)
+            if (mayAccess != null && !mayAccess.IsSuccess)
             {
                 res.ContentType = "text/plain";
                 res.StatusCode = 403;
@@ -401,7 +401,7 @@ namespace jsdal_server_core.Controllers
                 // make sure the source domain/IP is allowed access
                 var mayAccess = app.MayAccessDbSource(referer);
 
-                if (!mayAccess.isSuccess) return (null, null, mayAccess);
+                if (!mayAccess.IsSuccess) return (null, null, mayAccess);
 
 
                 string body = null;

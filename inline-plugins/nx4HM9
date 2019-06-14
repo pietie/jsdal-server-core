@@ -1,0 +1,12 @@
+using jsdal_plugin;
+
+[PluginData("Plugin name","1F05C9AA-0E19-4114-A802-870C80E198CB", "A short description")]
+class MyServerMethodPlugin : ServerMethodPlugin
+{
+	// Create local public methods and decorate with the ServerMethod attribute to export.
+	[ServerMethod]
+	public string Test() // execute in the browser with: DAL.ServerMethods.Test().exec().then(function(r) { console.log("ret value", r); });
+	{
+		return "Hello world!";
+	}
+}
