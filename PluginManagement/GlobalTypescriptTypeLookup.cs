@@ -108,6 +108,20 @@ namespace jsdal_server_core
 
             const string any = "any";
 
+            if (type.IsByRef)
+            {
+                // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
+                type = type.GetElementType();
+            }
+
+            var underlyingNullableType = Nullable.GetUnderlyingType(type);
+            var isNullable = underlyingNullableType != null;
+
+            if (isNullable)
+            {
+                type = underlyingNullableType;
+            }
+
             var jsonObjectAttrib = type.GetCustomAttribute(typeof(JsonObjectAttribute));
 
             // JSON serializable!
@@ -160,6 +174,18 @@ namespace jsdal_server_core
 
                 return GetTypescriptTypeFromCSharp(arg[0]) + "[]";
             }
+            // Dictionary<>
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                var args = type.GetGenericArguments();
+
+                if (args.Length != 2) return any;
+
+                var keyType = GetTypescriptTypeFromCSharp(args[0]);
+                var valueType = GetTypescriptTypeFromCSharp(args[1]);
+
+                return $"{{ [id: {keyType}] : {valueType} }}";
+            }
 
             var lookup = new Dictionary<string, List<string>>()
             {
@@ -170,6 +196,11 @@ namespace jsdal_server_core
             };
 
             var match = lookup.FirstOrDefault(kv => kv.Value.Contains(type.Name.TrimEnd('&')));
+
+            if (match.Key == null)
+            {
+                int n = 0;
+            }
 
             return match.Key == null ? any : match.Key;
         }

@@ -223,22 +223,42 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpGet("/api/tsd/servermethods")]
-        public IActionResult ServeServerMethodsTSD([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint)
+        // we use the same .js & .tsd for each endpoint on an App so we just need up to App level in the query string
+        [HttpGet("/api/servermethods")]
+        public IActionResult ServeServerMethods([FromQuery] string project, [FromQuery] string app, [FromQuery] long v = 0, [FromQuery] bool min = false, [FromQuery] bool tsd = false)
         {
             try
             {
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
-                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                if (!ControllerHelper.GetProjectAndApp(project, app, out var proj, out var application, out var resp))
                 {
                     return NotFound();
                 }
 
+                FileResult ret = null;
+                string content = tsd ? application.ServerMethodTSD : application.ServerMethodJs;
 
-                var typescriptDefinitionsCommon = System.IO.File.ReadAllText("./resources/TypeScriptDefinitionsCommon.d.ts");
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    return NotFound();
+                }
 
-                return Ok(typescriptDefinitionsCommon);
+                var etagFromRequest = this.Request.Headers["If-None-Match"];
+                string etag = tsd? application.ServerMethodTSDEtag : application.ServerMethodJsEtag;
+
+                if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etag))
+                {
+                    if (etag == etagFromRequest) 
+                    {
+                        return StatusCode(StatusCodes.Status304NotModified);
+                    }
+                }
+
+                ret = File(System.Text.Encoding.UTF8.GetBytes(content), "text/javascript");
+                ret.EntityTag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(etag);
+
+                return ret;
             }
             catch (Exception ex)
             {
@@ -322,7 +342,7 @@ namespace jsdal_server_core.Controllers
         }
 
 
-        private static string ComputeETag(byte[] data)
+        public static string ComputeETag(byte[] data)
         {
             byte[] md5data = ((System.Security.Cryptography.HashAlgorithm)System.Security.Cryptography.CryptoConfig.CreateFromName("MD5")).ComputeHash(data);
 

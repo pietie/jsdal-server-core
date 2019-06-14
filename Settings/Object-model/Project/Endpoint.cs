@@ -9,6 +9,9 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using jsdal_server_core.Changes;
 using System.Text;
+using jsdal_server_core.ServerMethods;
+using System.Reflection;
+using plugin = jsdal_plugin;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -254,7 +257,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                         {
                             jsDALMetadataUpdated = true;
                         }
-                        else if(newCachedRoutine.jsDALMetadata != null)
+                        else if (newCachedRoutine.jsDALMetadata != null)
                         {
                             var newMatchesExisting = newCachedRoutine.jsDALMetadata.Equals(existing.jsDALMetadata);
                             jsDALMetadataUpdated = newCachedRoutine.jsDALMetadata != null && !newMatchesExisting;
@@ -476,6 +479,126 @@ namespace jsdal_server_core.Settings.ObjectModel
                 return (this.Application?.Project?.Name + "/" ?? "") + (this.Application?.Name + "/" ?? "") + this.Name;
             }
         }
+
+        private Dictionary<string, plugin.ServerMethodPlugin> ServerMethodInstanceCache = new Dictionary<string, plugin.ServerMethodPlugin>();
+        public (plugin.ServerMethodPlugin, ServerMethodRegistrationMethod/*matched Method*/, string/*error*/) GetServerMethodPluginInstance(string nameSpace, string methodName, Dictionary<string, string> inputParameters)
+        {
+            // find all registered ServerMethods for this app
+            var registrations = ServerMethodManager.GetRegistrations().Where(reg => this.Application.IsPluginIncluded(reg.PluginGuid));
+
+            // TODO: To support overloading we need to match name + best fit parameter list
+            var methodCandidates = registrations.SelectMany(reg => reg.Methods)
+                        .Where(m => ((nameSpace == null && m.Namespace == null) || (m.Namespace?.Equals(nameSpace, StringComparison.Ordinal) ?? false)) && m.Name.Equals(methodName, StringComparison.Ordinal))
+                        .Select(m => m);
+
+            if (methodCandidates.Count() == 0) return (null, null, "Method name not found.");
+
+            var weightedMethodList = new List<(decimal/*weight*/, string/*error*/, ServerMethodRegistrationMethod)>();
+
+            // find the best matching overload (if any)
+            foreach (var regMethod in methodCandidates)
+            {
+                var methodParameters = regMethod.MethodInfo.GetParameters();
+
+                if (inputParameters.Count > methodParameters.Length)
+                {
+                    weightedMethodList.Add((1M, "Too many parameters specified", regMethod));
+                    continue;
+                }
+
+                var joined = from methodParam in methodParameters
+                             join inputParam in inputParameters on methodParam.Name equals inputParam.Key into grp
+                             from parm in grp.DefaultIfEmpty()
+                             select new { HasMatch = parm.Key != null, Param = methodParam };
+
+                var matched = joined.Where(e => e.HasMatch);
+                var notmatched = joined.Where(e => !e.HasMatch);
+
+
+                var expectedCnt = methodParameters.Count();
+                var matchedCnt = matched.Count();
+
+                // out/ref/optional parameters are added as extra credit below (but does not contribute to actual weight)
+                var outRefSum = (from p in joined
+                                 where (p.Param.IsOut || p.Param.IsOptional || p.Param.ParameterType.IsByRef) && !p.HasMatch
+                                 select 1.0M).Sum();
+
+
+                if (matchedCnt == expectedCnt || matchedCnt + outRefSum == expectedCnt)
+                {
+                    weightedMethodList.Add((matchedCnt, null, regMethod));
+                }
+                else
+                {
+                    //weightedMethodList.Add((matchedCnt, $"Following parameters not specified: {string.Join("\r\n", notmatched.Select(nm => nm.Param.Name))}", regMethod));
+                    weightedMethodList.Add((matchedCnt, "Parameter mismatch", regMethod));
+                }
+            }
+
+            var bestMatch = weightedMethodList.OrderByDescending(k => k.Item1).FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(bestMatch.Item2))
+            {
+                var parms = bestMatch.Item3.MethodInfo.GetParameters();
+                var parmDesc = "(no parameters)";
+                if (parms.Length > 0)
+                {
+                    parmDesc = string.Join("\r\n", parms.Select(p => $"{p.Name} ({p.ParameterType.ToString()})")); // TODO: Provide "easy to read" description for type, e.g. nullabe Int32 can be something like 'int?' and 'List<string>' just 'string[]'
+                }
+
+                return (null, bestMatch.Item3, $"Failed to find suitable overload.\r\nError: {bestMatch.Item2}\r\nBest match requires parameters:\r\n{parmDesc}");
+            }
+
+            var matchedRegMethod = bestMatch.Item3;
+
+            var cacheKey = $"{matchedRegMethod.Registration.Assembly.FullName}; {matchedRegMethod.Registration.TypeInfo.FullName}";
+
+            plugin.ServerMethodPlugin pluginInstance = null;
+
+            lock (ServerMethodInstanceCache)
+            {
+                if (ServerMethodInstanceCache.ContainsKey(cacheKey))
+                {
+                    pluginInstance = ServerMethodInstanceCache[cacheKey];
+                }
+                else // instantiate a new instance
+                {
+                    try
+                    {
+                        pluginInstance = (plugin.ServerMethodPlugin)matchedRegMethod.Registration.Assembly.CreateInstance(matchedRegMethod.Registration.TypeInfo.FullName);
+                        var initMethod = typeof(plugin.ServerMethodPlugin).GetMethod("InitSM", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                        if (initMethod != null)
+                        {
+                            initMethod.Invoke(pluginInstance, new object[] {
+                                new Func<System.Data.SqlClient.SqlConnection>(()=>{
+                                    if (this.ExecutionConnection != null)
+                                    {
+                                        Console.WriteLine(this.ExecutionConnection.ConnectionStringDecrypted);
+                                    }
+                                    Console.WriteLine("Func called!");
+                                    return new System.Data.SqlClient.SqlConnection();
+                                })
+                           });
+                        }
+                        else
+                        {
+                            SessionLog.Warning($"Failed to find InitSM method on plugin {matchedRegMethod.Registration.TypeInfo.FullName} from assembly {matchedRegMethod.Registration.Assembly.FullName}. Make sure the correct version of the jsdal plugin is used and that you derive from the correct base class (should be ServerMethodPlugin).");
+                        }
+
+                        ServerMethodInstanceCache.Add(cacheKey, pluginInstance);
+                    }
+                    catch (Exception ex)
+                    {
+                        SessionLog.Error($"Failed to instantiate plugin {matchedRegMethod.Registration.TypeInfo.FullName} from assembly {matchedRegMethod.Registration.Assembly.FullName}. See exception that follows.");
+                        SessionLog.Exception(ex);
+                    }
+                }
+            } // lock
+
+            return (pluginInstance, matchedRegMethod, null);
+        }
+
 
     }
 

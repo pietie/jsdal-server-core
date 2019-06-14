@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Server.HttpSys;
 using System.Diagnostics;
 using System.Globalization;
+using jsdal_server_core.ServerMethods;
 
 namespace jsdal_server_core
 {
@@ -79,8 +80,7 @@ namespace jsdal_server_core
                 PluginManager.CompileListOfAvailablePlugins();
                 PluginManager.InitServerWidePlugins();
 
-                // TODO: tmp...what is most appropriate time and place?
-                ServerMethodManager.GenerateJavascript();
+                ServerMethodManager.RebuildCacheForAllApps();
 
                 _startDate = DateTime.Now;
 

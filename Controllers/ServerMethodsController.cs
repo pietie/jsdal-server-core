@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using jsdal_server_core.ServerMethods;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.Authorization;
@@ -71,86 +72,16 @@ namespace jsdal_server_core.Controllers
                 // TODO: Use application to find applicable plugin method based on method name ... pass endpoint in for context?
                 //application.
 
-                // find all registered ServerMethods for this app
-                var registrations = ServerMethodManager.GetRegistrations().Where(reg => application.IsPluginIncluded(reg.PluginGuid));
+                (var pluginInstance, var method, var notFoundError) = ep.GetServerMethodPluginInstance(nameSpace, methodName, inputParameters);
 
-                // TODO: To support overloading we need to match name + best fit parameter list
-                var methodCandidates = registrations.SelectMany(reg => reg.Methods)
-                            .Where(m => ((nameSpace == null && m.Namespace == null) || (m.Namespace?.Equals(nameSpace, StringComparison.Ordinal) ?? false)) && m.Name.Equals(methodName, StringComparison.Ordinal))
-                            .Select(m => m);
-                //!.Select(m => new { m.Registration, m.MethodInfo, Parameters = m.MethodInfo.GetParameters().ToList() })
-                ;
-
-                if (methodCandidates.Count() == 0) return NotFound("Method name not found.");
-
-                //TODO: Possible to support default parameters? So then input params wont match method params...nice to have!
-                //TODO: Don't need to specify out params
-
-                var weightedMethodList = new List<(decimal/*weight*/, string/*error*/, ServerMethodRegistrationMethod)>();
-
-                // find the best matching overload (if any)
-                foreach (var regMethod in methodCandidates)
+                if (!string.IsNullOrWhiteSpace(notFoundError))
                 {
-                    var methodParameters = regMethod.MethodInfo.GetParameters();
-
-                    if (inputParameters.Count > methodParameters.Length)
-                    {
-                        weightedMethodList.Add((1, "Too many parameters specified", regMethod));
-                        continue;
-                    }
-
-                    var joined = from methodParam in methodParameters
-                                 join inputParam in inputParameters on methodParam.Name equals inputParam.Key into grp
-                                 from parm in grp.DefaultIfEmpty()
-                                 select new { HasMatch = parm.Key != null, Param = methodParam };
-
-                    var matched = joined.Where(e => e.HasMatch);
-                    var notmatched = joined.Where(e => !e.HasMatch);
-
-
-                    var expectedCnt = methodParameters.Count();
-                    var matchedCnt = matched.Count();
-
-                    // out/ref/optional parameters are added as extra credit below (but does not contribute to actual weight)
-                    var outRefSum = (from p in joined
-                                       where (p.Param.IsOut || p.Param.IsOptional || p.Param.ParameterType.IsByRef) && !p.HasMatch
-                                       select 1.0M).Sum();
-
-
-                    if (matchedCnt == expectedCnt || matchedCnt + outRefSum == expectedCnt)
-                    {
-                        weightedMethodList.Add((matchedCnt, null, regMethod));
-                    }
-                    else
-                    {
-                        //weightedMethodList.Add((matchedCnt, $"Following parameters not specified: {string.Join("\r\n", notmatched.Select(nm => nm.Param.Name))}", regMethod));
-                        weightedMethodList.Add((matchedCnt, "Parameter mismatch", regMethod));
-                    }
+                    return NotFound(notFoundError);
                 }
-
-                var bestMatch = weightedMethodList.OrderByDescending(k => k.Item1).FirstOrDefault();
-
-                if (!string.IsNullOrWhiteSpace(bestMatch.Item2))
+                else if (pluginInstance == null)
                 {
-                    var parms = bestMatch.Item3.MethodInfo.GetParameters();
-                    var parmDesc = "(no parameters)";
-                    if (parms.Length > 0)
-                    {
-                        parmDesc = string.Join("\r\n", parms.Select(p => $"{p.Name} ({p.ParameterType.ToString()})")); // TODO: Provide "easy to read" description for type, e.g. nullabe Int32 can be something like 'int?' and 'List<string>' just 'string[]'
-                    }
-
-                    return NotFound($"Failed to find suitable overload.\r\nError: {bestMatch.Item2}\r\nBest match requires parameters:\r\n{parmDesc}");
+                    return BadRequest("Failed to find or create a plugin instance. Check your server logs. Also make sure the expected plugin is enabled on the Application.");
                 }
-
-                var method = bestMatch.Item3;
-
-                // look for overload with same parameters as input
-                // TODO: This not take into account that the order might be different!
-                // var inputParmsCsv = string.Join(",", inputParameters.Select(kv => kv.Key));
-                // var method = methodCandidates.FirstOrDefault(m => string.Join(",", m.Parameters.Select(p => p.Name)).Equals(inputParmsCsv, StringComparison.Ordinal));
-
-                // if (method == null) return NotFound("No matching overload found that matches input parameters.");
-
 
                 // match up input parameters with expected parameters and order according to MethodInfo expectation
                 var invokeParameters = (from methodParam in method.MethodInfo.GetParameters()
@@ -175,6 +106,7 @@ namespace jsdal_server_core.Controllers
                 var invokeParametersConverted = new List<object>();
                 var parameterConvertErrors = new List<string>();
 
+                // map & convert input values to the corresponding Method Parameters
                 foreach (var p in invokeParameters)
                 {
                     try
@@ -246,11 +178,9 @@ namespace jsdal_server_core.Controllers
                 }
 
 
-                // TODO: To support "Context" we need to instantiate a new instance with each call..or at least a new instance per EP and then cache that instance for a while?
-
                 var inputParamArray = invokeParametersConverted.ToArray();
 
-                var invokeResult = method.MethodInfo.Invoke(method.Registration.PluginInstance, inputParamArray);
+                var invokeResult = method.MethodInfo.Invoke(pluginInstance, inputParamArray);
 
                 var isVoidResult = method.MethodInfo.ReturnType.FullName.Equals("System.Void", StringComparison.Ordinal);
 

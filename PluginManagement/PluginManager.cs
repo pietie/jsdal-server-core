@@ -9,6 +9,7 @@ using System.Diagnostics;
 using Microsoft.CodeAnalysis.Emit;
 using jsdal_plugin;
 using OM = jsdal_server_core.Settings.ObjectModel;
+using jsdal_server_core.ServerMethods;
 
 namespace jsdal_server_core
 {
@@ -55,8 +56,6 @@ namespace jsdal_server_core
                 {
                     // try
                     // {
-
-
                         if (pluginInfo.Type == OM.PluginType.BackgroundThread)
                         {
                             BackgroundThreadManager.Register(pluginInfo);

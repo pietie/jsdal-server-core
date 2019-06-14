@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 using shortid;
+using jsdal_server_core.ServerMethods;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -173,7 +174,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             jsfile.Filename = name;
             jsfile.Id = ShortId.Generate();
-            
+
             this.JsFiles.Add(jsfile);
 
             return CommonReturnValue.success();
@@ -288,7 +289,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
 
             //var referer = req.Headers["Referer"].FirstOrDefault();
-            
+
             var whitelistedIPs = this.WhitelistedDomainsCsv.Split(',');
 
             if (referer != null)
@@ -344,6 +345,47 @@ namespace jsdal_server_core.Settings.ObjectModel
             return jsfile;
         }
 
+
+        public string ServerMethodJs { get; private set; }
+        public string ServerMethodTSD { get; private set; }
+
+        public string ServerMethodJsEtag { get; private set; }
+        public string ServerMethodTSDEtag { get; private set; }
+        public void BuildAndCacheServerMethodJsAndTSD()
+        {
+            try
+            {
+                var registrations = ServerMethodManager.GetRegistrations().Where(reg => this.IsPluginIncluded(reg.PluginGuid));
+
+                if (registrations.Count() > 0)
+                {
+                    var (js, tsd) = ServerMethodPluginRegistration.GenerateOutputFiles(this, registrations);
+
+                    this.ServerMethodJs = js;
+                    this.ServerMethodTSD = tsd;
+
+                    this.ServerMethodJsEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(js));
+                    this.ServerMethodTSDEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(tsd));
+
+
+                    // using (var sha = System.Security.Cryptography.SHA256.Create())
+                    // {
+                    //     var jsHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(this.ServerMethodJs));
+                    //     var tsdHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(this.ServerMethodTSD));
+
+
+                    //     this.ServerMethodJsHash = jsHash;
+                    //     this.ServerMethodTSDHash = tsdHash;
+                    // }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Error($"Failed to generate ServerMethod output files for {this.Project.Name}/{this.Name}.See exception that follows.");
+                SessionLog.Exception(ex);
+            }
+        }
 
 
     }

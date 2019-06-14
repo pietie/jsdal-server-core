@@ -5,34 +5,72 @@ using System.Collections.Generic;
 using jsdal_plugin;
 using System.Collections.ObjectModel;
 using System.Text;
-using System.IO;
 using OM = jsdal_server_core.Settings.ObjectModel;
-using System.Globalization;
 
-
-namespace jsdal_server_core
+namespace jsdal_server_core.ServerMethods
 {
-    public class ServerMethodRegistration
+    // Represents a single instance of a class that derives from one of the plugin classes (ServerMethodPlugin, ExecutionPlugin)
+    // An assembly may contain multiples of these
+    public class ServerMethodPluginRegistration
     {
-
         private Dictionary<string, List<Definition>> JavaScriptDefinitions;
         private Dictionary<string, List<Definition>> TypescriptDefinitions;
         private byte[] JavaScriptDefinitionsHash;
         private byte[] TypescriptDefinitionsHash;
+        public Assembly Assembly { get; private set; }
+        public TypeInfo TypeInfo { get; private set; }
+        public string PluginGuid { get; private set; }
+        private readonly List<ServerMethodRegistrationMethod> _methods;
+        public ReadOnlyCollection<ServerMethodRegistrationMethod> Methods { get; private set; }
 
-        public ServerMethodRegistration(ServerMethodPlugin pluginInstance, Guid pluginGuid)
+        private ServerMethodPluginRegistration(Assembly assembly, TypeInfo typeInfo, Guid pluginGuid)
         {
             _methods = new List<ServerMethodRegistrationMethod>();
             this.Methods = _methods.AsReadOnly();
-            this.PluginInstance = pluginInstance;
+            this.Assembly = assembly;
+            this.TypeInfo = typeInfo;
             this.PluginGuid = pluginGuid.ToString();
         }
-        public ServerMethodPlugin PluginInstance { get; private set; }
 
-        public string PluginGuid { get; private set; }
+        public static ServerMethodPluginRegistration Create(PluginInfo pluginInfo)
+        {
+            var reg = new ServerMethodPluginRegistration(pluginInfo.Assembly, pluginInfo.TypeInfo, pluginInfo.Guid);
+            reg.Process(pluginInfo);
+            return reg;
+        }
 
-        private readonly List<ServerMethodRegistrationMethod> _methods;
-        public ReadOnlyCollection<ServerMethodRegistrationMethod> Methods { get; private set; }
+        private void Process(PluginInfo pluginInfo)
+        {
+            var classLevelAttrib = pluginInfo.TypeInfo.GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute;
+
+            // static methods not supported 
+            var methods = pluginInfo.TypeInfo.GetMethods(BindingFlags.Public /* | BindingFlags.Static*/ | BindingFlags.Instance);
+
+            string classLevelNamespace = classLevelAttrib?.Namespace;
+
+            var serverMethodCollection = (from mi in methods select new { MethodInfo = mi, ServerMethodAttribute = mi.GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute })
+                                              .Where(m => m.ServerMethodAttribute != null);
+
+            if (serverMethodCollection.Count() == 0)
+            {
+                SessionLog.Warning($"No server method's found in plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. Add a [ServerMethod] attribute to the methods you want to expose.");
+                return;
+            }
+
+            foreach (var m in serverMethodCollection)
+            {
+                string ns = m.ServerMethodAttribute?.Namespace;
+
+                if (ns == null)
+                {
+                    ns = classLevelNamespace;
+                }
+
+                this.AddMethod(m.MethodInfo.Name, ns, m.MethodInfo);
+            }
+
+            this.GenerateAndCacheJsInterface();
+        }
 
         public ServerMethodRegistrationMethod AddMethod(string name, string nameSpace, MethodInfo methodInfo)
         {
@@ -57,6 +95,7 @@ namespace jsdal_server_core
             public List<string> TypesLines { get; set; }
         }
 
+        // generates and caches the ServerMethod .js and .tsd for a specific ServerMethod Plugin Registration
         private void GenerateAndCacheJsInterface()
         {
             try
@@ -228,7 +267,7 @@ namespace jsdal_server_core
                     var jsHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(jsLines));
                     var tsdHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(tsdLines));
 
-                    // TODO: Compare with current Hashes
+                    // TODO: Compare with current Hashes. If different then let all relevant Apps know
 
                     this.JavaScriptDefinitionsHash = jsHash;
                     this.TypescriptDefinitionsHash = tsdHash;
@@ -241,34 +280,7 @@ namespace jsdal_server_core
             }
         }
 
-        public void Process(MethodInfo[] methods, PluginInfo pluginInfo, string classLevelNamespace)
-        {
-            var serverMethodCollection = (from mi in methods select new { MethodInfo = mi, ServerMethodAttribute = mi.GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute })
-                                              .Where(m => m.ServerMethodAttribute != null);
-
-            if (serverMethodCollection.Count() == 0)
-            {
-                SessionLog.Warning($"No server method's found in plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. Add a [ServerMethod] attribute to the methods you want to expose.");
-                return;
-            }
-
-
-            foreach (var m in serverMethodCollection)
-            {
-                string ns = m.ServerMethodAttribute?.Namespace;
-
-                if (ns == null)
-                {
-                    ns = classLevelNamespace;
-                }
-
-                this.AddMethod(m.MethodInfo.Name, ns, m.MethodInfo);
-            }
-
-            this.GenerateAndCacheJsInterface();
-        }
-
-        public static (string /*js*/, string/*TSD*/) GenerateOutputFiles(OM.Application app, IEnumerable<ServerMethodRegistration> registrations)
+        public static (string /*js*/, string/*TSD*/) GenerateOutputFiles(OM.Application app, IEnumerable<ServerMethodPluginRegistration> registrations)
         {
             // TODO: The merged dictionaries can be cached per App and only recalculated each time the plugin config on an app changes? (or inline methods are recompiled)
             var combinedJS = new Dictionary<string/*Namespace*/, List<Definition>>();
@@ -407,150 +419,4 @@ namespace jsdal_server_core
             return (sbJavascriptAll.ToString(), sbTSDAll.ToString());
         }
     }
-
-    public class ServerMethodRegistrationMethod
-    {
-        public ServerMethodRegistrationMethod(ServerMethodRegistration reg)
-        {
-            this.Registration = reg;
-        }
-
-        public ServerMethodRegistration Registration { get; private set; }
-
-        public string Namespace { get; set; } // inherited if null and class level is specified otherwhise none
-        public string Name { get; set; }
-        public MethodInfo MethodInfo { get; set; }
-
-        public void Execute(/*TODO: Parms */)
-        {
-            try
-            {
-                // ...
-                //this.MethodInfo.Invoke(PluginInstance, ...);
-            }
-            catch (Exception ex)
-            {
-                // TODO: !!!
-            }
-        }
-
-
-    }
-
-    public static class ServerMethodManager
-    {
-        private static List<ServerMethodRegistration> Registrations { get; set; }
-
-        public static ReadOnlyCollection<ServerMethodRegistration> GetRegistrations()
-        {
-            return Registrations.AsReadOnly();
-        }
-
-        public static string TEMPLATE_ServerMethodContainer { get; private set; }
-        public static string TEMPLATE_ServerMethodFunctionTemplate { get; private set; }
-        public static string TEMPLATE_ServerMethodTypescriptDefinitionsContainer { get; private set; }
-
-        static ServerMethodManager()
-        {
-            try
-            {
-                Registrations = new List<ServerMethodRegistration>();
-
-                ServerMethodManager.TEMPLATE_ServerMethodContainer = File.ReadAllText("./resources/ServerMethodContainer.txt");
-                ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate = File.ReadAllText("./resources/ServerMethodTemplate.txt");
-                ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer = File.ReadAllText("./resources/ServerMethodsTSDContainer.d.ts");
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-            }
-        }
-
-        public async static void Register(PluginInfo pluginInfo)
-        {
-            try
-            {
-
-                // TODO: Remove instance creation from here and move lower down to create per EP
-                // create new instance
-
-                var serverMethodPlugin = (ServerMethodPlugin)pluginInfo.Assembly.CreateInstance(pluginInfo.TypeInfo.FullName);
-
-                var initMethod = typeof(ServerMethodPlugin).GetMethod("InitSM", BindingFlags.Instance | BindingFlags.NonPublic);
-
-                if (initMethod == null)
-                {
-                    // TODO: Complain
-                }
-
-                initMethod.Invoke(serverMethodPlugin, new object[] {
-                    new Func<System.Data.SqlClient.SqlConnection>(()=>{
-Console.WriteLine("Func called!");
-                        return new System.Data.SqlClient.SqlConnection();
-                    })
-                });
-
-
-                var classLevelAttrib = serverMethodPlugin.GetType().GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute;
-
-                // TODO: Not sure if we want to support Static methods...or ONLY static?
-                var methods = serverMethodPlugin.GetType().GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance);
-
-                var reg = new ServerMethodRegistration(serverMethodPlugin, pluginInfo.Guid);
-
-                Registrations.Add(reg);
-
-                reg.Process(methods, pluginInfo, classLevelAttrib?.Namespace);
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Error($"Failed to instantiate plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. See exception that follows.");
-                SessionLog.Exception(ex);
-            }
-        }
-
-        public static void GenerateJavascript()
-        {
-            try
-            {
-                var appCollection = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications);
-
-                foreach (var app in appCollection)
-                {
-                    // find all registered ServerMethods for this app
-                    var registrations = ServerMethodManager.Registrations.Where(reg => app.IsPluginIncluded(reg.PluginGuid));
-
-                    if (registrations.Count() > 0)
-                    {
-                        try
-                        {
-                            var (js, tsd) = ServerMethodRegistration.GenerateOutputFiles(app, registrations);
-
-                            // TODO: Persist somewhere, ready to serve
-                            File.WriteAllText("./data/Test.js", js);
-                            File.WriteAllText("./data/Test.d.ts", tsd);
-
-                        }
-                        catch (Exception ex)
-                        {
-                            SessionLog.Error($"Failed to generate ServerMethod output files for {app.Project.Name}/{app.Name}.See exception that follows.");
-                            SessionLog.Exception(ex);
-                        }
-                    }
-
-                }
-
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-            }
-        }
-
-        public static void Execute()
-        {
-
-        }
-    }
-
 }

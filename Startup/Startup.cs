@@ -117,7 +117,8 @@ namespace jsdal_server_core
                 .AddNewtonsoftJsonProtocol() // required on .NET CORE 3 preview for now as the System.Text JSON implementation does not deserialize Dictionaries correctly (or in the same way at least)
                 .AddJsonProtocol(options =>
                 {
-                    options.UseCamelCase = false;
+                    //options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.Serialization.JsonNamingPolicy.CamelCase
+                    //options.UseCamelCase = false;
                     // TODO: temp solution until .NET Core 3 ships with the PayloadSerializerSettings property again...or until I figure out what dependency I have missing!
                     // var field = options.GetType().GetField("_serializerOptions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     // var val = field.GetValue(options);
