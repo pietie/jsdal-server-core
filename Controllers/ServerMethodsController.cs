@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using jsdal_server_core.ServerMethods;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
+using jsdal_server_core.Settings.ObjectModel.Plugins;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -218,14 +219,22 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var q = from p in SettingsInstance.Instance.InlinePlugins
-                        where p.Type == PluginType.ServerMethod
+                // var q = SettingsInstance.Instance.InlinePluginModules
+                //             .SelectMany(m => m.PluginList, (mod, plugin) => new
+                //             {
+                //                 mod.Id,
+                //                 mod.IsValid,
+                //                 plugin.Name,
+                //                 plugin.Description
+                //             });
+
+
+                var q = from mod in SettingsInstance.Instance.InlinePluginModules
                         select new
                         {
-                            p.Id,
-                            p.IsValid,
-                            p.Name,
-                            p.Description
+                            mod.Id,
+                            mod.IsValid,
+                            Plugins = mod.PluginList.Select(p => new { p.Name, p.Description })
                         };
 
                 return ApiResponse.Payload(q);
@@ -255,7 +264,7 @@ namespace jsdal_server_core.Controllers
                     if (!success) return ret;
                 }
 
-                if (!CSharpCompilerHelper.ParseAgainstBase<jsdal_plugin.ServerMethodPlugin>(id, code, out var parsedPluginCollection, out var problems))
+                if (!CSharpCompilerHelper.ParseAgainstBase<jsdal_plugin.ServerMethodPlugin, BasePluginRuntime>(id, code, out var parsedPluginCollection, out var problems))
                 {
                     return ApiResponse.Payload(new { CompilationError = problems });
                 }
@@ -265,26 +274,37 @@ namespace jsdal_server_core.Controllers
 
                 if (id == null)
                 {
-                    foreach (var parsedPlugin in parsedPluginCollection)
+                    //var pluginModule = ServerMethodPluginRuntime.CreateInlineModule(code, parsedPluginCollection);
+
+                    var pluginModule = new Settings.ObjectModel.Plugins.InlinePlugins.InlinePluginModule(code, true/*isValid*/);
+
+                    pluginModule.AddPluginRange(parsedPluginCollection);
+
+                    // TODO: Validation needs to be in one. Currently we first create the module (and file on disk) and then we complain about a conflicting Guid for example
+                    var ret = SettingsInstance.Instance.AddInlinePluginModule(pluginModule);
+
+                    if (!ret.IsSuccess)
                     {
-                        var plugin = ServerMethodPlugin.Create(code, parsedPlugin.Name, parsedPlugin.Guid.ToString(), parsedPlugin.Description, true/*TODO:?!?!?!?!*/);
+                        return ApiResponse.ExclamationModal(ret.userErrorVal);
+                    }
 
-                        var ret = SettingsInstance.Instance.AddInlinePlugin(plugin);
+                    SettingsInstance.SaveSettingsToFile();
 
-                        if (!ret.IsSuccess)
-                        {
-                            return ApiResponse.ExclamationModal(ret.userErrorVal);
-                        }
+                    id = pluginModule.Id;
+                }
+                else
+                {
+                    var ret = SettingsInstance.Instance.UpdateInlinePluginModule(id, code, parsedPluginCollection, true);
+
+                    if (!ret.IsSuccess)
+                    {
+                        return ApiResponse.ExclamationModal(ret.userErrorVal);
                     }
 
                     SettingsInstance.SaveSettingsToFile();
                 }
-                else
-                {
-                    // TODO: Update existing! Kill assembly. Reload, notify Apps etc.
-                }
 
-                return ApiResponse.Success();
+                return ApiResponse.Payload(new { id = id });
             }
             catch (Exception ex)
             {
@@ -298,7 +318,7 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var ret = SettingsInstance.Instance.DeleteInlinePlugin(id);
+                var ret = SettingsInstance.Instance.DeleteInlinePluginModule(id);
 
                 if (ret.IsSuccess)
                 {
@@ -321,7 +341,7 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var ret = SettingsInstance.Instance.GetInlinePlugin(id, out var source);
+                var ret = SettingsInstance.Instance.GetInlinePluginModule(id, out var source);
 
                 if (ret.IsSuccess)
                 {

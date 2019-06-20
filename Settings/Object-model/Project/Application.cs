@@ -58,12 +58,12 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             {
-                return CommonReturnValue.userError("Application names may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+                return CommonReturnValue.UserError("Application names may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
             }
 
             if (!defaultRuleMode.HasValue)
             {
-                return CommonReturnValue.userError("Please specify the default rule mode.");
+                return CommonReturnValue.UserError("Please specify the default rule mode.");
             }
 
 
@@ -71,40 +71,40 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.JsNamespace = jsNamespace;
             this.DefaultRuleMode = defaultRuleMode.Value;
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
 
         public CommonReturnValue AddEndpoint(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return CommonReturnValue.userError("Please specify a valid endpoint name.");
+            if (string.IsNullOrWhiteSpace(name)) return CommonReturnValue.UserError("Please specify a valid endpoint name.");
 
             name = name.Trim();
 
             if (this.Endpoints.FirstOrDefault(ep => ep.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) != null)
             {
-                return CommonReturnValue.userError($"An endpoint with the name '{name}' already exists on the current data source.");
+                return CommonReturnValue.UserError($"An endpoint with the name '{name}' already exists on the current data source.");
             }
 
             var newEP = new Endpoint() { Name = name };
             newEP.UpdateParentReferences(this);
             this.Endpoints.Add(newEP);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
         public CommonReturnValue UpdateEndpoint(string oldName, string newName)
         {
-            if (string.IsNullOrWhiteSpace(newName)) return CommonReturnValue.userError("Please specify a valid endpoint name.");
+            if (string.IsNullOrWhiteSpace(newName)) return CommonReturnValue.UserError("Please specify a valid endpoint name.");
 
             var existing = this.Endpoints.FirstOrDefault(ep => ep.Name.Equals(oldName, StringComparison.OrdinalIgnoreCase));
 
-            if (existing == null) return CommonReturnValue.userError($"The endpoint '{oldName}' does not exists on the datasource '{this.Name}'");
+            if (existing == null) return CommonReturnValue.UserError($"The endpoint '{oldName}' does not exists on the datasource '{this.Name}'");
 
             newName = newName.Trim();
 
             existing.Name = newName;
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public bool GetEndpoint(string name, out Endpoint endpoint, out CommonReturnValue resp) // TODO: Review use of CommonReturnValue here 
@@ -112,8 +112,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             resp = null;
             endpoint = this.Endpoints.FirstOrDefault(ep => ep.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-            if (endpoint == null) resp = CommonReturnValue.userError($"The endpoint '{name}' does not exists on the datasource '{this.Name}'");
-            else resp = CommonReturnValue.success();
+            if (endpoint == null) resp = CommonReturnValue.UserError($"The endpoint '{name}' does not exists on the datasource '{this.Name}'");
+            else resp = CommonReturnValue.Success();
 
             return endpoint != null;
         }
@@ -122,17 +122,17 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             var existing = this.Endpoints.FirstOrDefault(ep => ep.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-            if (existing == null) return CommonReturnValue.userError($"The endpoint '{name}' does not exists on the datasource '{this.Name}'");
+            if (existing == null) return CommonReturnValue.UserError($"The endpoint '{name}' does not exists on the datasource '{this.Name}'");
 
             this.Endpoints.Remove(existing);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue UpdatePluginList(dynamic pluginList)
         {
             this.Plugins = new List<string>();
-            if (pluginList == null) return CommonReturnValue.success();
+            if (pluginList == null) return CommonReturnValue.Success();
 
 
             foreach (Newtonsoft.Json.Linq.JObject p in pluginList)
@@ -142,7 +142,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 if (included) this.Plugins.Add(g.ToString());
             };
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public bool IsPluginIncluded(string guid)
@@ -156,7 +156,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             {
-                return CommonReturnValue.userError("Filenames may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
+                return CommonReturnValue.UserError("Filenames may not be empty or contain special characters. Valid characters include A to Z and 0 to 9.");
             }
 
             if (this.JsFiles == null) this.JsFiles = new List<JsFile>();
@@ -167,7 +167,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (existing != null)
             {
-                return CommonReturnValue.userError($"The output file '{name}' already exists against this data source.");
+                return CommonReturnValue.UserError($"The output file '{name}' already exists against this data source.");
             }
 
             var jsfile = new JsFile();
@@ -177,7 +177,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             this.JsFiles.Add(jsfile);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue AddRule(RuleType ruleType, string txt)
@@ -202,7 +202,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                         }
                         catch (Exception ex)
                         {
-                            return CommonReturnValue.userError("Invalid regex pattern: " + ex.ToString());
+                            return CommonReturnValue.UserError("Invalid regex pattern: " + ex.ToString());
                         }
                     }
                     rule = new RegexRule(txt);
@@ -215,7 +215,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             this.Rules.Add(rule);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue UpdateRule(string ruleId, string txt)
@@ -224,12 +224,12 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (existingRule == null)
             {
-                return CommonReturnValue.userError("The specified rule was not found.");
+                return CommonReturnValue.UserError("The specified rule was not found.");
             }
 
             existingRule.Update(txt);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
 
@@ -239,12 +239,12 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (existingRule == null)
             {
-                return CommonReturnValue.userError("The specified rule was not found.");
+                return CommonReturnValue.UserError("The specified rule was not found.");
             }
 
             this.Rules.Remove(existingRule);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
 
@@ -281,11 +281,11 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public CommonReturnValue MayAccessDbSource(string referer)
         {
-            if (referer != null && referer.Equals("$WEB SOCKETS$")) return CommonReturnValue.success();
+            if (referer != null && referer.Equals("$WEB SOCKETS$")) return CommonReturnValue.Success();
 
             if (this.WhitelistedDomainsCsv == null)
             {
-                return CommonReturnValue.userError("No access list exists.");
+                return CommonReturnValue.UserError("No access list exists.");
             }
 
             //var referer = req.Headers["Referer"].FirstOrDefault();
@@ -301,13 +301,13 @@ namespace jsdal_server_core.Settings.ObjectModel
                     {
                         if (en.Equals(refererUri.Host, StringComparison.OrdinalIgnoreCase))
                         {
-                            return CommonReturnValue.success();
+                            return CommonReturnValue.Success();
                         }
                     }
                 }
             }
 
-            return CommonReturnValue.userError($"The host ({ referer }) is not allowed to access this resource.");
+            return CommonReturnValue.UserError($"The host ({ referer }) is not allowed to access this resource.");
         }
 
         // gets a distinct list of all routines across all endpoint cache's

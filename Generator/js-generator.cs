@@ -70,8 +70,9 @@ namespace jsdal_server_core
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
             var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
 
-            var serverMethodPlugins = SettingsInstance.Instance.InlinePlugins?
-                                            .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.PluginGuid));
+            var serverMethodPlugins = SettingsInstance.Instance.InlinePluginModules?
+                            .SelectMany(mod => mod.PluginList)
+                            .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.PluginGuid));
 
             // TODO: use System.Threading.Tasks.Parallel.ForEach()
             includedRoutines.ForEach(r =>

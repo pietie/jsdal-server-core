@@ -102,15 +102,38 @@ namespace jsdal_server_core
             }
         }
 
+        private static readonly Dictionary<string, List<string>> TypeToTSlookup = new Dictionary<string, List<string>>()
+        {
+            ["number"] = new List<string> { nameof(System.Int16), nameof(System.Int32), nameof(System.Int64),
+                                                nameof(System.UInt16), nameof(System.UInt32), nameof(System.UInt64),
+                                                nameof(System.Double), nameof(System.Decimal), nameof(System.Single)
+
+                                            },
+            ["string"] = new List<string> { nameof(System.String), nameof(System.Guid), nameof(System.Char) },
+            ["Date"] = new List<string> { nameof(System.DateTime) },
+            ["boolean"] = new List<string> { nameof(System.Boolean) },
+            ["Uint32Array"] = new List<string> { nameof(System.Byte) }
+        };
+
+
         public static string GetTypescriptTypeFromCSharp(Type type)
         {
             if (type.FullName.Equals("System.Void", StringComparison.Ordinal)) return "void";
 
             const string any = "any";
 
+
+            // NOTE: The order of the checks for IsByRef, IsArray and IsNullable are very important
             if (type.IsByRef)
             {
                 // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
+                type = type.GetElementType();
+            }
+
+            var isArray = type.IsArray;
+
+            if (isArray)
+            {
                 type = type.GetElementType();
             }
 
@@ -121,6 +144,8 @@ namespace jsdal_server_core
             {
                 type = underlyingNullableType;
             }
+
+
 
             var jsonObjectAttrib = type.GetCustomAttribute(typeof(JsonObjectAttribute));
 
@@ -187,22 +212,21 @@ namespace jsdal_server_core
                 return $"{{ [id: {keyType}] : {valueType} }}";
             }
 
-            var lookup = new Dictionary<string, List<string>>()
-            {
-                ["number"] = new List<string> { nameof(System.Int16), nameof(System.Int32), nameof(System.Int64), nameof(System.Double), nameof(System.Decimal), nameof(System.UInt16), nameof(System.UInt32), nameof(System.UInt64) },
-                ["string"] = new List<string> { nameof(System.String), nameof(System.Guid) },
-                ["Date"] = new List<string> { nameof(System.DateTime) },
-                ["boolean"] = new List<string> { nameof(System.Boolean) }
-            };
-
-            var match = lookup.FirstOrDefault(kv => kv.Value.Contains(type.Name.TrimEnd('&')));
+            var match = TypeToTSlookup.FirstOrDefault(kv => kv.Value.Contains(type.Name.TrimEnd('&')));
 
             if (match.Key == null)
             {
                 int n = 0;
             }
 
-            return match.Key == null ? any : match.Key;
+            var val = match.Key;
+
+            if (val != null && isArray && val != "Uint32Array") // Uint32Array are already an array structure
+            {
+                return val += "[]";
+            }
+
+            return val == null ? any : val;
         }
 
     }

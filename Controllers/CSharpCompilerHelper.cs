@@ -61,18 +61,21 @@ namespace jsdal_server_core
             }
         }
 
-        public class ParsedPlugin
-        {
-            public string Name { get; set; }
-            public Guid Guid { get; set; }
-            public string Description { get; set; }
-        }
+        // public class ParsedPlugin
+        // {
+        //     public string Name { get; set; }
+        //     public Guid Guid { get; set; }
+        //     public string Description { get; set; }
+        // }
 
         // TODO: Decide on better name...or allow for different validations (e.g. Plugins, ServerMethods, SignalR loops, Background Threads?)
-        public static bool ParseAgainstBase<T>(string existingId, string code, out List<ParsedPlugin> parsedPlugins, out List<string> problems)
+        // TODO: Why do we have/need the intermediate RuntimePluginType??? BasePluginRuntime is really just metadata so we don't keep instances of the objects around? But we will instantiate those objects anyway....?
+        // SourcePluginType: Type of plugin to look for
+        // RuntimePluginType: The type of Plugin to instantiate
+        public static bool ParseAgainstBase<SourcePluginType, RuntimePluginType>(string existingId, string code, out List<RuntimePluginType> parsedPlugins, out List<string> problems) where RuntimePluginType : Settings.ObjectModel.Plugins.BasePluginRuntime, new()
         {
             problems = new List<string>();
-            parsedPlugins = new List<ParsedPlugin>();
+            parsedPlugins = new List<RuntimePluginType>();
 
             try
             {
@@ -85,19 +88,18 @@ namespace jsdal_server_core
                             .DescendantNodes()
                             .OfType<ClassDeclarationSyntax>()
                             .Select(cls => new { ClassDeclaration = cls, Symbol = model.GetDeclaredSymbol(cls) })
-                            .Where(cls => cls.Symbol.BaseType.ToString() == typeof(T).FullName)
+                            .Where(cls => cls.Symbol.BaseType.ToString() == typeof(SourcePluginType).FullName)
                             .ToList()
                             ;
 
                 if (pluginClasses.Count == 0)
                 {
-                    problems.Add($"You need to have at least one type that inherits from '{typeof(T).FullName}'.");
+                    problems.Add($"You need to have at least one type that inherits from '{typeof(SourcePluginType).FullName}'.");
                     return false;
                 }
 
                 foreach (var pc in pluginClasses)
                 {
-                    // TODO: Pass in attribute type as well? 
                     var pluginDataAttrib = pc.Symbol.GetAttributes().FirstOrDefault(a => a.AttributeConstructor?.ContainingType?
                                                                                 .ConstructedFrom?
                                                                                 .ToDisplayString()
@@ -115,7 +117,7 @@ namespace jsdal_server_core
                             var guidPart = pluginDataAttrib.ConstructorArguments[1];
                             var descPart = pluginDataAttrib.ConstructorArguments[2];
 
-                            var newParsedPlugin = new ParsedPlugin();
+                            var newParsedPlugin = new RuntimePluginType();
 
                             parsedPlugins.Add(newParsedPlugin);
 
@@ -134,7 +136,7 @@ namespace jsdal_server_core
                             }
                             else
                             {
-                                newParsedPlugin.Guid = gg;
+                                newParsedPlugin.PluginGuid = gg.ToString().ToLower();
                             }
 
                             if (!descPart.IsNull)
@@ -146,7 +148,9 @@ namespace jsdal_server_core
                             // if adding a new module
                             if (existingId == null)
                             {
-                                var existing = ServerMethods.ServerMethodManager.GetRegistrations().FirstOrDefault(r=>r.PluginGuid.Equals(newParsedPlugin.Guid.ToString(), StringComparison.OrdinalIgnoreCase));
+                                var existing = ServerMethods.ServerMethodManager
+                                                    .GetRegistrations()
+                                                    .FirstOrDefault(r => r.PluginGuid.Equals(newParsedPlugin.PluginGuid, StringComparison.OrdinalIgnoreCase));
 
                                 if (existing != null)
                                 {

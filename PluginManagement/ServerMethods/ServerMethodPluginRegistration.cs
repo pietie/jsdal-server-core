@@ -184,11 +184,14 @@ namespace jsdal_server_core.ServerMethods
                                                   p.ParameterType.IsArray,
                                                   p.ParameterType.IsValueType,
                                                   HasDefault = p.IsOptional,
+                                                  IsNullable = Nullable.GetUnderlyingType(p.ParameterType) != null,
                                                   TypescriptDataType = GlobalTypescriptTypeLookup.GetTypescriptTypeFromCSharp(p.ParameterType)
                                               };
 
                     var inputParmsFormatted = from p in inputParmListLookup
-                                              select $"{p.Name}{(p.HasDefault ? "?" : "")}: {p.TypescriptDataType}";
+                                                select $"{p.Name}{((p.HasDefault  ) ? "?" : "")}: {p.TypescriptDataType}";
+                                                // TODO: Revise. Not clear if IsNullable should also be output with a '?'. In TypeScript this means optional and not 'nullable'. So in C# even if a parameter is nullable it is still required to specified it. ? should be reserved for OPTIONAL parameters
+                                              //select $"{p.Name}{((p.HasDefault || p.IsNullable ) ? "?" : "")}: {p.TypescriptDataType}";
 
 
                     string typeNameBase = $"{(isCustomNamespace ? namespaceKeyTSD + "_" : "")}{ method.Name }";

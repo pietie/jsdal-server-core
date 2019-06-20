@@ -1,73 +1,73 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins;
 using Newtonsoft.Json;
 using shortid;
 
-namespace jsdal_server_core.Settings.ObjectModel
+namespace jsdal_server_core.Settings.ObjectModel.Plugins
 {
 
-    public class BasePlugin
+    public class BasePluginRuntime
     {
-        public string Id;
-
         public string Name;
         public string Description;
-        public string Path;
 
         public string PluginGuid;
 
-        public bool IsValid; // true if it compiles successfully
         public PluginType Type;
+
+       
+        // protected void Init(string name, string description, string pluginGuid)
+        // {
+        //     this.Name = name;
+        //     this.Description = description;
+        //     this.PluginGuid = pluginGuid.ToLower();
+        // }
+
+        public virtual void Update(string updatedCode, BasePluginRuntime plugin)
+        {
+            this.Name = plugin.Name;
+            this.Description = plugin.Description;
+            this.PluginGuid = plugin.PluginGuid.ToLower();
+        }
     }
 
-    public class ExecPlugin : BasePlugin // called during routine exectuion (aka "normal/original" jsDAL plugins)
+    public class ExecPluginRuntime : BasePluginRuntime // called during routine exectuion (aka "normal/original" jsDAL plugins)
     {
-        public ExecPlugin()
+        public ExecPluginRuntime()
         {
             this.Type = PluginType.Execution;
         }
     }
 
 
-    public class ServerMethodPlugin : BasePlugin  // C# backed method that can be called from frontend
+    public class ServerMethodPluginRuntime : BasePluginRuntime  // C# backed method that can be called from frontend
     {
-        public ServerMethodPlugin()
+        public ServerMethodPluginRuntime()
         {
             this.Type = PluginType.ServerMethod;
         }
 
-        [JsonIgnore]
-        public static string InlinePluginPath //TODO: move property to Settings level?
-        {
-            get
-            {
-                return "./inline-plugins";
-            }
-        }
 
-        public static ServerMethodPlugin Create(string code, string name, string pluginGuid, string description, bool isValid)
-        {
-            var sm = new ServerMethodPlugin();
+        // public static InlinePluginModule CreateInlineModule(string code, List<BasePluginRuntime> parsedPluginCollection)
+        // {
+        //     var module = new InlinePluginModule(code, true/*isValid*/);
 
-            if (name != null) name = name.Trim();
+        //     foreach (var plugin in parsedPluginCollection)
+        //     {
+        //         var sm = new ServerMethodPluginRuntime();
 
-            sm.Id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
-            sm.Name = name;
-            sm.Description = description;
-            sm.PluginGuid = pluginGuid.ToLower();
-            sm.IsValid = isValid;
+        //         if (plugin.Name != null) plugin.Name = plugin.Name.Trim();
 
-            if (!Directory.Exists(InlinePluginPath))
-            {
-                Directory.CreateDirectory(InlinePluginPath);
-            }
+        //         sm.Create(plugin.Name, plugin.Description, plugin.Guid.ToString().ToLower());
 
-            sm.Path = System.IO.Path.Combine(InlinePluginPath, sm.Id);
+        //         module.AddPlugin(sm);
+        //     }
 
-            File.WriteAllText(sm.Path, code);
+        //     return module;
+        // }
 
-            return sm;
-        }
     }
 
 

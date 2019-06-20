@@ -5,14 +5,14 @@ namespace jsdal_server_core.Settings.ObjectModel
         protected bool? successVal;
         protected string userErrorMsg;
 
-        public static CommonReturnValue userError(string ue)
+        public static CommonReturnValue UserError(string ue)
         {
             return new CommonReturnValue() { successVal = false, userErrorMsg = ue };
         }
 // TODO: Redo all property and method names
         public string userErrorVal { get { return userErrorMsg; } }
 
-        public static CommonReturnValue success() { return new CommonReturnValue() { successVal = true }; }
+        public static CommonReturnValue Success() { return new CommonReturnValue() { successVal = true }; }
 
         public bool IsSuccess { get { return successVal ?? false; } }
     }

@@ -193,21 +193,23 @@ namespace jsdal_server_core.Controllers
                           Description = p.Description,
                           Guid = p.Guid,
                           Included = app.IsPluginIncluded(p.Guid.ToString()),
+                          p.Type,
                           SortOrder = 0
                       };
                   }).ToList();
 
-                var inlinePlugins = (from p in Settings.SettingsInstance.Instance.InlinePlugins
-                                     where p.IsValid
-                                     select new
+                var inlinePlugins = (from mod in Settings.SettingsInstance.Instance.InlinePluginModules
+                                     where mod.IsValid
+                                     select mod).SelectMany(mod => mod.PluginList).Select(p => new
                                      {
                                          Name = p.Name,
                                          Description = p.Description,
                                          Guid = Guid.Parse(p.PluginGuid),
                                          Included = app.IsPluginIncluded(p.PluginGuid),
+                                         p.Type,
                                          SortOrder = 0
-
                                      });
+
 
                 ret.AddRange(inlinePlugins);
 

@@ -615,7 +615,7 @@ namespace jsdal_server_core.Controllers
                 {
                     var plugin = PluginManager.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
-                    if (plugin != null)
+                    if (plugin != null && plugin.Type == PluginType.Execution)
                     {
                         try
                         {

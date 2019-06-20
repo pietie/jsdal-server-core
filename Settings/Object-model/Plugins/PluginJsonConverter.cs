@@ -1,4 +1,5 @@
 using System;
+using jsdal_server_core.Settings.ObjectModel.Plugins;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,7 +16,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (type == PluginType.Execution)
             {
-                var sr = new ExecPlugin();
+                var sr = new ExecPluginRuntime();
 
                 // if (target["Name"] != null) sr.Name = target["Name"].ToString();
                 // if (target["Id"] != null) sr.Id = target["Id"].ToString();
@@ -24,7 +25,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
             else if (type == PluginType.ServerMethod)
             {
-                var sr = new ServerMethodPlugin();
+                var sr = new ServerMethodPluginRuntime();
 
                 // if (target["Routine"] != null) sr.Routine = target["Routine"].ToString();
                 // if (target["Schema"] != null) sr.Schema = target["Schema"].ToString();

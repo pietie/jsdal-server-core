@@ -59,7 +59,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                         }
                         catch (Exception ex)
                         {
-                            return CommonReturnValue.userError("Invalid regex pattern: " + ex.ToString());
+                            return CommonReturnValue.UserError("Invalid regex pattern: " + ex.ToString());
                         }
 
                         rule = new RegexRule(txt);
@@ -73,7 +73,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             this.Rules.Add(rule);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue UpdateRule(string ruleId, string txt)
@@ -82,12 +82,12 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (existingRule == null)
             {
-                return CommonReturnValue.userError("The specified rule was not found.");
+                return CommonReturnValue.UserError("The specified rule was not found.");
             }
 
             existingRule.Update(txt);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue DeleteRule(string ruleId)
@@ -96,13 +96,13 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (existingRule == null)
             {
-                return CommonReturnValue.userError("The specified rule was not found.");
+                return CommonReturnValue.UserError("The specified rule was not found.");
             }
 
             //this.Rules.splice(this.Rules.IndexOf(existingRule), 1);
             this.Rules.Remove(existingRule);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
     }

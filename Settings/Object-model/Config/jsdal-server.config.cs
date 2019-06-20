@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-
 using jsdal_server_core.Settings.ObjectModel;
+using jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins;
 using Newtonsoft.Json;
+
 
 namespace jsdal_server_core.Settings
 {
@@ -13,12 +14,12 @@ namespace jsdal_server_core.Settings
         public CommonSettings Settings { get; private set; }
         public List<Project> ProjectList { get; private set; }
 
-        [JsonProperty("InlinePlugins")] public List<BasePlugin> InlinePlugins { get; set; }
+        [JsonProperty("InlinePluginModules")] public List<InlinePluginModule> InlinePluginModules { get; set; }
 
         public JsDalServerConfig()
         {
             this.ProjectList = new List<Project>();
-            this.InlinePlugins = new List<BasePlugin>();
+            this.InlinePluginModules = new List<InlinePluginModule>();
         }
 
         /*public static createFromJson(rawJson: any): JsDalServerConfig {
@@ -62,19 +63,19 @@ namespace jsdal_server_core.Settings
 
             if (string.IsNullOrWhiteSpace(name))
             {
-                return CommonReturnValue.userError("Please provide a valid project name.");
+                return CommonReturnValue.UserError("Please provide a valid project name.");
             }
 
             if (this.Exists(name))
             {
-                return CommonReturnValue.userError($"A project with the name \"{name}\" already exists.");
+                return CommonReturnValue.UserError($"A project with the name \"{name}\" already exists.");
             }
 
             var proj = new Project();
             proj.Name = name;
             this.ProjectList.Add(proj);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
 
@@ -85,23 +86,23 @@ namespace jsdal_server_core.Settings
 
             if (newName == null || string.IsNullOrWhiteSpace(newName))
             {
-                return CommonReturnValue.userError("Please provide a valid project name.");
+                return CommonReturnValue.UserError("Please provide a valid project name.");
             }
 
             if (this.Exists(newName))
             {
-                return CommonReturnValue.userError($"A project with the name \"{newName}\" already exists.");
+                return CommonReturnValue.UserError($"A project with the name \"{newName}\" already exists.");
             }
             if (!this.Exists(currentName))
             {
-                return CommonReturnValue.userError($"The project \"{newName}\" does not exist so the update operation cannot continue");
+                return CommonReturnValue.UserError($"The project \"{newName}\" does not exist so the update operation cannot continue");
             }
 
             var existing = this.ProjectList.FirstOrDefault(p => p.Name.Equals(currentName, StringComparison.OrdinalIgnoreCase));
 
             existing.Name = newName;
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
         public CommonReturnValue DeleteProject(string name)
@@ -110,40 +111,62 @@ namespace jsdal_server_core.Settings
 
             if (!this.Exists(name))
             {
-                return CommonReturnValue.userError($"The project \"{name}\" does not exist.");
+                return CommonReturnValue.UserError($"The project \"{name}\" does not exist.");
             }
 
             var existing = this.ProjectList.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
             this.ProjectList.Remove(existing);
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
-        public CommonReturnValue AddInlinePlugin(BasePlugin plugin)
+        public CommonReturnValue AddInlinePluginModule(InlinePluginModule pluginModule)
         {
-            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
+            if (this.InlinePluginModules == null) this.InlinePluginModules = new List<InlinePluginModule>();
 
-            if (this.InlinePlugins.Exists(p => p.PluginGuid.Equals(plugin.PluginGuid, StringComparison.OrdinalIgnoreCase)))
+            // TODO: Also check regular plugins for conflicting Guid
+
+            foreach (var newPluginGuid in pluginModule.PluginList.Select(n => n.PluginGuid))
             {
-                return CommonReturnValue.userError($"A plugin with the Guid '{plugin.PluginGuid}' already exists");
+                var existing = this.InlinePluginModules.SelectMany(pl => pl.PluginList).ToList().FirstOrDefault(p => p.PluginGuid.Equals(newPluginGuid, StringComparison.OrdinalIgnoreCase));
+
+                if (existing != null)
+                {
+                    return CommonReturnValue.UserError($"A plugin with the Guid '{existing.PluginGuid}' already exists. Conflict is with '{existing.Name}'");
+                }
             }
 
-            this.InlinePlugins.Add(plugin);
-
-            return CommonReturnValue.success();
+            this.InlinePluginModules.Add(pluginModule);
+            return CommonReturnValue.Success();
         }
 
-        public CommonReturnValue GetInlinePlugin(string id, out string source)
+        public CommonReturnValue UpdateInlinePluginModule(string id, string code, List<ObjectModel.Plugins.BasePluginRuntime> pluginList, bool isValid)
         {
-            source = null;
-            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
+            if (this.InlinePluginModules == null) this.InlinePluginModules = new List<InlinePluginModule>();
 
-            var existing = this.InlinePlugins.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
+            var existing = this.InlinePluginModules.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
 
             if (existing == null)
             {
-                return CommonReturnValue.userError($"A plugin with the Id '{id}' does not exist");
+                return CommonReturnValue.UserError($"Update failed. Failed to find the specified plugin module with id {id}");
+            }
+
+            existing.Update(code, pluginList, isValid);
+
+            return CommonReturnValue.Success();
+        }
+
+        public CommonReturnValue GetInlinePluginModule(string id, out string source)
+        {
+            source = null;
+            if (this.InlinePluginModules == null) this.InlinePluginModules = new List<InlinePluginModule>();
+
+            var existing = this.InlinePluginModules.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
+
+            if (existing == null)
+            {
+                return CommonReturnValue.UserError($"A plugin with the Id '{id}' does not exist");
             }
 
             try
@@ -151,34 +174,35 @@ namespace jsdal_server_core.Settings
                 if (System.IO.File.Exists(existing.Path))
                 {
                     source = System.IO.File.ReadAllText(existing.Path);
-                    return CommonReturnValue.success();
+                    return CommonReturnValue.Success();
                 }
                 else
                 {
-                    return CommonReturnValue.userError($"Failed to find source at: {existing.Path}");
+                    return CommonReturnValue.UserError($"Failed to find source at: {existing.Path}");
                 }
             }
             catch (Exception e)
             {
-                SessionLog.Warning("Failed to fetch file of plugin: {0}, {1}", existing.Name, existing.Id);
+                SessionLog.Warning("Failed to fetch file of plugin module: {0}", existing.Id);
                 SessionLog.Exception(e);
             }
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
-        public CommonReturnValue DeleteInlinePlugin(string id)
-        {
-            if (this.InlinePlugins == null) this.InlinePlugins = new List<BasePlugin>();
 
-            var existing = this.InlinePlugins.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
+        public CommonReturnValue DeleteInlinePluginModule(string id)
+        {
+            if (this.InlinePluginModules == null) this.InlinePluginModules = new List<InlinePluginModule>();
+
+            var existing = this.InlinePluginModules.FirstOrDefault(p => p.Id.Equals(id, StringComparison.Ordinal));
 
             if (existing == null)
             {
-                return CommonReturnValue.userError($"A plugin with the Id '{id}' does not exist");
+                return CommonReturnValue.UserError($"A plugin module with the Id '{id}' does not exist");
             }
 
-            this.InlinePlugins.Remove(existing);
+            this.InlinePluginModules.Remove(existing);
 
             try
             {
@@ -189,11 +213,11 @@ namespace jsdal_server_core.Settings
             }
             catch (Exception e)
             {
-                SessionLog.Warning("Failed to delete file of plugin: {0}, {1}", existing.Name, existing.Id);
+                SessionLog.Warning("Failed to delete file of plugin module: {0}", existing.Id);
                 SessionLog.Exception(e);
             }
 
-            return CommonReturnValue.success();
+            return CommonReturnValue.Success();
         }
 
     }

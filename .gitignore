@@ -17,6 +17,7 @@ cache
 wwwroot
 data
 00-Release
+/inline-plugins
 
 plugins/*.dll
 
