@@ -13,7 +13,7 @@ namespace jsdal_server_core
         public ApiResponseType Type { get; set; }
         public string Error { get; set; }
         public string ApiVersion { get; set; }
-        public Dictionary<string, string> OutputParms { get; set; }
+        public Dictionary<string, object> OutputParms { get; set; }
 
         public static ApiResponseServerMethodBase Exception(Exception ex)
         {
@@ -40,7 +40,7 @@ namespace jsdal_server_core
     {
         public object Result { get; set; }
 
-        public static ApiResponseServerMethodResult Success(object result, Dictionary<string, string> outputs)
+        public static ApiResponseServerMethodResult Success(object result, Dictionary<string, object> outputs)
         {
             return new ApiResponseServerMethodResult() { Type = ApiResponseType.Success, Result = result, OutputParms = outputs };
         }
@@ -48,7 +48,7 @@ namespace jsdal_server_core
 
     public class ApiResponseServerMethodVoid : ApiResponseServerMethodBase
     {
-        public static ApiResponseServerMethodVoid Success(Dictionary<string, string> outputs)
+        public static ApiResponseServerMethodVoid Success(Dictionary<string, object> outputs)
         {
             return new ApiResponseServerMethodVoid() { Type = ApiResponseType.Success, OutputParms = outputs };
         }

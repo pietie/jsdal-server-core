@@ -119,7 +119,11 @@ namespace jsdal_server_core
             {
                 options.EnableDetailedErrors = true;
             })
-                .AddNewtonsoftJsonProtocol() // required on .NET CORE 3 preview for now as the System.Text JSON implementation does not deserialize Dictionaries correctly (or in the same way at least)
+                .AddNewtonsoftJsonProtocol(options =>
+                {
+                    //                    options.PayloadSerializerSettings.Converters.Add(new AccountIdConverter());
+
+                }) // required on .NET CORE 3 preview for now as the System.Text JSON implementation does not deserialize Dictionaries correctly (or in the same way at least)
                 .AddJsonProtocol(options =>
                 {
                     //options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.Serialization.JsonNamingPolicy.CamelCase
@@ -139,6 +143,8 @@ namespace jsdal_server_core
 
                         //options.SerializerSettings = new JsonSerializerSettings() { };
                         options.SerializerSettings.ContractResolver = new DefaultContractResolver();
+                        options.SerializerSettings.Converters.Add(new ApiSingleValueOutputWrapperConverter());
+
 
                         //new DefaultContractResolver();
                     })
@@ -157,6 +163,38 @@ namespace jsdal_server_core
                     });
 
 
+        }
+
+        public class ApiSingleValueOutputWrapperConverter : JsonConverter
+        {
+            public override bool CanConvert(Type objectType)
+            {
+                return objectType == typeof(Controllers.ServerMethodsController.ApiSingleValueOutputWrapper);
+            }
+
+            // this converter is only used for serialization, not to deserialize
+            public override bool CanRead => false;
+
+            // implement this if you need to read the string representation to create an AccountId
+            public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+            {
+                var wrapper = (Controllers.ServerMethodsController.ApiSingleValueOutputWrapper)value;
+
+                if (wrapper.Value == null)
+                {
+                    writer.WriteNull();
+                    return;
+                }
+                // TODO: Can we use traversal during SerializeCSharpToJavaScript to track symbols and their required Output Converters  
+                var serialisedValue = GlobalTypescriptTypeLookup.SerializeCSharpToJavaScript(wrapper.Name, wrapper.Value);
+
+                writer.WriteRawValue(serialisedValue);
+            }
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)

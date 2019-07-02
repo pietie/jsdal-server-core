@@ -15,6 +15,8 @@ namespace jsdal_server_core.ServerMethods
     {
         private Dictionary<string, List<Definition>> JavaScriptDefinitions;
         private Dictionary<string, List<Definition>> TypescriptDefinitions;
+
+        private List<string> ConverterLookup; // holds all variations of converters and their options (so each unique "signature")...that applies to THIS ServerMethod Plugin
         private byte[] JavaScriptDefinitionsHash;
         private byte[] TypescriptDefinitionsHash;
         public Assembly Assembly { get; private set; }
@@ -93,6 +95,10 @@ namespace jsdal_server_core.ServerMethods
             public string MethodName { get; set; }
             public string Line { get; set; }
             public List<string> TypesLines { get; set; }
+
+            public string InputConverter { get; set; }
+            public string OutputConverter { get; set; }
+            public string ResultsConverter { get; set; }
         }
 
         // generates and caches the ServerMethod .js and .tsd for a specific ServerMethod Plugin Registration
@@ -104,6 +110,8 @@ namespace jsdal_server_core.ServerMethods
                 var definitionsTSD = TypescriptDefinitions = new Dictionary<string, List<Definition>>();
 
                 JavaScriptDefinitionsHash = TypescriptDefinitionsHash = null;
+
+                ConverterLookup = new List<string>();
 
                 var namespaceLookup = new List<string>();
 
@@ -131,7 +139,6 @@ namespace jsdal_server_core.ServerMethods
                         jsNamespaceVar = $"_ns[{namespaceLookup.IndexOf(namespaceKey)}]";
                     }
 
-
                     if (!definitionsJS.ContainsKey(namespaceKey))
                     {
                         definitionsJS.Add(namespaceKey, new List<Definition>());
@@ -144,11 +151,70 @@ namespace jsdal_server_core.ServerMethods
 
                     var methodParameters = method.MethodInfo.GetParameters();
 
+                    var inputConvertersLookup = new Dictionary<string, ConverterDefinition>();
+                    var outputConvertersLookup = new Dictionary<string, ConverterDefinition>();
+                    var resultsConvertersLookup = new Dictionary<string, ConverterDefinition>();
+
+                    foreach (var inputParam in methodParameters)
+                    {
+                        GlobalConverterLookup.AnalyseForRequiredOutputConverters(inputParam.Name, inputParam.ParameterType, null, ref inputConvertersLookup);
+                    }
+
+                    foreach (var outputParam in methodParameters.Where(p => p.IsOut || p.ParameterType.IsByRef))
+                    {
+                        GlobalConverterLookup.AnalyseForRequiredOutputConverters(outputParam.Name, outputParam.ParameterType, null, ref outputConvertersLookup);
+                    }
+
+                    GlobalConverterLookup.AnalyseForRequiredOutputConverters("$result$", method.MethodInfo.ReturnType, null, ref resultsConvertersLookup);
+
+                    string inputConverter = null;
+                    string outputConverter = null;
+                    string resultConverter = null;
+
+                    var allRequiredConverters = inputConvertersLookup.Select(c => c.Value.ToJson()).Distinct()
+                                .Concat(outputConvertersLookup.Select(c => c.Value.ToJson()).Distinct())
+                                .Concat(resultsConvertersLookup.Select(c => c.Value.ToJson()).Distinct())
+                                .ToList();
+
+                    if (allRequiredConverters.Count > 0)
+                    {
+                        foreach (var converterJson in allRequiredConverters)
+                        {
+                            if (ConverterLookup.IndexOf(converterJson) == -1)
+                            {
+                                ConverterLookup.Add(converterJson);
+                            }
+                        }
+
+                    }
+
+                    inputConverter = string.Join(",", (from kv in inputConvertersLookup
+                                                       select $"\"{kv.Key}\": $c[{kv.Value.ToJson()}]")); // ignore ConverterOptions for now as we don't actually have any use for it at the moment
+
+                    outputConverter = string.Join(",", (from kv in outputConvertersLookup
+                                                        select $"\"{kv.Key}\": $c[{kv.Value.ToJson()}]")); // ignore ConverterOptions for now as we don't actually have any use for it at the moment
+
+
+                    resultConverter = string.Join(",", (from kv in resultsConvertersLookup
+                                                        select $"\"{kv.Key}\": $c[{kv.Value.ToJson()}]")); // ignore ConverterOptions for now as we don't actually have any use for it at the moment
+
+                    inputConverter = string.IsNullOrWhiteSpace(inputConverter) ? null : inputConverter;
+                    outputConverter = string.IsNullOrWhiteSpace(outputConverter) ? null : outputConverter;
+                    resultConverter = string.IsNullOrWhiteSpace(resultConverter) ? null : resultConverter;
+
+                    var hasConverters = inputConverter != null || outputConverter != null || resultConverter != null;
+
                     // js
                     var methodLineJS = ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate
                                     .Replace("<<FUNC_NAME>>", method.Name)
                                     .Replace("<<NAMESPACE>>", jsNamespaceVar);
                     ;
+
+                    if (!hasConverters)
+                    {
+                        methodLineJS = methodLineJS.Replace("<<CONV_SEP>>", "");
+                        methodLineJS = methodLineJS.Replace("<<CONVERTERS>>", "");
+                    }
 
                     if (methodParameters.Count() > 0)
                     {
@@ -161,7 +227,7 @@ namespace jsdal_server_core.ServerMethods
                         methodLineJS = methodLineJS.Replace("<<HAS_PARMS>>", "");
                     }
 
-                    definitionsJS[namespaceKey].Add(new Definition() { MethodName = method.Name, Line = methodLineJS });
+                    definitionsJS[namespaceKey].Add(new Definition() { MethodName = method.Name, Line = methodLineJS, InputConverter = inputConverter, OutputConverter = outputConverter, ResultsConverter = resultConverter });
 
                     // TSD
                     string methodLineTSD = null;
@@ -189,9 +255,9 @@ namespace jsdal_server_core.ServerMethods
                                               };
 
                     var inputParmsFormatted = from p in inputParmListLookup
-                                                select $"{p.Name}{((p.HasDefault  ) ? "?" : "")}: {p.TypescriptDataType}";
-                                                // TODO: Revise. Not clear if IsNullable should also be output with a '?'. In TypeScript this means optional and not 'nullable'. So in C# even if a parameter is nullable it is still required to specified it. ? should be reserved for OPTIONAL parameters
-                                              //select $"{p.Name}{((p.HasDefault || p.IsNullable ) ? "?" : "")}: {p.TypescriptDataType}";
+                                              select $"{p.Name}{((p.HasDefault) ? "?" : "")}: {p.TypescriptDataType}";
+                    // TODO: Revise. Not clear if IsNullable should also be output with a '?'. In TypeScript this means optional and not 'nullable'. So in C# even if a parameter is nullable it is still required to specified it. ? should be reserved for OPTIONAL parameters
+                    //select $"{p.Name}{((p.HasDefault || p.IsNullable ) ? "?" : "")}: {p.TypescriptDataType}";
 
 
                     string typeNameBase = $"{(isCustomNamespace ? namespaceKeyTSD + "_" : "")}{ method.Name }";
@@ -288,12 +354,22 @@ namespace jsdal_server_core.ServerMethods
             // TODO: The merged dictionaries can be cached per App and only recalculated each time the plugin config on an app changes? (or inline methods are recompiled)
             var combinedJS = new Dictionary<string/*Namespace*/, List<Definition>>();
             var combinedTSD = new Dictionary<string/*Namespace*/, List<Definition>>();
+            var combinedConverterLookup = new List<string>();
 
-            foreach (var reg in registrations)
+            foreach (var pluginReg in registrations)
             {
-                if (!app.IsPluginIncluded(reg.PluginGuid)) continue;
+                if (!app.IsPluginIncluded(pluginReg.PluginGuid)) continue;
 
-                foreach (var namespaceKV in reg.JavaScriptDefinitions)
+                // converters
+                foreach (var c in pluginReg.ConverterLookup)
+                {
+                    if (combinedConverterLookup.IndexOf(c) == -1)
+                    {
+                        combinedConverterLookup.Add(c);
+                    }
+                }
+
+                foreach (var namespaceKV in pluginReg.JavaScriptDefinitions)
                 {
                     // js
                     foreach (var definition in namespaceKV.Value)
@@ -310,12 +386,65 @@ namespace jsdal_server_core.ServerMethods
                             continue;
                         }
 
+                        var hasConverter = definition.InputConverter != null || definition.OutputConverter != null || definition.ResultsConverter != null;
+
+                        if (hasConverter)
+                        {
+                            var convertersSB = new StringBuilder("{ ");
+                            var lst = new List<string>();
+
+                            string inputConverter = definition.InputConverter;
+                            string outputConverter = definition.OutputConverter;
+                            string resultConverter = definition.ResultsConverter;
+
+                            foreach (var converterJson in combinedConverterLookup)
+                            {
+                                if (inputConverter != null)
+                                {
+                                    inputConverter = inputConverter.Replace(converterJson, combinedConverterLookup.IndexOf(converterJson).ToString());
+                                }
+
+                                if (outputConverter != null)
+                                {
+                                    outputConverter = outputConverter.Replace(converterJson, combinedConverterLookup.IndexOf(converterJson).ToString());
+                                }
+
+                                if (resultConverter != null)
+                                {
+                                    resultConverter = resultConverter.Replace(converterJson, combinedConverterLookup.IndexOf(converterJson).ToString());
+                                }
+                            }
+
+                            if (inputConverter != null)
+                            {
+                                lst.Add($"input: {{ {inputConverter} }}");
+                            }
+
+                            if (outputConverter != null)
+                            {
+                                lst.Add($"output: {{ {outputConverter} }}");
+                            }
+
+                            if (resultConverter != null)
+                            {
+                                lst.Add($"results: {{ {resultConverter} }}");
+                            }
+
+                            convertersSB.Append(string.Join(", ", lst));
+
+                            convertersSB.Append(" }");
+
+
+                            definition.Line = definition.Line.Replace("<<CONV_SEP>>", ", ");
+                            definition.Line = definition.Line.Replace("<<CONVERTERS>>", convertersSB.ToString());
+                        }
+
                         combinedJS[namespaceKV.Key].Add(definition);
                     }
                 }
 
                 // tsd
-                foreach (var namespaceKV in reg.TypescriptDefinitions)
+                foreach (var namespaceKV in pluginReg.TypescriptDefinitions)
                 {
                     foreach (var definition in namespaceKV.Value)
                     {
@@ -334,7 +463,8 @@ namespace jsdal_server_core.ServerMethods
                     }
                 }
 
-            }
+
+            } // foreach plugin
 
             var sbJavascriptAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodContainer);
             var sbTSDAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer);
@@ -367,8 +497,11 @@ namespace jsdal_server_core.ServerMethods
 
                 var nsLookupArray = string.Join(',', combinedJS.Where(kv => kv.Key != "ServerMethods").Select(kv => $"\"{kv.Key}\"").ToArray());
 
+                var converterLookupJS = string.Join(", ", combinedConverterLookup);
+
                 sbJavascriptAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
                     .Replace("<<NAMESPACE_LOOKUP>>", nsLookupArray)
+                    .Replace("<<CONVERTER_LOOKUP>>", converterLookupJS)
                     .Replace("<<ROUTINES>>", sbJS.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
                     ;

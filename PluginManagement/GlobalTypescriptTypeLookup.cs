@@ -22,7 +22,6 @@ namespace jsdal_server_core
             }
         }
 
-
         private static int _curRefId = 0;
         static GlobalTypescriptTypeLookup()
         {
@@ -54,10 +53,10 @@ namespace jsdal_server_core
                 _isComplete = true;
             }
 
-            public bool IsComplete
-            {
-                get { return _isComplete; }
-            }
+            // public bool IsComplete
+            // {
+            //     get { return _isComplete; }
+            // }
 
             public string TypeName
             {
@@ -93,8 +92,6 @@ namespace jsdal_server_core
                     def = new DeferredDefinition(type, refId);
                     _cachedDefinitions.Add(type.AssemblyQualifiedName, def);
 
-
-
                     _refLookup[refId] = type.AssemblyQualifiedName;
 
                     return (def, false, refId);
@@ -112,7 +109,7 @@ namespace jsdal_server_core
             ["string"] = new List<string> { nameof(System.String), nameof(System.Guid), nameof(System.Char) },
             ["Date"] = new List<string> { nameof(System.DateTime) },
             ["boolean"] = new List<string> { nameof(System.Boolean) },
-            ["Uint32Array"] = new List<string> { nameof(System.Byte) }
+            ["Uint8Array"] = new List<string> { nameof(System.Byte) }
         };
 
 
@@ -144,8 +141,6 @@ namespace jsdal_server_core
             {
                 type = underlyingNullableType;
             }
-
-
 
             var jsonObjectAttrib = type.GetCustomAttribute(typeof(JsonObjectAttribute));
 
@@ -221,7 +216,7 @@ namespace jsdal_server_core
 
             var val = match.Key;
 
-            if (val != null && isArray && val != "Uint32Array") // Uint32Array are already an array structure
+            if (val != null && isArray && val != "Uint8Array") // Uint32Array are already an array structure
             {
                 return val += "[]";
             }
@@ -229,5 +224,277 @@ namespace jsdal_server_core
             return val == null ? any : val;
         }
 
+        // TODO: Decide where to place this function
+        public static string SerializeCSharpToJavaScript(string objectName, object val)
+        {
+            if (val == null) return null;
+            var type = val.GetType();
+
+            if (type.IsByRef)
+            {
+                // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
+                type = type.GetElementType();
+            }
+
+            var isArray = type.IsArray;
+
+            if (isArray)
+            {
+                type = type.GetElementType();
+            }
+
+            var underlyingNullableType = Nullable.GetUnderlyingType(type);
+            var isNullable = underlyingNullableType != null;
+
+            if (isNullable)
+            {
+                type = underlyingNullableType;
+            }
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                // TODO: converter will be on the LIST level (not item). If the item is a List itself for example then the next level should take care of it???
+
+
+                var list = (IEnumerable<object>)val;
+
+                var res = (from item in list
+                           select $"{SerializeCSharpToJavaScript(null, item)}").ToArray();
+
+                return "[" + string.Join(",", res) + "]";
+
+            }
+            else if (isArray && type == typeof(Byte))
+            {
+                var b64 = $"\"{Convert.ToBase64String((byte[])val).TrimEnd('=')}\"";
+
+                return b64;
+            }
+            else
+            {
+                // fallback to default serializer
+                return JsonConvert.SerializeObject(val);
+            }
+
+        }
+
+
+    }
+
+    public class ComplexTypeConverterDefinitionWrapper
+    {
+        public delegate void OnCompleteDelegate(ref Dictionary<string, ConverterDefinition> convertersFlatLookup, string parentName, Dictionary<string, ConverterDefinition> typeLookup);
+
+        public Dictionary<string/*prop name*/, ConverterDefinition> Lookup { get; private set; }
+
+        private List<dynamic> _onCompleteActions;
+
+        private bool _isComplete = false;
+        object _lock = new Object();
+
+        public ComplexTypeConverterDefinitionWrapper()
+        {
+            this.Lookup = new Dictionary<string, ConverterDefinition>();
+        }
+
+        public void OnComplete(string keyName, OnCompleteDelegate action, ref Dictionary<string, ConverterDefinition> masterLookup)
+        {
+            lock (_lock)
+            {
+                //if (_isComplete) throw new InvalidOperationException("Already marked complete");
+                if (_onCompleteActions == null) _onCompleteActions = new List<dynamic>();
+
+                if (!_isComplete)
+                {
+                    _onCompleteActions.Add(new { KeyName = keyName, Action = action });
+                }
+                else // already complete so fire immediately
+                {
+                    action(ref masterLookup, keyName, this.Lookup);
+                }
+
+            }
+        }
+
+        public void Complete(ref Dictionary<string, ConverterDefinition> masterLookup, string parentName)
+        {
+            lock (_lock)
+            {
+                _isComplete = true;
+                if (_onCompleteActions != null)
+                {
+                    foreach (var callback in _onCompleteActions)
+                    {
+                        callback.Action(ref masterLookup, callback.KeyName, this.Lookup);
+                    }
+                }
+            }
+
+        }
+    }
+
+    public static class GlobalConverterLookup
+    {
+        private static Dictionary<string/*(type fully qualified name)*/, ComplexTypeConverterDefinitionWrapper> _cachedLookups;
+
+        static GlobalConverterLookup()
+        {
+            _cachedLookups = new Dictionary<string, ComplexTypeConverterDefinitionWrapper>();
+        }
+
+        public static (ComplexTypeConverterDefinitionWrapper, bool/*isExisting*/) RegisterDefinition(Type type)
+        {
+            lock (_cachedLookups)
+            {
+                if (_cachedLookups.ContainsKey(type.AssemblyQualifiedName))
+                {
+                    var existing = _cachedLookups[type.AssemblyQualifiedName];
+                    return (existing, true);
+                }
+                else
+                {
+                    var n = new ComplexTypeConverterDefinitionWrapper();
+
+                    _cachedLookups.Add(type.AssemblyQualifiedName, n);
+
+                    return (n, false);
+                }
+            }
+        }
+
+        public static void AnalyseForRequiredOutputConverters(string objectName, Type type, string parentName, ref Dictionary<string, ConverterDefinition> convertersFlatLookup)
+        {
+            if (type == null) return;
+
+            var keyName = string.IsNullOrWhiteSpace(parentName) ? objectName : $"{parentName}.{objectName}";
+
+            if (convertersFlatLookup.ContainsKey(keyName))
+            {
+                System.Diagnostics.Debugger.Break();
+            }
+
+            if (type.IsByRef)
+            {
+                // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
+                type = type.GetElementType();
+            }
+
+            var isArray = type.IsArray;
+
+            if (isArray)
+            {
+                type = type.GetElementType();
+            }
+
+            var underlyingNullableType = Nullable.GetUnderlyingType(type);
+            var isNullable = underlyingNullableType != null;
+
+            if (isNullable)
+            {
+                type = underlyingNullableType;
+            }
+
+            var jsonObjectAttrib = type.GetCustomAttribute(typeof(JsonObjectAttribute));
+
+            // JSON serializable!
+            if (jsonObjectAttrib != null)
+            {
+                (var wrapper, var isExisting) = RegisterDefinition(type);
+
+                if (isExisting)
+                {
+                    wrapper.OnComplete(keyName, (ref Dictionary<string, ConverterDefinition> masterLookup, string parentKeyName, Dictionary<string, ConverterDefinition> typeLookup) =>
+                    {
+                        foreach (var kv in typeLookup)
+                        {
+                            masterLookup.Add($"{parentKeyName}.{kv.Key}", kv.Value);
+                        }
+                    }, ref convertersFlatLookup);
+
+
+                    return;
+                }
+                var availableProps = from p in type.GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(p => p.GetCustomAttribute(typeof(JsonPropertyAttribute)) != null)
+                                     select new { p.Name, Type = p.PropertyType };
+
+                var availableFields = from f in type.GetFields(BindingFlags.Instance | BindingFlags.Public).Where(p => p.GetCustomAttribute(typeof(JsonPropertyAttribute)) != null).ToList()
+                                      select new { f.Name, Type = f.FieldType };
+
+
+                var typeSpecificLookup = new Dictionary<string, ConverterDefinition>();
+
+                foreach (var item in availableProps.Concat(availableFields))
+                {
+                    AnalyseForRequiredOutputConverters(item.Name, item.Type, keyName, ref typeSpecificLookup);
+                }
+
+                foreach (var kv in typeSpecificLookup)
+                {
+                    wrapper.Lookup.Add(kv.Key, kv.Value);
+                    convertersFlatLookup.Add(kv.Key, kv.Value);
+                }
+
+
+                wrapper.Complete(ref convertersFlatLookup, keyName);
+
+                return;
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                // TODO: converter will be on the LIST level (not item). If the item is a List itself for example then the next level should take care of it???
+                var arg = type.GetGenericArguments();
+
+                if (arg.Length != 1) return;
+
+                AnalyseForRequiredOutputConverters(objectName, arg[0], null, ref convertersFlatLookup);
+
+                return;
+            }
+            // TUPLES
+            else if (type.IsValueTupleType())
+            {
+                var fields = type.GetValueTupleItemFields();
+
+                if (fields == null) return;
+
+                foreach(var f in fields)
+                {
+                    AnalyseForRequiredOutputConverters(f.Name, f.FieldType, keyName, ref convertersFlatLookup);
+                }
+            }
+            else if (isArray && type == typeof(Byte))
+            {
+                convertersFlatLookup.Add(keyName, ConverterDefinition.Create("jsDAL.Converters.ByteArrayConverter"));
+            }
+            else if (type == typeof(DateTime))
+            {
+                convertersFlatLookup.Add(keyName, ConverterDefinition.Create("jsDAL.Converters.DateTimeConverter"));
+            }
+        }
+
+    }
+
+
+    public class ConverterDefinition
+    {
+        public string Converter { get; private set; }
+        public string ConverterOptions { get; private set; }
+
+        private ConverterDefinition() { }
+
+        public static ConverterDefinition Create(string converter, string options = null)
+        {
+            return new ConverterDefinition() { Converter = converter, ConverterOptions = options };
+        }
+
+        // public static string Create(string converter, string options = null)
+        // {
+        //     return new ConverterDefinition() { _type = type, Converter = converter, ConverterOptions = options };
+        // }
+
+        public string ToJson()
+        {
+            return $"{{ converter: {this.Converter} }}";
+        }
     }
 }

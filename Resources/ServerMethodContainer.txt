@@ -2,14 +2,15 @@
 /// <<DATE>>
 var DAL;
 (function (dal) {
-    var S = function() { console.error("window['jsDAL'] is not configured."); };
+    var S = $c = function() { console.error("window['jsDAL'] is not configured."); };
 	
 	document.addEventListener('DOMContentLoaded', () => {
 		if (window['jsDAL']) {
-             S = function(ns, name, o)
-             {
-                 return new window['jsDAL'].ServerMethod(ns, name, o);
-             }
+             S = function(ns, name, o, ioc) {
+                 return new window['jsDAL'].ServerMethod(ns, name, o, ioc);
+             };
+             
+             $c = [<<CONVERTER_LOOKUP>>];
         }
 	});
 

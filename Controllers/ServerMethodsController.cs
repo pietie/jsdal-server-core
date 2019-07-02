@@ -100,14 +100,15 @@ namespace jsdal_server_core.Controllers
                                             DefaultValue = methodParam.RawDefaultValue,
                                             Value = parm.Value,
                                             Position = methodParam.Position,
-                                            IsParamMatched = parm.Key != null
+                                            IsParamMatched = parm.Key != null,
+                                            IsArray = methodParam.ParameterType.IsArray
                                         })
                         ;
 
                 var invokeParametersConverted = new List<object>();
                 var parameterConvertErrors = new List<string>();
 
-                // map & convert input values to the corresponding Method Parameters
+                // map & convert input values from JavaScript to the corresponding Method Parameters
                 foreach (var p in invokeParameters)
                 {
                     try
@@ -115,7 +116,7 @@ namespace jsdal_server_core.Controllers
                         object o = null;
                         Type expectedType = p.Type;
 
-                        if (p.IsOut || p.IsByRef)
+                        if (p.IsOut || p.IsByRef || expectedType.IsArray)
                         {
                             // switch from 'ref' type to actual (e.g. System.Int32& to System.Int32)
                             expectedType = expectedType.GetElementType();
@@ -160,6 +161,29 @@ namespace jsdal_server_core.Controllers
                         {
                             o = JsonConvert.DeserializeObject(p.Value, expectedType);
                         }
+                        else if (expectedType == typeof(System.Byte))
+                        {
+                            if (int.TryParse(p.Value, out var singleByteValue))
+                            {
+                                if (p.IsArray)
+                                {
+                                    o = new byte[] { (byte)singleByteValue };
+                                }
+                                else
+                                {
+                                    o = (byte)singleByteValue;
+                                }
+                            }
+                            else // assume base64
+                            {
+                                o = System.Convert.FromBase64String(p.Value);
+
+                                if (!p.IsArray) // if we don't expect an array just grab the first byte
+                                {
+                                    o = ((byte[])o)[0];
+                                }
+                            }
+                        }
                         else if (expectedType.GetInterface("IConvertible") != null)
                         {
                             o = Convert.ChangeType(p.Value, expectedType);
@@ -178,6 +202,7 @@ namespace jsdal_server_core.Controllers
                     return BadRequest($"Failed to convert one or more parameters to their correct types:\r\n\r\n{string.Join("\r\n", parameterConvertErrors.ToArray())}");
                 }
 
+                // TODO: Handle specific types for output and ret valuse --> Bytes, LatLong, Guid? ??? So similiar conversions need to take place that we have on input parameters
 
                 var inputParamArray = invokeParametersConverted.ToArray();
 
@@ -188,13 +213,18 @@ namespace jsdal_server_core.Controllers
                 // create a lookup of the indices of the out/ref parameters
                 var outputLookupIx = invokeParameters.Where(p => p.IsOut || p.IsByRef).Select(p => p.Position).ToArray();
 
-                var outputParametersWithValues = (from p in invokeParameters
+                var outputParametersWithValuesFull = (from p in invokeParameters
                                                   join o in outputLookupIx on p.Position equals o
                                                   select new
                                                   {
                                                       p.Name,
-                                                      Value = inputParamArray[o]?.ToString() // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples etc
-                                                  }).ToDictionary(x => x.Name, x => x.Value);
+                                                      Value = inputParamArray[o]
+                                                      // Value = new ApiSingleValueOutputWrapper(p.Name, inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
+                                                      //Value = GlobalTypescriptTypeLookup.SerializeCSharpToJavaScript(inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
+                                                  });
+
+                var outputParametersWithValues =  outputParametersWithValuesFull.ToDictionary(x => x.Name, x => x.Value);
+
 
                 if (isVoidResult)
                 {
@@ -212,6 +242,19 @@ namespace jsdal_server_core.Controllers
             {
                 return Ok(ApiResponseServerMethodResult.Exception(ex));
             }
+        }
+
+        public class ApiSingleValueOutputWrapper
+        {
+            public string Name { get; private set; }
+            private object _value;
+            public ApiSingleValueOutputWrapper(string name, object val)
+            {
+                this.Name = name;
+                _value = val;
+            }
+
+            public object Value { get { return _value; } }
         }
 
         [HttpGet("/server-api")]
