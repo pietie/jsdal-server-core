@@ -185,7 +185,7 @@ namespace jsdal_server_core.Controllers
 
                 if (app.Plugins == null) app.Plugins = new List<string>();
 
-                var ret = PluginManager.PluginAssemblies.SelectMany(p => p.Value).Select(p =>
+                var ret = PluginManager.Instance.PluginAssemblies.SelectMany(p => p.Value).Select(p =>
                   {
                       return new
                       {

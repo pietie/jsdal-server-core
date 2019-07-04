@@ -13,11 +13,22 @@ using jsdal_server_core.ServerMethods;
 
 namespace jsdal_server_core
 {
-    public static class PluginManager
+    public class PluginManager
     {
-        public static Dictionary<Assembly, List<PluginInfo>> PluginAssemblies { get; private set; }
+        private readonly BackgroundThreadManager _backgroundThreadManager;
+        public PluginManager(BackgroundThreadManager bgThreadManager)
+        {
+            this._backgroundThreadManager = bgThreadManager;
+        }
 
-        public static void CompileListOfAvailablePlugins()
+        public static PluginManager Instance  // TODO: temp workaround for all the DI hoops
+        {
+            get; set;
+        }
+
+        public Dictionary<Assembly, List<PluginInfo>> PluginAssemblies { get; private set; }
+
+        public void CompileListOfAvailablePlugins()
         {
             try
             {
@@ -36,7 +47,7 @@ namespace jsdal_server_core
 
                         LoadPluginDLL(dll);
                     }
-                }       
+                }
             }
             catch (Exception ex)
             {
@@ -44,7 +55,7 @@ namespace jsdal_server_core
             }
         }
 
-        public static void InitServerWidePlugins()
+        public void InitServerWidePlugins()
         {
             try
             {
@@ -56,14 +67,14 @@ namespace jsdal_server_core
                 {
                     // try
                     // {
-                        if (pluginInfo.Type == OM.PluginType.BackgroundThread)
-                        {
-                            BackgroundThreadManager.Register(pluginInfo);
-                        }
-                        else if (pluginInfo.Type == OM.PluginType.ServerMethod)
-                        {
-                            ServerMethodManager.Register(pluginInfo);
-                        }
+                    if (pluginInfo.Type == OM.PluginType.BackgroundThread)
+                    {
+                        _backgroundThreadManager.Register(pluginInfo);
+                    }
+                    else if (pluginInfo.Type == OM.PluginType.ServerMethod)
+                    {
+                        ServerMethodManager.Register(pluginInfo);
+                    }
                     // }
                     // catch (Exception ex)
                     // {
@@ -79,7 +90,7 @@ namespace jsdal_server_core
             }
         }
 
-        private static void LoadPluginsFromSource()
+        private void LoadPluginsFromSource()
         {
             try
             {
@@ -162,7 +173,7 @@ namespace jsdal_server_core
         }
 
         // TODO: This needs to be sourcs from somewhere - a Project or DBSource or just system-wide.
-        public static string TmpGetPluginSource()
+        public string TmpGetPluginSource()
         {
             return @"
                using System;
@@ -210,7 +221,7 @@ namespace Plugins
                ";
         }
 
-        private static void LoadPluginDLL(string filepath)
+        private void LoadPluginDLL(string filepath)
         {
             try
             {
@@ -225,7 +236,7 @@ namespace Plugins
             }
         }
 
-        private static void LoadPluginFromAssembly(Assembly pluginAssembly)
+        private void LoadPluginFromAssembly(Assembly pluginAssembly)
         {
             if (pluginAssembly.DefinedTypes != null)
             {

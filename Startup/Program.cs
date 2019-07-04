@@ -77,9 +77,6 @@ namespace jsdal_server_core
                     WorkSpawner.Start();
                 }
 
-                PluginManager.CompileListOfAvailablePlugins();
-                PluginManager.InitServerWidePlugins();
-
                 ServerMethodManager.RebuildCacheForAllApps();
 
                 _startDate = DateTime.Now;

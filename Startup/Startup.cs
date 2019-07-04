@@ -52,6 +52,8 @@ namespace jsdal_server_core
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton(typeof(PluginManager));
+            services.AddSingleton(typeof(BackgroundThreadManager));
 
             services.AddCors(options => options.AddPolicy("CorsPolicy",
                     builder => builder
@@ -201,6 +203,14 @@ namespace jsdal_server_core
         {
             //app.UseDeveloperExceptionPage();
 
+            // force instantiation
+            var pmInst = app.ApplicationServices.GetService<PluginManager>();
+
+            PluginManager.Instance = pmInst;
+            PluginManager.Instance.CompileListOfAvailablePlugins();
+            PluginManager.Instance.InitServerWidePlugins();
+
+
             applicationLifetime.ApplicationStopped.Register(() =>
             {
                 Console.WriteLine("!!!  Stopped reached");
@@ -299,6 +309,7 @@ namespace jsdal_server_core
                 routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
                 routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
                 routes.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
+                routes.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
                 routes.MapHub<Hubs.ExecHub>("/exec-hub");
             });
 

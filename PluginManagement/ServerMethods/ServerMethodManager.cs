@@ -57,10 +57,6 @@ namespace jsdal_server_core.ServerMethods
             foreach (var app in appCollection) app.BuildAndCacheServerMethodJsAndTSD();
         }
 
-        public static void Execute()
-        {
-
-        }
     }
 
 }
