@@ -1,61 +1,33 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Channels;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using System.Reactive.Linq;
+using System.Threading;
 
 namespace jsdal_server_core.Hubs.HeartBeat
 {
     public class HeartBeatHub : Hub
     {
-        public HeartBeatHub()
+        public static readonly string GROUP_NAME = "HeartBeatHub.Tick";
+        private readonly IHubContext<HeartBeatHub> _hubContext;
+
+        public HeartBeatHub(IHubContext<HeartBeatHub> ctx)
         {
-            // System.Timers.Timer t = new System.Timers.Timer(10000);
-            // t.Elapsed += (s, e) => { HeartBeatMonitor.Instance.NotifyObservers(); };
-            // t.Start();
-        }
-
-        public int Init()
-        {
-            return Environment.TickCount;
-        }
-
-        // public IObservable<int> StreamTickOld()
-        // {
-        //     return HeartBeatMonitor.Instance;
-        // }
-
-        public ChannelReader<int> StreamTick()
-        {
-            var channel = Channel.CreateUnbounded<int>();
-
-            // TODO: move this loop to a central thread? So that the 'tick' is shared by all who subscribe to it?
-            Task.Run(async () => 
+            this._hubContext = ctx;
+            ThreadPool.QueueUserWorkItem((state) =>
             {
                 while (true)
                 {
-                    await channel.Writer.WriteAsync(Environment.TickCount);
-                    await Task.Delay(10000);
+                    this._hubContext.Clients.Group(GROUP_NAME).SendAsync("tick", Environment.TickCount);
+
+                    // TODO: Provide way to exit this thread?
+                    Thread.Sleep(10000);
                 }
-
-                //channel.Writer.TryComplete();
             });
-
-            return channel.Reader;
         }
-
-        public override async Task OnConnectedAsync()
+        
+        public int Init()
         {
-            //            await Groups.AddToGroupAsync(Context.ConnectionId, "SignalR Users");
-            await base.OnConnectedAsync();
-        }
-
-        public override async Task OnDisconnectedAsync(Exception exception)
-        {
-            //await Groups.RemoveFromGroupAsync(Context.ConnectionId, "SignalR Users");
-            await base.OnDisconnectedAsync(exception);
+            this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
+            return Environment.TickCount;
         }
     }
 

@@ -3,33 +3,25 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
+using Microsoft.AspNetCore.SignalR;
 
 namespace jsdal_server_core.Hubs
 {
-    public class WorkerMonitor 
+    public class WorkerMonitor
     {
-        private static WorkerMonitor _singleton;
-
-        private Channel<List<WorkerInfo>> workerInfoChannel; // TODO: Instead of a List, can we reduce this to single worker info updates -- initially get a list and then just update, or add all new ones to a list
-
-        public Channel<List<WorkerInfo>> WorkerInfoChannel { get { return this.workerInfoChannel; }}
-
         public static WorkerMonitor Instance
         {
-            get
-            {
-                if (_singleton == null) _singleton = new WorkerMonitor();
-
-                return _singleton;
-            }
+            get; set;
         }
 
-        private WorkerMonitor()
+        private readonly IHubContext<WorkerDashboardHub> _hubContext;
+
+        public WorkerMonitor(IHubContext<WorkerDashboardHub> ctx)
         {
-            workerInfoChannel = Channel.CreateUnbounded<List<WorkerInfo>>();
+            _hubContext = ctx;
         }
 
-        public void NotifyObservers()
+        public void NotifyObservers() // TODO: Nice to have will be to notify only about the specific Worker that changed
         {
             var packet = WorkSpawner.workerList.Select(wl =>
                 {
@@ -46,7 +38,7 @@ namespace jsdal_server_core.Hubs
                     };
                 }).ToList();
 
-            workerInfoChannel.Writer.WriteAsync(packet);
+            _hubContext.Clients.Group(WorkerDashboardHub.GROUP_NAME).SendAsync("updateWorkerList", packet);
         }
     }
 

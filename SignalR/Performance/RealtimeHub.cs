@@ -10,44 +10,24 @@ namespace jsdal_server_core.Hubs.Performance
 {
     public class RealtimeHub : Hub
     {
-        //private readonly static ConnectionMapping<string> _connections = new ConnectionMapping<string>();
-
-        public RealtimeHub()
-        {
-
-        }
+        public static readonly string GROUP_NAME = "RealtimeHub.Changes";
 
         public override Task OnConnectedAsync()
         {
-            // var key = Context.ConnectionId; // TODO: Change to something like the logged in userId
-
-            // _connections.Add(key, Context.ConnectionId);
-
-            // Groups.AddToGroupAsync(Context.ConnectionId, "RealtimeHub.Main");
-
             return base.OnConnectedAsync();
         }
 
         public override Task OnDisconnectedAsync(Exception exception)
         {
-            // var key = Context.ConnectionId; // TODO: Change to something like the logged in userId
-            // _connections.Remove(key, Context.ConnectionId);
             return base.OnDisconnectedAsync(exception);
         }
 
-        public async Task<List<RealtimeInfo>> Init()
+        public List<RealtimeInfo> Init()
         {
-            await this.Groups.AddToGroupAsync(this.Context.ConnectionId, "");
+            this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
 
             return RealtimeTracker.RealtimeItems;
         }
-
-        public ChannelReader<List<RealtimeInfo>> StreamRealtimeList()
-        {
-            return RealtimeMonitor.Instance.RealtimeInfoChannel.Reader;
-        }
-
-
 
         public int GetInitProgress()
         {

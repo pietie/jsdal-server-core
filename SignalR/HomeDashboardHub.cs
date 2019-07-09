@@ -9,55 +9,46 @@ namespace jsdal_server_core.Hubs
 {
     public class HomeDashboardHub : Hub
     {
-        private MainStatsMonitor mainStatsObs;
+        public static readonly string GROUP_NAME = "MainDashboard.Stats";
         public HomeDashboardHub()
         {
         }
 
         public MainStats Init()
         {
+            this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
             return new MainStats();
-        }
-
-        public ChannelReader<MainStats> StreamMainStats()
-        {
-            return MainStatsMonitor.Instance.MainStatsChannel.Reader;
         }
     }
 
-    public class MainStatsMonitor
+    public class MainStatsMonitorThread
     {
-        List<IObserver<MainStats>> observers;
-        private Channel<MainStats> channel;
+        private readonly IHubContext<HomeDashboardHub> _hubContext;
 
-        public Channel<MainStats> MainStatsChannel { get { return this.channel; } }
-
-        private MainStatsMonitor()
+        public MainStatsMonitorThread(IHubContext<HomeDashboardHub> ctx)
         {
-            channel = Channel.CreateUnbounded<MainStats>();
+            this._hubContext = ctx;
 
             ThreadPool.QueueUserWorkItem((state) =>
             {
                 while (true)
                 {
-                    this.channel.Writer.WriteAsync(new MainStats());
+                    this._hubContext.Clients.Group(HomeDashboardHub.GROUP_NAME).SendAsync("updateStats", new MainStats());
 
                     // TODO: Provide way to exit this thread?
                     Thread.Sleep(3500);
                 }
             });
         }
-
-        private static MainStatsMonitor _instance;
-        public static MainStatsMonitor Instance { get { if (_instance == null) _instance = new MainStatsMonitor(); return _instance; } }
-
     }
 
     public class MainStats
     {
+        public DateTime StatsCreateDate { get; private set; }
         private MainStatsPerformance performance;
         public MainStats()
         {
+            this.StatsCreateDate = DateTime.Now;
             this.performance = new MainStatsPerformance();
         }
         public DateTime? WebServerStartDate { get { return Program.StartDate; } }
@@ -75,7 +66,6 @@ namespace jsdal_server_core.Hubs
         {
             get { return performance; }
         }
-
     }
 
     public class MainStatsPerformance

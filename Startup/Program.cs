@@ -71,12 +71,9 @@ namespace jsdal_server_core
 
                 Settings.ObjectModel.ConnectionStringSecurity.init();
 
-                if (SettingsInstance.LoadSettingsFromFile())
-                {
-                    Console.WriteLine("Starting work spawner.");
-                    WorkSpawner.Start();
-                }
+                SettingsInstance.LoadSettingsFromFile();
 
+                
                 ServerMethodManager.RebuildCacheForAllApps();
 
                 _startDate = DateTime.Now;

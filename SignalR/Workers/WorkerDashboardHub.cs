@@ -2,20 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Channels;
 
 namespace jsdal_server_core.Hubs
 {
     public class WorkerDashboardHub : Hub
     {
-        //private WorkerMonitor workerMonitor;
-        public WorkerDashboardHub()
-        {
-
-        }
+        public static readonly string GROUP_NAME = "WorkerDasboard.Changes";
 
         public List<WorkerInfo> Init()
         {
+            this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
+
             return WorkSpawner.workerList.Select(wl =>
                 {
                     return new WorkerInfo()
@@ -32,10 +29,6 @@ namespace jsdal_server_core.Hubs
                 }).ToList();
         }
 
-        public ChannelReader<List<WorkerInfo>> StreamWorkerDetail()
-        {
-            return WorkerMonitor.Instance.WorkerInfoChannel.Reader;
-        }
     }
 
 }

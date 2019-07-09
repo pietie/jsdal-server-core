@@ -63,6 +63,9 @@ BEGIN
 											 end) DataType
 				from sys.parameters where object_id = @procId 
 		order by parameter_id
+
+	-- if object has no parameters
+	if (@@ROWCOUNT = 0) RETURN		
 		 
 	select @routineSource = object_definition(@procId)
 
@@ -437,7 +440,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	BEGIN TRANSACTION
-
+	
 		DECLARE @objectId INT
 				,@type char(2)
 				,@parmXml varchar(max)
@@ -466,7 +469,7 @@ BEGIN
 			
 			set @perc = (@ix / @numOfRows) * 100
 
-			IF (@ix < 10 OR @ix % 10 = 0)
+			IF (@ix < 10 OR @ix % 80 = 0)
 			begin
 				set @msg = FORMAT(@perc, 'N')
 				RAISERROR(@msg, 0,0) WITH NOWAIT		
@@ -556,7 +559,7 @@ BEGIN
 
 	COMMIT TRANSACTION
 	
-	RAISERROR('100', 0,0) WITH NOWAIT	
+	RAISERROR('100', 0,0) WITH NOWAIT
 	
 	exec [ormv2].[CreateDBTrigger]
 END

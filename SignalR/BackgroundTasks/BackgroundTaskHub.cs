@@ -9,15 +9,14 @@ namespace jsdal_server_core.Hubs
 {
     public class BackgroundTaskHub : Hub
     {
-        //private MainStatsMonitor mainStatsObs;
-        public BackgroundTaskHub()
+        public static readonly string GROUP_NAME = "BackgroundTaskHub.Changes";
+
+        public void Init()
         {
+            this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
         }
 
-        public ChannelReader<BackgroundWorker> Stream()
-        {
-            return BackgroundTaskMonitor.Instance.WorkerInfoChannel.Reader;
-        }
+
     }
 
     public class BgTaskInfo
@@ -27,49 +26,25 @@ namespace jsdal_server_core.Hubs
         public Guid Guid;
     }
 
-    public class BackgroundTaskMonitor 
+    public class BackgroundTaskMonitor
     {
-        private static BackgroundTaskMonitor _singleton;
-
-        private Channel<BackgroundWorker> workerInfoChannel; 
-
-        public Channel<BackgroundWorker> WorkerInfoChannel { get { return this.workerInfoChannel; }}
-
         public static BackgroundTaskMonitor Instance
         {
-            get
-            {
-                if (_singleton == null) _singleton = new BackgroundTaskMonitor();
-
-                return _singleton;
-            }
+            get; set;
         }
 
-        private BackgroundTaskMonitor()
+        private readonly IHubContext<BackgroundTaskHub> _hubContext;
+
+        public BackgroundTaskMonitor(IHubContext<BackgroundTaskHub> ctx)
         {
-            workerInfoChannel = Channel.CreateUnbounded<BackgroundWorker>();
+            this._hubContext = ctx;
         }
 
         public void NotifyOfChange(BackgroundWorker bw)
         {
-           // var packet = WorkSpawner.workerList.Select(wl =>
-            //     {
-            //         return new WorkerInfo()
-            //         {
-            //             id = wl.ID,
-            //             name = wl.Endpoint.Pedigree,
-            //             desc = wl.Description,
-            //             status = wl.Status,
-            //             /*lastProgress = wl.lastProgress,
-            //             lastProgressMoment = wl.lastProgressMoment,
-            //             lastConnectMoment = wl.lastConnectedMoment,*/
-            //             isRunning = wl.IsRunning
-            //         };
-            //     }).ToList();
-
-            workerInfoChannel.Writer.WriteAsync(bw);
+            _hubContext.Clients.Group(BackgroundTaskHub.GROUP_NAME).SendAsync("update", bw);
         }
     }
 
-  
+
 }

@@ -24,6 +24,8 @@ using Extensions;
 using System.IO;
 using MirrorSharp;
 using Newtonsoft.Json;
+using jsdal_server_core.Hubs;
+using jsdal_server_core.Hubs.Performance;
 
 namespace jsdal_server_core
 {
@@ -54,6 +56,10 @@ namespace jsdal_server_core
         {
             services.AddSingleton(typeof(PluginManager));
             services.AddSingleton(typeof(BackgroundThreadManager));
+            services.AddSingleton(typeof(MainStatsMonitorThread));
+            services.AddSingleton(typeof(WorkerMonitor));
+            services.AddSingleton(typeof(RealtimeMonitor));
+            services.AddSingleton(typeof(BackgroundTaskMonitor));
 
             services.AddCors(options => options.AddPolicy("CorsPolicy",
                     builder => builder
@@ -123,6 +129,7 @@ namespace jsdal_server_core
             })
                 .AddNewtonsoftJsonProtocol(options =>
                 {
+                    options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver();
                     //                    options.PayloadSerializerSettings.Converters.Add(new AccountIdConverter());
 
                 }) // required on .NET CORE 3 preview for now as the System.Text JSON implementation does not deserialize Dictionaries correctly (or in the same way at least)
@@ -203,12 +210,25 @@ namespace jsdal_server_core
         {
             //app.UseDeveloperExceptionPage();
 
-            // force instantiation
-            var pmInst = app.ApplicationServices.GetService<PluginManager>();
+            // force instantiation on singletons
+            {
+                var pmInst = app.ApplicationServices.GetService<PluginManager>();
 
-            PluginManager.Instance = pmInst;
-            PluginManager.Instance.CompileListOfAvailablePlugins();
-            PluginManager.Instance.InitServerWidePlugins();
+                app.ApplicationServices.GetService<MainStatsMonitorThread>();
+
+                WorkerMonitor.Instance = app.ApplicationServices.GetService<WorkerMonitor>();
+                RealtimeMonitor.Instance = app.ApplicationServices.GetService<RealtimeMonitor>();
+                BackgroundTaskMonitor.Instance = app.ApplicationServices.GetService<BackgroundTaskMonitor>();
+
+                {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
+                    PluginManager.Instance = pmInst;
+                    PluginManager.Instance.CompileListOfAvailablePlugins();
+                    PluginManager.Instance.InitServerWidePlugins();
+
+                    Console.WriteLine("Starting work spawner.");
+                    WorkSpawner.Start();
+                }
+            }
 
 
             applicationLifetime.ApplicationStopped.Register(() =>

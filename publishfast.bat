@@ -1,1 +1,1 @@
-sc stop jsdal-server & dotnet publish --configuration Release --output ./00-Release & sc start jsdal-server
+sc stop jsdal-server & dotnet publish --configuration Release --output ./00-Release & publish-cleanup.bat & sc start jsdal-server
