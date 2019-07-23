@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using jsdal_server_core.Changes;
 using System.Text;
-using jsdal_server_core.ServerMethods;
+using jsdal_server_core.PluginManagement;
 using System.Reflection;
 using plugin = jsdal_plugin;
 

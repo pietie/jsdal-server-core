@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 
-namespace jsdal_server_core.ServerMethods
+namespace jsdal_server_core.PluginManagement
 {
     public class ServerMethodRegistrationMethod
     {

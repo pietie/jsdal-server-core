@@ -1,12 +1,10 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Collections.Generic;
-using jsdal_plugin;
 using System.Collections.ObjectModel;
 using System.IO;
 
-namespace jsdal_server_core.ServerMethods
+namespace jsdal_server_core.PluginManagement
 {
     public static class ServerMethodManager
     {

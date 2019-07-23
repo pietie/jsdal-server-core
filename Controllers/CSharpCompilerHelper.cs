@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Scripting;
+using jsdal_server_core.PluginManagement;
 
 namespace jsdal_server_core
 {
@@ -148,7 +149,7 @@ namespace jsdal_server_core
                             // if adding a new module
                             if (existingId == null)
                             {
-                                var existing = ServerMethods.ServerMethodManager
+                                var existing = ServerMethodManager
                                                     .GetRegistrations()
                                                     .FirstOrDefault(r => r.PluginGuid.Equals(newParsedPlugin.PluginGuid, StringComparison.OrdinalIgnoreCase));
 

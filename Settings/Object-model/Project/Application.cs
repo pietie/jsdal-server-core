@@ -1,12 +1,10 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 using shortid;
-using jsdal_server_core.ServerMethods;
+using jsdal_server_core.PluginManagement;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {

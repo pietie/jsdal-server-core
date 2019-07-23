@@ -26,6 +26,7 @@ using MirrorSharp;
 using Newtonsoft.Json;
 using jsdal_server_core.Hubs;
 using jsdal_server_core.Hubs.Performance;
+using jsdal_server_core.PluginManagement;
 
 namespace jsdal_server_core
 {
@@ -55,7 +56,7 @@ namespace jsdal_server_core
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton(typeof(PluginManager));
-            services.AddSingleton(typeof(BackgroundThreadManager));
+            services.AddSingleton(typeof(BackgroundThreadPluginManager));
             services.AddSingleton(typeof(MainStatsMonitorThread));
             services.AddSingleton(typeof(WorkerMonitor));
             services.AddSingleton(typeof(RealtimeMonitor));

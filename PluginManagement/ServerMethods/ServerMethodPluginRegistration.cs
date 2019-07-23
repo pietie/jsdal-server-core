@@ -7,7 +7,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using OM = jsdal_server_core.Settings.ObjectModel;
 
-namespace jsdal_server_core.ServerMethods
+namespace jsdal_server_core.PluginManagement
 {
     // Represents a single instance of a class that derives from one of the plugin classes (ServerMethodPlugin, ExecutionPlugin)
     // An assembly may contain multiples of these

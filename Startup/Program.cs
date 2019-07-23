@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Server.HttpSys;
 using System.Diagnostics;
 using System.Globalization;
-using jsdal_server_core.ServerMethods;
+using jsdal_server_core.PluginManagement;
 
 namespace jsdal_server_core
 {

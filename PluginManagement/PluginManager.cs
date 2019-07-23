@@ -9,14 +9,14 @@ using System.Diagnostics;
 using Microsoft.CodeAnalysis.Emit;
 using jsdal_plugin;
 using OM = jsdal_server_core.Settings.ObjectModel;
-using jsdal_server_core.ServerMethods;
+using jsdal_server_core.PluginManagement;
 
 namespace jsdal_server_core
 {
     public class PluginManager
     {
-        private readonly BackgroundThreadManager _backgroundThreadManager;
-        public PluginManager(BackgroundThreadManager bgThreadManager)
+        private readonly BackgroundThreadPluginManager _backgroundThreadManager;
+        public PluginManager(BackgroundThreadPluginManager bgThreadManager)
         {
             this._backgroundThreadManager = bgThreadManager;
         }
@@ -105,7 +105,7 @@ namespace jsdal_server_core
 
                 if (Debugger.IsAttached)
                 {
-                    pluginBasePath = "./../jsdal-plugin/bin/Debug/netstandard2.0/jsdal-plugin.dll";
+                    pluginBasePath = "./../jsdal-plugin/bin/Debug/netcoreapp2.0/jsdal-plugin.dll";
                 }
 
                 var pluginBaseRef = MetadataReference.CreateFromFile(pluginBasePath);
