@@ -27,6 +27,7 @@ using Newtonsoft.Json;
 using jsdal_server_core.Hubs;
 using jsdal_server_core.Hubs.Performance;
 using jsdal_server_core.PluginManagement;
+using jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core
 {
@@ -61,6 +62,7 @@ namespace jsdal_server_core
             services.AddSingleton(typeof(WorkerMonitor));
             services.AddSingleton(typeof(RealtimeMonitor));
             services.AddSingleton(typeof(BackgroundTaskMonitor));
+            services.AddSingleton(typeof(Settings.ObjectModel.ConnectionStringSecurity));
 
             services.AddCors(options => options.AddPolicy("CorsPolicy",
                     builder => builder
@@ -163,9 +165,13 @@ namespace jsdal_server_core
             ;
 
 
-            var dataProtectionKeyPath = new System.IO.DirectoryInfo(System.IO.Directory.GetCurrentDirectory());
+            var dataProtectionKeyPath = new System.IO.DirectoryInfo(Path.Combine(System.IO.Directory.GetCurrentDirectory(), "data\\keys"));
+
+            Console.WriteLine($"dataProtectionKeyPath: {dataProtectionKeyPath}");
+
             services.AddDataProtection()
                     .PersistKeysToFileSystem(dataProtectionKeyPath)
+                    .SetApplicationName("jsDAL Server")
                     .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration
                     {
                         EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
@@ -220,6 +226,8 @@ namespace jsdal_server_core
                 WorkerMonitor.Instance = app.ApplicationServices.GetService<WorkerMonitor>();
                 RealtimeMonitor.Instance = app.ApplicationServices.GetService<RealtimeMonitor>();
                 BackgroundTaskMonitor.Instance = app.ApplicationServices.GetService<BackgroundTaskMonitor>();
+
+                ConnectionStringSecurity.Instance = app.ApplicationServices.GetService<ConnectionStringSecurity>();
 
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
                     PluginManager.Instance = pmInst;
@@ -323,15 +331,27 @@ namespace jsdal_server_core
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
-            app.UseSignalR(routes =>
+            // app.UseSignalR(routes =>
+            // {
+            //     routes.MapHub<Hubs.HomeDashboardHub>("/main-stats");
+            //     routes.MapHub<Hubs.WorkerDashboardHub>("/worker-hub");
+            //     routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
+            //     routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
+            //     routes.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
+            //     routes.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
+            //     routes.MapHub<Hubs.ExecHub>("/exec-hub");
+            // });
+
+            app.UseRouting();
+            app.UseEndpoints(endpoints =>
             {
-                routes.MapHub<Hubs.HomeDashboardHub>("/main-stats");
-                routes.MapHub<Hubs.WorkerDashboardHub>("/worker-hub");
-                routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
-                routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
-                routes.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
-                routes.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
-                routes.MapHub<Hubs.ExecHub>("/exec-hub");
+                endpoints.MapHub<Hubs.HomeDashboardHub>("/main-stats");
+                endpoints.MapHub<Hubs.WorkerDashboardHub>("/worker-hub");
+                endpoints.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
+                endpoints.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
+                endpoints.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
+                endpoints.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
+                endpoints.MapHub<Hubs.ExecHub>("/exec-hub");
             });
 
             app.UseAuthentication();

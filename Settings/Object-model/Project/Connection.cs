@@ -11,9 +11,19 @@ namespace jsdal_server_core.Settings.ObjectModel
 {
     public class Connection
     {
+        public Connection()
+        {
+
+        }
         public string ConnectionString;
 
-        
+        [JsonIgnore]
+        public Endpoint Endpoint;
+
+
+        [JsonIgnore]
+        public string Type;
+
         //[JsonIgnore] public string instanceName;
 
         public bool Unsafe = false; // if set true it means the ConnectionString is not encrypted
@@ -70,13 +80,13 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-         [JsonIgnore]
+        [JsonIgnore]
         public int Port
         {
             get
             {
                 if (this._connectionStringBuilder == null) this._connectionStringBuilder = new SqlConnectionStringBuilder(this.ConnectionStringDecrypted);
-                
+
                 var elems = this._connectionStringBuilder.DataSource.Split(',');
 
                 if (elems.Length == 2) return int.Parse(elems[1]);
@@ -101,7 +111,16 @@ namespace jsdal_server_core.Settings.ObjectModel
                     {
                         try
                         {
-                            this._descryptedConnectionString = ConnectionStringSecurity.decrypt(this.ConnectionString);
+                            this._descryptedConnectionString = null;
+                            if (!string.IsNullOrWhiteSpace(this.ConnectionString))
+                            {
+                                this._descryptedConnectionString = ConnectionStringSecurity.Instance.Decrypt(this.ConnectionString);
+
+                                if (this._descryptedConnectionString == null)
+                                {
+                                       SessionLog.Error($"Failed to decrypt {this.Type} ConnectionString on {this.Endpoint.Pedigree}.");
+                                }
+                            }
                         }
                         catch (Exception e)
                         {
@@ -130,7 +149,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        public void update(string dataSource, string catalog, string username, string password, int port, string instanceName)
+        public void Update(Endpoint endpoint, string type, string dataSource, string catalog, string username, string password, int port, string instanceName)
         {
             string connectionString = null;
 
@@ -138,7 +157,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             if (!string.IsNullOrWhiteSpace(username))
             {
                 // retain current password if no new one was specified
-                if (string.IsNullOrWhiteSpace(password) && !string.IsNullOrWhiteSpace(this.ConnectionStringDecrypted)) {
+                if (string.IsNullOrWhiteSpace(password) && !string.IsNullOrWhiteSpace(this.ConnectionStringDecrypted))
+                {
                     password = this.Password;
                 }
 
@@ -154,8 +174,9 @@ namespace jsdal_server_core.Settings.ObjectModel
             this._connectionStringBuilder = null;
 
             this.Unsafe = false;
-            this.ConnectionString = ConnectionStringSecurity.encrypt(connectionString);
-
+            this.ConnectionString = ConnectionStringSecurity.Instance.Encrypt(connectionString);
+            this.Endpoint = endpoint;
+            this.Type = type;
         }
 
     }

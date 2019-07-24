@@ -203,7 +203,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (this.MetadataConnection == null) this.MetadataConnection = new Connection();
 
-            this.MetadataConnection.update(dataSource, catalog, username, password, port, null);
+            this.MetadataConnection.Update(this, "metadata", dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithApplication.success(null);
         }
@@ -211,7 +211,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (this.ExecutionConnection == null) this.ExecutionConnection = new Connection();
 
-            this.ExecutionConnection.update(dataSource, catalog, username, password, port, null);
+            this.ExecutionConnection.Update(this, "execution", dataSource, catalog, username, password, port, null);
 
             return CommonReturnValueWithApplication.success(null);
         }
@@ -329,6 +329,24 @@ namespace jsdal_server_core.Settings.ObjectModel
             get
             {
                 return $"{this.Application.Project.Name}.{this.Application.Name}.{this.Name}.json";
+            }
+        }
+
+        // called after Endpoint is deserialized from the Settings json 
+        public void AfterDeserializationInit()
+        {
+            this.LoadCache();
+
+            if (this.ExecutionConnection != null)
+            {
+                this.ExecutionConnection.Endpoint = this;
+                this.ExecutionConnection.Type = "execution";
+            }
+            
+            if (this.MetadataConnection != null)
+            {
+                this.MetadataConnection.Endpoint = this;
+                this.MetadataConnection.Type = "metadata";
             }
         }
 

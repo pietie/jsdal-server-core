@@ -34,7 +34,7 @@ namespace jsdal_server_core
             {
                 PluginAssemblies = new Dictionary<Assembly, List<PluginInfo>>();
 
-                LoadPluginsFromSource();
+                //TODO: Test LoadPluginsFromSource();
 
                 if (Directory.Exists("./plugins"))
                 {

@@ -2,13 +2,17 @@
 	<PropertyGroup>
 		<AssemblyName>jsdal-server</AssemblyName>
 		<TargetFramework>netcoreapp3.0</TargetFramework>
-		<RuntimeIdentifier>win7-x64</RuntimeIdentifier>
 		<PlatformTarget>AnyCPU</PlatformTarget>
-		<!-- <OutputType>Exe</OutputType> -->
 		<TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-
-		<SelfContained>false</SelfContained>
+		
 		<IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>        
+
+		<OutputType>Exe</OutputType>
+		<SelfContained>true</SelfContained> 
+		<PublishTrimmed>false</PublishTrimmed>
+    	<PublishReadyToRun>true</PublishReadyToRun>
+    	<PublishSingleFile>true</PublishSingleFile>
+    	<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 
 	</PropertyGroup>
 
@@ -46,16 +50,14 @@
 
 		<PackageReference Include="JetBrains.Annotations" Version="2019.1.1" />
 
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0-preview6.19304.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0-preview7.19362.6" />
 
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.0.0-preview6.19307.2" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.0.0-preview7.19365.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="3.0.0-preview7.19365.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview7.19365.7" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.0.0-preview7.19365.7" />
 
-		<PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="3.0.0-preview6.19307.2" />
-
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview6.19307.2" />
-
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.0.0-preview6.19307.2" />
-		<PackageReference Include="System.Data.SqlClient" Version="4.7.0-preview6.19303.8" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.7.0-preview7.19362.9" />
 
 
 		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="3.0.0" />
@@ -73,13 +75,13 @@
 		<PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290" />
 
 
-		<PackageReference Include="Microsoft.Windows.Compatibility" Version="2.0.1" />
+		<PackageReference Include="Microsoft.Windows.Compatibility" Version="3.0.0-preview7.19362.9" />
 
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
 
 		<PackageReference Include="NUglify" Version="1.5.11" />
 
-		<PackageReference Include="System.Reactive.Linq" Version="4.1.0" />
+		<!-- <PackageReference Include="System.Reactive.Linq" Version="4.1.0" /> -->
 		<PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
 		<PackageReference Include="Terminal.Gui" Version="0.19.0" />
 

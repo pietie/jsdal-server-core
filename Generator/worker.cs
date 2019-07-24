@@ -131,7 +131,7 @@ namespace jsdal_server_core
                 if (this.Endpoint?.MetadataConnection?.ConnectionStringDecrypted == null)
                 {
                     this.IsRunning = false;
-                    this.Status = $"Endpoint '{this.Endpoint?.Name ?? "(null)"}' does not have valid connection configured.";
+                    this.Status = $"Endpoint '{this.Endpoint?.Pedigree ?? "(null)"}' does not have a valid metadata connection configured.";
                     this.log.Error(this.Status);
                     SessionLog.Error(this.Status);
                     return;

@@ -60,16 +60,15 @@ namespace jsdal_server_core
                     OverrideStdout();
                 }
 
+   
                 eventLog = new EventLogWrapper(isService);
 
                 Console.WriteLine("=================================");
-                Console.WriteLine("Application started.");
+                Console.WriteLine($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
                 Console.WriteLine("Loading settings.");
                 UserManagement.loadUsersFromFile();
                 ExceptionLogger.Init();
-
-                Settings.ObjectModel.ConnectionStringSecurity.init();
 
                 SettingsInstance.LoadSettingsFromFile();
 

@@ -55,7 +55,7 @@ namespace jsdal_server_core.Settings
                 settingsInst.ProjectList.ForEach(p => p.UpdateParentReferences());
                 settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
                             .ToList()
-                            .ForEach(ep => ep.LoadCache());
+                            .ForEach(ep => ep.AfterDeserializationInit());
 
                 SettingsInstance._instance = settingsInst;
                 return true;

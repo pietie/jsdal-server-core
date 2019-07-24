@@ -12,7 +12,13 @@ namespace jsdal_server_core.Performance
 
         public static List<RealtimeInfo> RealtimeItems
         {
-            get { return List.Values.ToList(); }
+            get
+            {
+                lock (List)
+                {
+                    return List.Values.ToList();
+                }
+            }
         }
         static RealtimeTracker()
         {
@@ -71,7 +77,7 @@ namespace jsdal_server_core.Performance
 
                     if (remoteCnt > 0)
                     {
-                        Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();   
+                        Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
                     }
                 }
             }
