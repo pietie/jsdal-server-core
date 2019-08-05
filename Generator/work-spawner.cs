@@ -16,14 +16,6 @@ namespace jsdal_server_core
         public static string TEMPLATE_Routine;
         public static string TEMPLATE_TypescriptDefinitions;
 
-        // public static memDetail(): any {
-        // return {
-        //     Cnt: WorkSpawner._workerList.length,
-        //     //TotalMemBytes: sizeof(WorkSpawner._workerList), 
-        //     Workers: WorkSpawner._workerList.map(w => w.memDetail())
-        // };
-        //}
-
         public static Worker GetWorker(string id)
         {
             return WorkSpawner._workerList.FirstOrDefault(wl => wl.ID.Equals(id, StringComparison.Ordinal));
@@ -44,9 +36,16 @@ namespace jsdal_server_core
             if (w == null) return false;
             return RestartWorker(w);
         }
+
         public static bool RestartWorker(Worker worker)
         {
-            if (worker.IsRunning) return false;
+            if (worker.IsRunning)
+            {
+                if (!worker.Stop())
+                {
+                    return false;
+                }
+            }
 
             var winThread = new Thread(new ThreadStart(worker.Run));
 
@@ -67,25 +66,21 @@ namespace jsdal_server_core
             }
         }
 
-        public static void Stop()
+        public static void Shutdown()
         {
             if (_workerList == null) return;
 
             lock (_workerList)
             {
-                _workerList.ForEach(wl =>
+                _workerList.ForEach(worker =>
                 {
-                    try
-                    {
-                        wl.Stop();
-                    }
-                    catch (ThreadAbortException)
-                    {
-                        // ignore TAEs
-                    }
+                    worker.Status = "Shutting down...";
+                    worker.StopAsync();
                 });
-            }
 
+//                _workerList.Clear();
+            }
+            
             Hubs.WorkerMonitor.Instance.NotifyObservers();
         }
 
@@ -267,7 +262,7 @@ namespace jsdal_server_core
             // regen all jsfiles on app
             var workers = WorkSpawner._workerList.Where(w => w.Endpoint.Application == app).ToList();
 
-            foreach(var w in workers)
+            foreach (var w in workers)
             {
                 w.QueueInstruction(new WorkerInstruction() { Type = WorkerInstructionType.RegenAllFiles });
             }

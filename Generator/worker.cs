@@ -69,21 +69,28 @@ namespace jsdal_server_core
             this.log = new MemoryLog();
         }
 
-        public void Stop()
+        public void StopAsync()
+        {
+            IsRunning = false;
+        }
+        public bool Stop()
         {
             this.IsRunning = false;
 
             if (this.winThread != null && this.winThread.ThreadState == ThreadState.Running)
             {
-                // give the thread 10 seconds to finish gracefully
-                if (!this.winThread.Join(TimeSpan.FromSeconds(10)))
+                // give the thread 60 seconds to finish gracefully
+                if (!this.winThread.Join(TimeSpan.FromSeconds(60)))
                 {
-                    this.winThread.Abort();
+                    //this.winThread.Abort() -> not supported on dotnet core
+                    this.Status = "Failed to stop worker after 60 seconds";
+                    return false;
                 }
                 this.winThread = null;
             }
 
             Hubs.WorkerMonitor.Instance.NotifyObservers();
+            return true;
         }
 
         public void SetWinThread(Thread thread)
@@ -176,7 +183,9 @@ namespace jsdal_server_core
                         var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
                         connectionStringRef = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
 
-                        using (var con = new SqlConnection(this.Endpoint.MetadataConnection.ConnectionStringDecrypted))
+                        var connectionStringDecrypted = this.Endpoint.MetadataConnection.ConnectionStringDecrypted;
+
+                        using (var con = new SqlConnection(connectionStringDecrypted))
                         {
                             try
                             {
@@ -262,6 +271,7 @@ namespace jsdal_server_core
             finally
             {
                 this.IsRunning = false;
+                this.winThread = null;
                 Hubs.WorkerMonitor.Instance.NotifyObservers();
             }
         } // Run
@@ -326,6 +336,7 @@ namespace jsdal_server_core
             var cmdGetRoutineList = new SqlCommand();
 
             cmdGetRoutineList.Connection = con;
+            cmdGetRoutineList.CommandTimeout = 60;
             cmdGetRoutineList.CommandType = System.Data.CommandType.StoredProcedure;
             cmdGetRoutineList.CommandText = "ormv2.GetRoutineList";
             cmdGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;

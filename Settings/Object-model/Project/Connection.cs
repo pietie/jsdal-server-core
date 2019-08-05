@@ -118,7 +118,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                                 if (this._descryptedConnectionString == null)
                                 {
-                                       SessionLog.Error($"Failed to decrypt {this.Type} ConnectionString on {this.Endpoint.Pedigree}.");
+                                    SessionLog.Error($"Failed to decrypt {this.Type} ConnectionString on {this.Endpoint.Pedigree}.");
                                 }
                             }
                         }
@@ -153,6 +153,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             string connectionString = null;
 
+            var hasInstanceName = dataSource.Contains("\\");
 
             if (!string.IsNullOrWhiteSpace(username))
             {
@@ -162,12 +163,26 @@ namespace jsdal_server_core.Settings.ObjectModel
                     password = this.Password;
                 }
 
-                connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
+                if (hasInstanceName)
+                {// including a port will cause the instance name to be ignored so don't include a port
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
+                }
+                else
+                {
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
+                }
+
             }
             else
-            {
-                // use windows auth
-                connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
+            {// use windows auth
+                if (hasInstanceName)
+                {
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
+                }
+                else
+                {
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
+                }
             }
 
             this._descryptedConnectionString = null;

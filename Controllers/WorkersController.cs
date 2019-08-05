@@ -59,7 +59,7 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpPost("/api/workers/{id}/start")]
-        public ApiResponse startWorker([FromRoute] string id)
+        public ApiResponse StartWorker([FromRoute] string id)
         {
             try
             {
@@ -67,7 +67,10 @@ namespace jsdal_server_core.Controllers
 
                 if (worker != null)
                 {
-                    WorkSpawner.RestartWorker(worker);
+                    if (!WorkSpawner.RestartWorker(worker))
+                    {
+                        return ApiResponse.ExclamationModal("Timeout reached while waiting for running worker to restart.");
+                    }
 
                     return ApiResponse.Success();
                 }

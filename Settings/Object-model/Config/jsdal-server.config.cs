@@ -121,6 +121,7 @@ namespace jsdal_server_core.Settings
             return CommonReturnValue.Success();
         }
 
+        // TODO: Deprecated
         public CommonReturnValue AddInlinePluginModule(InlinePluginModule pluginModule)
         {
             if (this.InlinePluginModules == null) this.InlinePluginModules = new List<InlinePluginModule>();
@@ -129,7 +130,9 @@ namespace jsdal_server_core.Settings
 
             foreach (var newPluginGuid in pluginModule.PluginList.Select(n => n.PluginGuid))
             {
-                var existing = this.InlinePluginModules.SelectMany(pl => pl.PluginList).ToList().FirstOrDefault(p => p.PluginGuid.Equals(newPluginGuid, StringComparison.OrdinalIgnoreCase));
+                var existing = this.InlinePluginModules.SelectMany(pl => pl.PluginList)
+                        .ToList()
+                        .FirstOrDefault(p => p.PluginGuid.Equals(newPluginGuid, StringComparison.OrdinalIgnoreCase));
 
                 if (existing != null)
                 {
@@ -152,8 +155,8 @@ namespace jsdal_server_core.Settings
                 return CommonReturnValue.UserError($"Update failed. Failed to find the specified plugin module with id {id}");
             }
 
-            existing.Update(code, pluginList, isValid);
-
+            //! existing.Update(code, pluginList, isValid);
+            return CommonReturnValue.UserError("TODO: implement!");
             return CommonReturnValue.Success();
         }
 
@@ -171,14 +174,14 @@ namespace jsdal_server_core.Settings
 
             try
             {
-                if (System.IO.File.Exists(existing.Path))
+                if (System.IO.File.Exists(existing.CodePath))
                 {
-                    source = System.IO.File.ReadAllText(existing.Path);
+                    source = System.IO.File.ReadAllText(existing.CodePath);
                     return CommonReturnValue.Success();
                 }
                 else
                 {
-                    return CommonReturnValue.UserError($"Failed to find source at: {existing.Path}");
+                    return CommonReturnValue.UserError($"Failed to find source at: {existing.CodePath}");
                 }
             }
             catch (Exception e)
@@ -206,9 +209,9 @@ namespace jsdal_server_core.Settings
 
             try
             {
-                if (System.IO.File.Exists(existing.Path))
+                if (System.IO.File.Exists(existing.CodePath))
                 {
-                    System.IO.File.Delete(existing.Path);
+                    System.IO.File.Delete(existing.CodePath);
                 }
             }
             catch (Exception e)

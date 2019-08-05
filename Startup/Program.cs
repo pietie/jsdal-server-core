@@ -60,7 +60,7 @@ namespace jsdal_server_core
                     OverrideStdout();
                 }
 
-   
+
                 eventLog = new EventLogWrapper(isService);
 
                 Console.WriteLine("=================================");
@@ -72,7 +72,7 @@ namespace jsdal_server_core
 
                 SettingsInstance.LoadSettingsFromFile();
 
-                
+
                 ServerMethodManager.RebuildCacheForAllApps();
 
                 _startDate = DateTime.Now;
@@ -92,16 +92,28 @@ namespace jsdal_server_core
                 }
                 else
                 {
-                    host.Run();
-                }
+                    host.RunAsync();
 
-                Console.WriteLine("Shutting down workers...");
-                WorkSpawner.Stop();
+                    Console.WriteLine("\r\nPress CTRL+X to shutdown server");
+                    
+                    while (true)
+                    {
+                        var keyInfo = Console.ReadKey(true);
+
+                        if (keyInfo.Key == ConsoleKey.X && (keyInfo.Modifiers & ConsoleModifiers.Control) == ConsoleModifiers.Control)
+                        {
+                            Console.WriteLine("Shutting down workers...");
+                            WorkSpawner.Shutdown();
+                            break;
+                        }
+
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Shutting down workers from catch...");
-                WorkSpawner.Stop();
+                WorkSpawner.Shutdown();
 
                 SessionLog.Exception(ex);
                 Console.WriteLine(ex.ToString());
@@ -165,6 +177,7 @@ namespace jsdal_server_core
                   //.UseConfiguration(appConfig)
                   .UseContentRoot(pathToContentRoot)
                   .UseWebRoot(Path.Combine(pathToContentRoot, "wwwroot"))
+                  .UseSetting(WebHostDefaults.SuppressStatusMessagesKey, "true")
                   //   .ConfigureAppConfiguration((builderContext, config) =>
                   //   {
                   //     IHostingEnvironment env = builderContext.HostingEnvironment;

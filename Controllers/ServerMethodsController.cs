@@ -286,117 +286,117 @@ namespace jsdal_server_core.Controllers
 
         }
 
-        [HttpPost("/server-api/{id?}")]
-        public async Task<ApiResponse> AddUpdateServerMethodCollection([FromRoute] string id, dynamic bodyIgnored)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(id)) id = null;
+        // [HttpPost("/server-api/{id?}")]
+        // public async Task<ApiResponse> AddUpdateServerMethodCollection([FromRoute] string id, dynamic bodyIgnored)
+        // {
+        //     try
+        //     {
+        //         if (string.IsNullOrWhiteSpace(id)) id = null;
 
-                string code = null;
+        //         string code = null;
 
-                using (var sr = new System.IO.StreamReader(this.Request.Body))
-                {
-                    code = sr.ReadToEnd();
+        //         using (var sr = new System.IO.StreamReader(this.Request.Body))
+        //         {
+        //             code = sr.ReadToEnd();
 
-                    var (success, ret) = await CSharpCompilerHelper.Evaluate(code);
+        //             var (success, ret) = await CSharpCompilerHelper.Evaluate(code);
 
-                    if (!success) return ret;
-                }
+        //             if (!success) return ret;
+        //         }
 
-                if (!CSharpCompilerHelper.ParseAgainstBase<jsdal_plugin.ServerMethodPlugin, BasePluginRuntime>(id, code, out var parsedPluginCollection, out var problems))
-                {
-                    return ApiResponse.Payload(new { CompilationError = problems });
-                }
+        //         if (!CSharpCompilerHelper.ParseAgainstBase<jsdal_plugin.ServerMethodPlugin, BasePluginRuntime>(id, code, out var parsedPluginCollection, out var problems))
+        //         {
+        //             return ApiResponse.Payload(new { CompilationError = problems });
+        //         }
 
-                // TODO: if server-method is add or UPDATED we need to refresh/recompile a version in memory that is used when doing the actual execution
-                // We also need to cache metadata for those
+        //         // TODO: if server-method is add or UPDATED we need to refresh/recompile a version in memory that is used when doing the actual execution
+        //         // We also need to cache metadata for those
 
-                if (id == null)
-                {
-                    //var pluginModule = ServerMethodPluginRuntime.CreateInlineModule(code, parsedPluginCollection);
+        //         if (id == null)
+        //         {
+        //             //var pluginModule = ServerMethodPluginRuntime.CreateInlineModule(code, parsedPluginCollection);
 
-                    var pluginModule = new Settings.ObjectModel.Plugins.InlinePlugins.InlinePluginModule(code, true/*isValid*/);
+        //             var pluginModule = new Settings.ObjectModel.Plugins.InlinePlugins.InlinePluginModule(code, true/*isValid*/);
 
-                    pluginModule.AddPluginRange(parsedPluginCollection);
+        //             pluginModule.AddPluginRange(parsedPluginCollection);
 
-                    // TODO: Validation needs to be in one. Currently we first create the module (and file on disk) and then we complain about a conflicting Guid for example
-                    var ret = SettingsInstance.Instance.AddInlinePluginModule(pluginModule);
+        //             // TODO: Validation needs to be in one. Currently we first create the module (and file on disk) and then we complain about a conflicting Guid for example
+        //             var ret = SettingsInstance.Instance.AddInlinePluginModule(pluginModule);
 
-                    if (!ret.IsSuccess)
-                    {
-                        return ApiResponse.ExclamationModal(ret.userErrorVal);
-                    }
+        //             if (!ret.IsSuccess)
+        //             {
+        //                 return ApiResponse.ExclamationModal(ret.userErrorVal);
+        //             }
 
-                    SettingsInstance.SaveSettingsToFile();
+        //             SettingsInstance.SaveSettingsToFile();
 
-                    id = pluginModule.Id;
-                }
-                else
-                {
-                    var ret = SettingsInstance.Instance.UpdateInlinePluginModule(id, code, parsedPluginCollection, true);
+        //             id = pluginModule.Id;
+        //         }
+        //         else
+        //         {
+        //             var ret = SettingsInstance.Instance.UpdateInlinePluginModule(id, code, parsedPluginCollection, true);
 
-                    if (!ret.IsSuccess)
-                    {
-                        return ApiResponse.ExclamationModal(ret.userErrorVal);
-                    }
+        //             if (!ret.IsSuccess)
+        //             {
+        //                 return ApiResponse.ExclamationModal(ret.userErrorVal);
+        //             }
 
-                    SettingsInstance.SaveSettingsToFile();
-                }
+        //             SettingsInstance.SaveSettingsToFile();
+        //         }
 
-                return ApiResponse.Payload(new { id = id });
-            }
-            catch (Exception ex)
-            {
-                return ApiResponse.Exception(ex);
-            }
+        //         return ApiResponse.Payload(new { id = id });
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return ApiResponse.Exception(ex);
+        //     }
 
-        }
+        // }
 
-        [HttpDelete("/server-api/{id}")]
-        public ApiResponse DeleteServerMethodCollection([FromRoute] string id)
-        {
-            try
-            {
-                var ret = SettingsInstance.Instance.DeleteInlinePluginModule(id);
+        // [HttpDelete("/server-api/{id}")]
+        // public ApiResponse DeleteServerMethodCollection([FromRoute] string id)
+        // {
+        //     try
+        //     {
+        //         var ret = SettingsInstance.Instance.DeleteInlinePluginModule(id);
 
-                if (ret.IsSuccess)
-                {
-                    SettingsInstance.SaveSettingsToFile();
-                    return ApiResponse.Success();
-                }
-                else
-                {
-                    return ApiResponse.ExclamationModal(ret.userErrorVal);
-                }
-            }
-            catch (Exception ex)
-            {
-                return ApiResponse.Exception(ex);
-            }
-        }
+        //         if (ret.IsSuccess)
+        //         {
+        //             SettingsInstance.SaveSettingsToFile();
+        //             return ApiResponse.Success();
+        //         }
+        //         else
+        //         {
+        //             return ApiResponse.ExclamationModal(ret.userErrorVal);
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return ApiResponse.Exception(ex);
+        //     }
+        // }
 
-        [HttpGet("/server-api/{id}")]
-        public ApiResponse GetServerMethodCode([FromRoute] string id)
-        {
-            try
-            {
-                var ret = SettingsInstance.Instance.GetInlinePluginModule(id, out var source);
+        // [HttpGet("/server-api/{id}")]
+        // public ApiResponse GetServerMethodCode([FromRoute] string id)
+        // {
+        //     try
+        //     {
+        //         var ret = SettingsInstance.Instance.GetInlinePluginModule(id, out var source);
 
-                if (ret.IsSuccess)
-                {
-                    return ApiResponse.Payload(source);
-                }
-                else
-                {
-                    return ApiResponse.ExclamationModal(ret.userErrorVal);
-                }
-            }
-            catch (Exception ex)
-            {
-                return ApiResponse.Exception(ex);
-            }
-        }
+        //         if (ret.IsSuccess)
+        //         {
+        //             return ApiResponse.Payload(source);
+        //         }
+        //         else
+        //         {
+        //             return ApiResponse.ExclamationModal(ret.userErrorVal);
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return ApiResponse.Exception(ex);
+        //     }
+        // }
 
 
     }

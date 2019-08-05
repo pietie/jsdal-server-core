@@ -26,6 +26,7 @@ namespace jsdal_server_core
 
                 cmd.Connection = con;
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                cmd.CommandTimeout = 30;
                 cmd.CommandText = "ormv2.GetRoutineListCnt";
                 cmd.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = maxRowDate ?? 0;
 

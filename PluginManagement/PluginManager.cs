@@ -28,26 +28,45 @@ namespace jsdal_server_core
 
         public Dictionary<Assembly, List<PluginInfo>> PluginAssemblies { get; private set; }
 
-        public void CompileListOfAvailablePlugins()
+        public void LoadAllAssemblies()
         {
             try
             {
                 PluginAssemblies = new Dictionary<Assembly, List<PluginInfo>>();
 
-                //TODO: Test LoadPluginsFromSource();
-
                 if (Directory.Exists("./plugins"))
                 {
                     var dllCollection = Directory.EnumerateFiles("plugins", "*.dll", SearchOption.TopDirectoryOnly);
 
-                    foreach (var dll in dllCollection)
+                    foreach (var dllPath in dllCollection)
                     {
                         // skip jsdal-plugin base
-                        if (dll.Equals("plugins\\jsdal-plugin.dll", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (dllPath.Equals("plugins\\jsdal-plugin.dll", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        LoadPluginDLL(dll);
+                        try
+                        {
+                            var pluginAssembly = Assembly.LoadFrom(dllPath);
+
+                            ParseAndLoadPluginAssembly(pluginAssembly);
+                        }
+                        catch (Exception ee)
+                        {
+                            SessionLog.Error("Failed to load plugin DLL '{0}'. See exception that follows.", dllPath);
+                            SessionLog.Exception(ee);
+                        }
                     }
                 }
+
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+            }
+
+            try
+            {
+                InlinePluginManager.Instance.Init();
+                InstantiateInlinePlugins();
             }
             catch (Exception ex)
             {
@@ -90,18 +109,29 @@ namespace jsdal_server_core
             }
         }
 
-        private void LoadPluginsFromSource()
+        private void InstantiateInlinePlugins()
+        {
+            // only instantiate valid modules
+            foreach(var mod in InlinePluginManager.Instance.Modules?.Where(m=>m.IsValid))
+            {
+                // TODO: Instantiate based on type -- so againsts EPs where it makes sense
+                // TODO: Register types ...
+            }
+        }
+
+        private void CompileInlineSource(string source)
         {
             try
             {
-                SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(TmpGetPluginSource());
+                CSharpParseOptions parseOptions = CSharpParseOptions.Default;
+                SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, options: parseOptions);
 
-                // TODO: CLeanup and find a better way to add the standard deps!
+                // TODO: Cleanup and find a better way to add the standard deps!
                 var runtimeAssembly = Assembly.Load("System.Runtime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
                 var netstandardAssembly = Assembly.Load("netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51");
                 var collectionsAssemlby = Assembly.Load("System.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
 
-                var pluginBasePath = "jsdal-plugin.dll";
+                var pluginBasePath = "./plugins/jsdal-plugin.dll";
 
                 if (Debugger.IsAttached)
                 {
@@ -112,8 +142,8 @@ namespace jsdal_server_core
 
                 var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
 
-
                 string assemblyName = Path.GetRandomFileName();
+
                 MetadataReference[] references = new MetadataReference[]
                 {
                     MetadataReference.CreateFromFile(typeof(Object).Assembly.Location),
@@ -159,9 +189,10 @@ namespace jsdal_server_core
                     else
                     {
                         ms.Seek(0, SeekOrigin.Begin);
+
                         Assembly assembly = Assembly.Load(ms.ToArray());
 
-                        LoadPluginFromAssembly(assembly);
+                        ParseAndLoadPluginAssembly(assembly);
                     }
                 }
 
@@ -221,22 +252,8 @@ namespace Plugins
                ";
         }
 
-        private void LoadPluginDLL(string filepath)
-        {
-            try
-            {
-                var pluginAssembly = Assembly.LoadFrom(filepath);
 
-                LoadPluginFromAssembly(pluginAssembly);
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Error("Failed to load plugin DLL '{0}'. See exception that follows.", filepath);
-                SessionLog.Exception(ex);
-            }
-        }
-
-        private void LoadPluginFromAssembly(Assembly pluginAssembly)
+        private void ParseAndLoadPluginAssembly(Assembly pluginAssembly)
         {
             if (pluginAssembly.DefinedTypes != null)
             {
@@ -299,13 +316,12 @@ namespace Plugins
                                 SessionLog.Error($"Unknown plugin type '{pluginType.FullName}'.");
                                 continue;
                             }
+
                             pluginInfo.Assembly = pluginAssembly;
                             pluginInfo.Name = pluginData.Name;
                             pluginInfo.Description = pluginData.Description;
                             pluginInfo.TypeInfo = pluginType;
                             pluginInfo.Guid = pluginGuid;
-
-                            //pluginInfo.InitMethod = typeof(jsDALPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
 
                             SessionLog.Info("Plugin '{0}' ({1}) loaded. Assembly: {2}", pluginInfo.Name, pluginInfo.Guid, pluginAssembly.FullName);
                         }

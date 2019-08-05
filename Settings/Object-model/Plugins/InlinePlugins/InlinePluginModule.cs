@@ -1,15 +1,16 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
 using shortid;
+using System.Text.Json.Serialization;
 
 namespace jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins
 {
-    public class InlinePluginModule // TODO: Can we create common base between Inline Plugins and Assembly/FromFile loaded ones?
+    public class InlinePluginModule
     {
         [JsonIgnore]
-        public static string InlinePluginPath //TODO: move property to Settings level?
+        public static string InlinePluginPath
         {
             get
             {
@@ -17,56 +18,119 @@ namespace jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins
             }
         }
 
-        public string Id;
-        public string Path;
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string CodePath;
         public bool IsValid; // true if it compiles successfully
 
+        [JsonIgnore]
         public List<BasePluginRuntime> PluginList { get; set; }
 
-        public InlinePluginModule(string code, bool isValid)
+        public InlinePluginModule()
         {
             this.PluginList = new List<BasePluginRuntime>();
-            this.IsValid = isValid;
-            this.Create(code);
         }
-
         public void AddPlugin(BasePluginRuntime plugin)
         {
             this.PluginList.Add(plugin);
         }
 
-        public void AddPluginRange(IEnumerable<BasePluginRuntime> pluginList)
+        public static bool Create(string id, string name, string description, string code, bool isValid, IEnumerable<BasePluginRuntime> pluginList, bool saveToDisk, out InlinePluginModule newModule, out string error)
         {
-            this.PluginList.AddRange( pluginList);
-        }
+            newModule = null;
+            error = null;
 
-        private void Create(string code)
-        {
-            this.Id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
+            newModule = new InlinePluginModule(); ;
 
-            if (!Directory.Exists(InlinePluginPath))
+            if (!string.IsNullOrWhiteSpace(id))
             {
-                Directory.CreateDirectory(InlinePluginPath);
+                newModule.Id = id;
+            }
+            else
+            {
+                newModule.Id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             }
 
-            this.Path = System.IO.Path.Combine(InlinePluginPath, this.Id);
-            File.WriteAllText(this.Path, code);
+            newModule.CodePath = System.IO.Path.Combine(InlinePluginPath, newModule.Id);
+
+            if (!newModule.Update(name, description, code, isValid, pluginList, saveToDisk: true, out error))
+            {
+                newModule = null;
+                return false;
+            }
+
+            return true;
         }
 
-        public virtual void Update(string updatedCode, List<BasePluginRuntime> pluginList, bool isValid)
+        // private void UpdateCodeBase(string code)
+        // {
+        //     if (!Directory.Exists(InlinePluginPath))
+        //     {
+        //         Directory.CreateDirectory(InlinePluginPath);
+        //     }
+
+        //     this.Path = System.IO.Path.Combine(InlinePluginPath, this.Id);
+        //     File.WriteAllText(this.Path, code);
+        // }
+
+        public virtual bool Update(string name, string description, string updatedCode, bool isValid, IEnumerable<BasePluginRuntime> pluginList, bool saveToDisk, out string error)
         {
+            error = null;
+            var invalidChars = System.IO.Path.GetInvalidFileNameChars();
+            // List<string> invalidCharsReadable = new List<string>();
+
+            // foreach (var ch in invalidChars)
+            // {
+            //     if (System.Enum.TryParse(typeof(ConsoleKey), Convert.ToInt32(ch).ToString(), false, out var consoleKey))
+            //     {
+            //         if (((ConsoleKey)consoleKey).ToString() == Convert.ToInt32(ch).ToString())
+            //         {
+            //             invalidCharsReadable.Add(ch.ToString());
+            //         }
+            //         else
+            //         {
+            //             invalidCharsReadable.Add(consoleKey.ToString());
+            //         }
+            //     }
+            //     else
+            //     {
+            //         // ???
+            //     }
+            // }
+
+            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(invalidChars) >= 0)
+            {
+                error = $"Invalid assembly name specified. Please only use alphanumeric characters.";
+                return false;
+            }
+
+            // TODO: check for conflicts on name?
+
             this.IsValid = isValid;
-            
-            // TODO: unload plugins
-            this.PluginList.Clear(); 
-            this.PluginList = pluginList;
 
-            if (!Directory.Exists(InlinePluginPath))
+            // TODO: unload plugins
+            this.PluginList.Clear();
+
+            if (pluginList != null)
             {
-                Directory.CreateDirectory(InlinePluginPath);
+                this.PluginList = new List<BasePluginRuntime>(pluginList);
             }
 
-            File.WriteAllText(this.Path, updatedCode);
+            this.Name = name.Trim();
+            this.Description = description.Trim();
+
+            if (saveToDisk)
+            {
+                if (!Directory.Exists(InlinePluginPath))
+                {
+                    Directory.CreateDirectory(InlinePluginPath);
+                }
+
+                File.WriteAllText(this.CodePath, updatedCode);
+            }
+
+            return true;
         }
 
     }

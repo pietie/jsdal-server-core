@@ -28,6 +28,7 @@ using jsdal_server_core.Hubs;
 using jsdal_server_core.Hubs.Performance;
 using jsdal_server_core.PluginManagement;
 using jsdal_server_core.Settings.ObjectModel;
+using jsdal_server_core.SignalR.HomeDashboard;
 
 namespace jsdal_server_core
 {
@@ -63,6 +64,7 @@ namespace jsdal_server_core
             services.AddSingleton(typeof(RealtimeMonitor));
             services.AddSingleton(typeof(BackgroundTaskMonitor));
             services.AddSingleton(typeof(Settings.ObjectModel.ConnectionStringSecurity));
+            services.AddSingleton(typeof(DotNetCoreCounterListener));
 
             services.AddCors(options => options.AddPolicy("CorsPolicy",
                     builder => builder
@@ -229,9 +231,12 @@ namespace jsdal_server_core
 
                 ConnectionStringSecurity.Instance = app.ApplicationServices.GetService<ConnectionStringSecurity>();
 
+                DotNetCoreCounterListener.Instance = app.ApplicationServices.GetService<DotNetCoreCounterListener>();
+                DotNetCoreCounterListener.Instance.Start();
+
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
                     PluginManager.Instance = pmInst;
-                    PluginManager.Instance.CompileListOfAvailablePlugins();
+                    PluginManager.Instance.LoadAllAssemblies();
                     PluginManager.Instance.InitServerWidePlugins();
 
                     Console.WriteLine("Starting work spawner.");
