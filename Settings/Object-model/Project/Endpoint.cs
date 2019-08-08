@@ -243,6 +243,11 @@ namespace jsdal_server_core.Settings.ObjectModel
                     {
                         return;
                     }
+                    else if (existing.IsDeleted && !newCachedRoutine.IsDeleted)
+                    {// "undeleted"
+                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} (RE)ADDED");
+                        this.CachedRoutineList.Remove(existing); // will be added again below
+                    }
                     else if (!newCachedRoutine.IsDeleted)
                     {
                         bool parametersUpdated = newCachedRoutine.ParametersHash != existing.ParametersHash;
@@ -342,7 +347,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 this.ExecutionConnection.Endpoint = this;
                 this.ExecutionConnection.Type = "execution";
             }
-            
+
             if (this.MetadataConnection != null)
             {
                 this.MetadataConnection.Endpoint = this;

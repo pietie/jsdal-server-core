@@ -16,7 +16,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Type = (int)RuleType.Regex;
         }
 
-        public override bool apply(CachedRoutine routine)
+        public override bool Apply(CachedRoutine routine)
         {
             if (string.IsNullOrWhiteSpace(this.Match)) return false;
             //var reg = new RegExp(this.Match.Replace("\\", "\\\\"), RegexOptions.None);

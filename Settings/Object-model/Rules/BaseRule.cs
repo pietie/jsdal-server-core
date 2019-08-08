@@ -12,7 +12,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int RuleProcessOrder;
         public int Type = -1;
 
-        public virtual bool apply(CachedRoutine routine)
+        public virtual bool Apply(CachedRoutine routine)
         {
             throw new NotImplementedException();
         }

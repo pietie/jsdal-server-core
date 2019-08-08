@@ -243,8 +243,6 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-
-
         [HttpDelete("/api/rule/{ruleId}")]
         public ApiResponse DeleteRule([FromQuery] string project, [FromQuery(Name = "app")] string appName, [FromQuery] string file, [FromRoute] string ruleId)
         {

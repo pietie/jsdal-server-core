@@ -13,7 +13,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Type = (int)RuleType.Schema;
         }
 
-        public override bool apply(CachedRoutine routine)
+        public override bool Apply(CachedRoutine routine)
         {
             return routine.Schema.Equals(this.Name, StringComparison.OrdinalIgnoreCase);
         }

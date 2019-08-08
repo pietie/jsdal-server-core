@@ -14,6 +14,10 @@ using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Newtonsoft.Json;
 using Microsoft.SqlServer.Types;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Net;
+using System.Text.Json;
 
 namespace jsdal_server_core
 {
@@ -606,49 +610,79 @@ namespace jsdal_server_core
                     return "The setting GoogleRecaptchaSecret is not configured on this jsDAL server.";
                 }
 
+                var captchaHeaderVal = requestHeaders["captcha-val"].FirstOrDefault();
+                if (captchaHeaderVal != null)
+                {
+                    var capResp = ValidateGoogleRecaptcha(captchaHeaderVal);
 
-                var capResp = validateGoogleRecaptcha(requestHeaders["captcha-val"].FirstOrDefault());
+                    if (responseHeaders == null) responseHeaders = new Dictionary<string, string>();
 
-                if (responseHeaders == null) responseHeaders = new Dictionary<string, string>();
+                    responseHeaders["captcha-ret"] = capResp ? "1" : "0";
 
-                responseHeaders["captcha-ret"] = capResp.success ? "1" : "0";
-
-                if (capResp.success) return null;
-                else return "Captcha failed.";
+                    if (capResp) return null;
+                    else return "Captcha failed.";
+                }
             }
 
             return null;
         }
 
-        private static dynamic validateGoogleRecaptcha(string captcha) /*Promise<{ success: boolean, "error-codes"?: string[]}>*/
+        private static bool ValidateGoogleRecaptcha(string captcha) /*Promise<{ success: boolean, "error-codes"?: string[]}>*/
         {
+            try
+            {
+                var postData = $"secret={Settings.SettingsInstance.Instance.Settings.GoogleRecaptchaSecret}&response={captcha}";
+                var webClient = new WebClient();
+                
+                webClient.Headers["Content-Type"] = "application/x-www-form-urlencoded";
+                //var response = webClient.UploadString("https://www.google.com/recaptcha/api/siteverify", postData);
+                var responseBytes = webClient.UploadData("https://www.google.com/recaptcha/api/siteverify", "POST", System.Text.Encoding.UTF8.GetBytes(postData));
 
-            return null;
-            // //             var postData = {
-            // //                 secret: SettingsInstance.Instance.Settings.GoogleRecaptchaSecret,
-            // //                 response: captcha
+                var response = System.Text.Encoding.UTF8.GetString(responseBytes);
 
-            // //             };
+                var deserialized = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(response);
 
-            // //         request.post('https://www.google.com/recaptcha/api/siteverify',
-            // //                 {
-            // //                     headers: { 'content-type': 'application/json' },
-            // //                     form: postData
-            // //     }, (error: any, response: request.RequestResponse, body: any) => {
-            // //                     if (!error) {
-            // //                         try {
-            // //                             resolve(JSON.parse(body));
-            // // }
-            // //                         catch (e) {
-            // //                             ExceptionLogger.logException(e);
-            // //                             reject(e);
-            // //                         }
-            // //                     }
-            // //                     else {
-            // //                         reject(error);
-            // //                     }
+                if (deserialized != null && deserialized["success"] != null)
+                {
+                    var je = ((JsonElement)deserialized["success"]);
 
-            // //                 });
+                    return je.GetBoolean();
+                }
+                else
+                {
+                    return false;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.LogException(ex);
+                return false;
+            }
+
+            /* 
+
+
+
+                    request.post('https://www.google.com/recaptcha/api/siteverify',
+                                        {
+                                            headers: { 'content-type': 'application/json' },
+                                            form: postData
+                }, (error: any, response: request.RequestResponse, body: any) => {
+                                            if (!error) {
+                                                try {
+                                                    resolve(JSON.parse(body));
+            }
+                                                catch (e) {
+                                                    ExceptionLogger.logException(e);
+                                                    reject(e);
+                                                }
+                                            }
+                                            else {
+                                                reject(error);
+                                            }
+
+                                        });*/
 
         }
 

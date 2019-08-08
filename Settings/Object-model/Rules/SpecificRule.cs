@@ -42,7 +42,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             return new SpecificRule(schema, name);
         }
 
-        public override bool apply(CachedRoutine routine)
+        public override bool Apply(CachedRoutine routine)
         {
             return routine.Schema.Equals(this.Schema, StringComparison.OrdinalIgnoreCase)
                 && routine.Routine.Equals(this.Routine, StringComparison.OrdinalIgnoreCase)
