@@ -289,7 +289,7 @@ namespace jsdal_server_core
                                 // look for special jsDAL Server variables
                                 val = jsDALServerVariables.Parse(remoteIpAddress, val);
 
-                                if (val == null)
+                                if (val == null || val == DBNull.Value)
                                 {
                                     parmValue = DBNull.Value;
                                 }
@@ -410,6 +410,9 @@ namespace jsdal_server_core
                     else if (type == Controllers.ExecController.ExecType.NonQuery)
                     {
                         var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
+                        
+                        //TODO: Implement Async versions cmd.ExecuteNonQueryAsync()
+
                         rowsAffected = cmd.ExecuteNonQuery();
                         execStage.End();
                     }
