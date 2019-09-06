@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -29,10 +30,63 @@ namespace jsdal_server_core
 
         private static EventLogWrapper eventLog;
 
+        static void ABC()
+        {
+            throw new Exception("Let's go deepr!");
+        }
+        static void CauseInners()
+        {
+            try
+            {
+                ABC();
+            }
+            catch (Exception ex)
+            {
+                Exception inner = new Exception("Oh no!", ex);
+
+                throw new OutOfMemoryException("Cant remember", inner);
+            }
+
+        }
+
+        static void CauseTestExceptions()
+        {
+
+            try
+            {
+                int x = 0;
+                var n = 1 / x;
+            }
+            catch (Exception aa)
+            {
+                ExceptionLogger.LogException(aa);
+            }
+
+            try
+            {
+                throw new ArgumentException("Arg problem", "a");
+            }
+            catch (Exception aa)
+            {
+                ExceptionLogger.LogException(aa);
+            }
+
+            try
+            {
+                CauseInners();
+            }
+            catch (Exception aa)
+            {
+                ExceptionLogger.LogException(aa);
+            }
+
+        }
+
         public static void Main(string[] args)
         {
             try
             {
+
                 var isService = args.Length == 1 && args[0].Equals("--service", StringComparison.OrdinalIgnoreCase);
                 var justRun = args.Length == 1 && args[0].Equals("--run", StringComparison.OrdinalIgnoreCase);
 
@@ -86,6 +140,12 @@ namespace jsdal_server_core
                 var builder = BuildWebHost(pathToContentRoot, args);
                 var host = builder.Build();
 
+                ////////////////////////////////////////////////////////
+                {
+                    //CauseTestExceptions();
+                }
+                ////////////////////////////////////////////////////////
+
                 if (isService)
                 {
                     host.RunAsCustomService();
@@ -95,7 +155,7 @@ namespace jsdal_server_core
                     host.RunAsync();
 
                     Console.WriteLine("\r\nPress CTRL+X to shutdown server");
-                    
+
                     while (true)
                     {
                         var keyInfo = Console.ReadKey(true);

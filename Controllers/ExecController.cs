@@ -18,6 +18,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http.Features;
+using System.Text.RegularExpressions;
 
 namespace jsdal_server_core.Controllers
 {
@@ -44,6 +45,24 @@ namespace jsdal_server_core.Controllers
             public Dictionary<string, string> OverridingInputParameters { get; set; }
 
             public Dictionary<string, string> inputParameters { get; set; }
+
+            // matches input with various versions of schema + routine
+            public bool? MatchRoutine(string input)
+            {
+                string m1 = routine;
+                string m2 = schema;
+                string m3 = $"{schema}.{routine}";
+                string m4 = $"[{schema}].{routine}";
+                string m5 = $"{schema}.[{routine}]";
+                string m6 = $"[{schema}].[{routine}]";
+
+                return m1.Contains(input, StringComparison.OrdinalIgnoreCase)
+                    || m2.Contains(input, StringComparison.OrdinalIgnoreCase)
+                    || m3.Contains(input, StringComparison.OrdinalIgnoreCase)
+                    || m4.Contains(input, StringComparison.OrdinalIgnoreCase)
+                    || m5.Contains(input, StringComparison.OrdinalIgnoreCase)
+                    || m6.Contains(input, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
 
