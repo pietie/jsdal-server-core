@@ -14,7 +14,72 @@ namespace jsdal_server_core.Controllers
     public class ExceptionsController : Controller
     {
         [HttpGet("/api/exception/{id}")]
-        public ApiResponse GetException([FromRoute] string id)
+        public ApiResponse GetException([FromRoute] string id, [FromQuery(Name = "parent")] string parentId)
+        {
+            try
+            {
+                ExceptionWrapper ret = null;
+
+                if (!string.IsNullOrWhiteSpace(parentId))
+                {
+                    var parent = ExceptionLogger.GetException(parentId);
+
+                    if (parent == null)
+                    {
+                        return ApiResponse.ExclamationModal($"A parent exception with id \"{parentId}\" could not be found.");
+                    }
+
+                    var child = parent.GetRelated(id);
+
+                    if (child == null)
+                    {
+                        return ApiResponse.ExclamationModal($"An exception with id \"{id}\" could not be found.");
+                    }
+
+                    ret = child;
+                }
+                else
+                {
+
+
+                    var ex = ExceptionLogger.GetException(id);
+
+                    if (ex == null)
+                    {
+                        return ApiResponse.ExclamationModal($"An exception with id \"{id}\" could not be found.");
+                    }
+
+                    ret = ex;
+                }
+
+                return ApiResponse.Payload(new
+                {
+                    ret.appTitle,
+                    ret.created,
+                    ret.errorCode,
+                    ret.execOptions,
+                    ret.id,
+                    ret.innerException,
+                    ret.level,
+                    ret.line,
+                    ret.message,
+                    ret.procedure,
+                    ret.server,
+                    //?ret.sqlErrorType,
+                    ret.stackTrace,
+                    ret.state,
+                    ret.type
+
+                });
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
+        }
+
+        [HttpGet("/api/exception/{id}/related")]
+        public ApiResponse GetExceptionRelated([FromRoute] string id)
         {
             try
             {
@@ -25,7 +90,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal($"An exception with id \"{id}\" could not be found.");
                 }
 
-                return ApiResponse.Payload(ex);
+                return ApiResponse.Payload(ex.related);
             }
             catch (Exception ex)
             {
@@ -75,12 +140,14 @@ namespace jsdal_server_core.Controllers
                           where exception.HasAppTitle(appLookup)
                             && (routine == null || (exception.execOptions?.MatchRoutine(routine) ?? false))
                           orderby exception.created.Ticks descending
-                          select new {
-                               exception.id,
-                               exception.created,
-                               exception.message,
-                               exception.procedure,
-                               exception.appTitle
+                          select new
+                          {
+                              exception.id,
+                              exception.created,
+                              exception.message,
+                              exception.procedure,
+                              exception.appTitle,
+                              relatedCount = exception.related?.Count ?? 0
                           }
                           ;
 

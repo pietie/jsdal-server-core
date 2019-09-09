@@ -136,7 +136,7 @@ namespace jsdal_server_core
             get
             {
                 if (ExceptionLogger.exceptionDict == null) return 0;
-                return ExceptionLogger.exceptionDict.Values.SelectMany(l=>l).Count();
+                return ExceptionLogger.exceptionDict.Values.SelectMany(l => l).Count();
             }
         }
 
@@ -169,7 +169,24 @@ namespace jsdal_server_core
 
                 var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle);
 
-                exceptionDict[listKey].Add(ew);
+                ExceptionWrapper parent = null;
+
+                // look for recent similiar entry, if found just tag it onto that rather than logging a new main entry
+                {
+                    DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
+
+                    // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)
+
+                    parent = exceptionDict[listKey]
+                                .Where(e => e.created >= thresholdDate)
+                                .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
+                                .FirstOrDefault();
+
+
+                }
+
+                if (parent == null) exceptionDict[listKey].Add(ew);
+                else parent.AddRelated(ew);
 
                 // TODO: Really save on each exception logged? Perhaps off-load the work to a BG thread ..lazy save
                 SaveToFile();

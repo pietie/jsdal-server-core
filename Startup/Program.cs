@@ -143,6 +143,46 @@ namespace jsdal_server_core
                 ////////////////////////////////////////////////////////
                 {
                     //CauseTestExceptions();
+                    if (1 == 0)
+                    {
+                        System.Threading.ThreadPool.QueueUserWorkItem(state =>
+                        {
+                            while (true)
+                            {
+                                try
+                                {
+                                    using (var con = new System.Data.SqlClient.SqlConnection())
+                                    {
+
+                                        con.ConnectionString = $"Data source=172.16.1.98\\finance;connect timeout=1;user id=l2;password=Snippie23";
+
+                                        var x = con.ConnectionTimeout;
+                                        con.Open();
+
+                                        var cmd = new System.Data.SqlClient.SqlCommand();
+
+                                        cmd.Connection = con;
+                                        cmd.CommandText = "WAITFOR DELAY '00:00:05'";
+                                        cmd.CommandTimeout = 1;
+
+                                        var ds = new System.Data.DataSet();
+                                        var da = new System.Data.SqlClient.SqlDataAdapter(cmd);
+                                        da.Fill(ds);
+
+
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    ExceptionLogger.LogException(ex);
+                                }
+
+                                System.Threading.Thread.Sleep(4300);
+                            }
+
+                        });
+                    }
+
                 }
                 ////////////////////////////////////////////////////////
 

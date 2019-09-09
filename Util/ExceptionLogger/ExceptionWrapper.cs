@@ -8,6 +8,18 @@ using shortid;
 
 namespace jsdal_server_core
 {
+
+    // See System.Data.SqlClient.TdsEnums https://referencesource.microsoft.com/#System.Data/fx/src/data/System/Data/SqlClient/TdsEnums.cs,0146f11d0456012d
+    [Serializable]
+    public enum SqlErrorType
+    {
+        Timeout = -2,
+        LoginFailed = 18456,
+        PasswordExpired = 18488,
+        ImpersonationFailed = 1346,
+        TokenTooLong = 103,
+
+    }
     [Serializable]
     public class ExceptionWrapper
     {
@@ -22,21 +34,30 @@ namespace jsdal_server_core
         public int? errorCode;
         public byte? level;
         public byte? state;
+
+        public SqlErrorType? sqlErrorType;
         ///
 
         public string message;
+
+        public ExceptionWrapper GetRelated(string id)
+        {
+            if (this.related == null) return null;
+            return related.FirstOrDefault(e => e.id == id);
+        }
+
         public string stackTrace;
 
         public ExceptionWrapper innerException;
 
         public Controllers.ExecController.ExecOptions execOptions;
 
-        public string type;
+        public string type; // Exception Object class TypeName
+
+        public List<ExceptionWrapper> related;
 
         public ExceptionWrapper()
         {
-
-
         }
 
         public ExceptionWrapper(Exception ex, string additionalInfo = null, string appTitle = null)
@@ -50,6 +71,13 @@ namespace jsdal_server_core
             if (ex is SqlException)
             {
                 SqlException re = (SqlException)ex;
+
+                if (Enum.IsDefined(typeof(SqlErrorType), re.Number))
+                {
+                    this.sqlErrorType = (SqlErrorType)re.Number;
+                }
+
+
 
                 // TODO: There could be multiple re.Errors present..do something with that info? Seems those exception messages get concatted to main one anyway
                 //!msg = $"Procedure ##{re.Procedure}##, Line {re.LineNumber}, Message: {re.Message}, Error {re.Number}, Level {re.Class}, State {re.State}";
@@ -87,5 +115,15 @@ namespace jsdal_server_core
             return appTitleLookup.FirstOrDefault(t => t.Equals(this.appTitle, StringComparison.OrdinalIgnoreCase)) != null;
         }
 
+        public void AddRelated(ExceptionWrapper ew)
+        {
+            if (related == null) related = new List<ExceptionWrapper>();
+
+            lock (related)
+            {
+                related.Add(ew);
+            }
+
+        }
     }
 }
