@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using System.IO;
+using Microsoft.Net.Http.Headers;
 
 namespace jsdal_server_core
 {
@@ -17,6 +19,12 @@ namespace jsdal_server_core
         {
             var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             return Convert.ToInt64((dt.ToUniversalTime() - epoch).TotalMilliseconds);
+        }
+
+        public static EntityTagHeaderValue ToETag(this FileInfo fi)
+        {
+            long etagHash = fi.LastWriteTimeUtc.ToFileTime() ^ fi.Length;
+            return new EntityTagHeaderValue('\"' + Convert.ToString(etagHash, 16) + '\"');
         }
 
     }
@@ -59,4 +67,7 @@ namespace jsdal_server_core
             return items;
         }
     }
+
+
+
 }

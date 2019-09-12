@@ -130,7 +130,7 @@ namespace jsdal_server_core
 
         static void InstallService(string serviceName, string displayName)
         {
-            var binPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "jsdal-server.exe");
+            var binPath = Path.Combine(Environment.CurrentDirectory, "jsdal-server.exe");
             var startInfo = new ProcessStartInfo();
 
             startInfo.FileName = $"{Environment.ExpandEnvironmentVariables("%WINDIR%")}\\system32\\sc.exe";
@@ -174,22 +174,22 @@ namespace jsdal_server_core
 
                     // start service
                     {
-                         startInfo = new ProcessStartInfo();
+                        startInfo = new ProcessStartInfo();
 
-                            startInfo.FileName = $"{Environment.ExpandEnvironmentVariables("%WINDIR%")}\\system32\\sc.exe";
-                            startInfo.Arguments = $"start \"{serviceName}\"";
-                            startInfo.RedirectStandardOutput = true;
-                            startInfo.RedirectStandardError = true;
-                            startInfo.UseShellExecute = false;
-                            startInfo.CreateNoWindow = true;
+                        startInfo.FileName = $"{Environment.ExpandEnvironmentVariables("%WINDIR%")}\\system32\\sc.exe";
+                        startInfo.Arguments = $"start \"{serviceName}\"";
+                        startInfo.RedirectStandardOutput = true;
+                        startInfo.RedirectStandardError = true;
+                        startInfo.UseShellExecute = false;
+                        startInfo.CreateNoWindow = true;
 
-                            process = new Process();
+                        process = new Process();
 
-                            process.StartInfo = startInfo;
-                            process.EnableRaisingEvents = true;
+                        process.StartInfo = startInfo;
+                        process.EnableRaisingEvents = true;
 
-                            process.Start();
-                            consoleOutput = process.StandardOutput.ReadToEnd();
+                        process.Start();
+                        consoleOutput = process.StandardOutput.ReadToEnd();
                     }
 
                     MessageBox.Query(50, 10, "", "Service installed successfully", "Ok");

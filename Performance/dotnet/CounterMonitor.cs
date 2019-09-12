@@ -1,11 +1,38 @@
 using Microsoft.Diagnostics.Tools.RuntimeClient;
-using Microsoft.Diagnostics.Tracing;
+//using Microsoft.Diagnostics.Tracing;
 using System;
 using System.Collections.Generic;
 
 
 namespace jsdal_server_core.Performance.dotnet
 {
+
+    public class EventPipeEventSource
+    {
+
+        public EventPipeEventSource(object o) { }
+        public EventPipeEventSourceDyn Dynamic;
+
+        public void Process() { }
+
+
+    }  // TEMP!!!
+
+    public class EventPipeEventSourceDyn
+    {
+        public delegate void WhatWhatEvent(TraceEvent data);
+        public event WhatWhatEvent All;
+    }// TEMP
+
+    public class TraceEvent
+    {
+        public string ProviderName;
+        public string EventName;
+        public dynamic PayloadValue(int n) { return null; }
+
+    } // TEMP!!!
+
+
     public class CounterMonitor
     {
         private const ulong EmptySession = 0xffffffff;
@@ -24,18 +51,8 @@ namespace jsdal_server_core.Performance.dotnet
 
         public void Start()
         {
-            /*            {
-                            var configuration2 = new SessionConfiguration(
-                                                                  circularBufferSizeMB: 1000,
-                                                                  format: EventPipeSerializationFormat.NetTrace,
-                                                                  providers: Trace.Extensions.ToProviders(providerString));
-                            var binaryReader2 = EventPipeClient.CollectTracing(_processId, configuration, out _sessionId);
-                            EventPipeEventSource source = new EventPipeEventSource(binaryReader);
-                            source.Dynamic.All += Dynamic_All;
-                            source.Process();
-
-                        }
-                        */
+            // single exe publishing not happy with trace package -- wait on https://github.com/dotnet/sdk/issues/3510
+            return;
 
             var configuration = new SessionConfiguration(
                 circularBufferSizeMB: 1000,
@@ -45,6 +62,7 @@ namespace jsdal_server_core.Performance.dotnet
 
             var binaryReader = EventPipeClient.CollectTracing(_pid, configuration, out _sessionId);
             EventPipeEventSource source = new EventPipeEventSource(binaryReader);
+
             source.Dynamic.All += ProcessEvents;
 
             // this is a blocking call

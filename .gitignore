@@ -18,6 +18,7 @@ wwwroot
 data
 00-Release
 /inline-plugins
+*.7z
 
 plugins/*.dll
 

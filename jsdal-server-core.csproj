@@ -8,32 +8,40 @@
 		<IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>        
 
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier> 
-		<!-- <OutputType>Exe</OutputType>
+		<OutputType>Exe</OutputType>
 		<SelfContained>true</SelfContained> 
-		<PublishTrimmed>true</PublishTrimmed>
-    	<PublishReadyToRun>true</PublishReadyToRun>
-    	<PublishSingleFile>true</PublishSingleFile>
-    	-->
+		<PublishTrimmed>false</PublishTrimmed> 
+		<PublishReadyToRun>true</PublishReadyToRun>
+    	<PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
+		<PublishSingleFile>true</PublishSingleFile>
+    	
 
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\cache\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\data\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\generated\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\inline-plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\log\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Include=".\resources\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
+		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\cache\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\data\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\generated\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\inline-plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\log\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Include=".\resources\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 
-		<Content Update="jsdal-server.json" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
-		<Content Update="users.json" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
+		<Content Update="jsdal-server.json" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<Content Update="users.json" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 
 		<None Include="appsettings.json" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
 
-		<Content Include=".\plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true"/>
+		<Content Include=".\plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 
+		
+	</ItemGroup>
+	<ItemGroup>
 		<Content Remove="00-Release/**/*" />
+		<Content Remove="Refs/**/*" />
+		<Content Remove="appsettings.Development.json" />
+		<Content Remove="global.json" />
+		<Content Remove="omnisharp.json" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="./../jsdal-plugin/jsdal-plugin.csproj" />
@@ -57,32 +65,26 @@
 
 		<PackageReference Include="JetBrains.Annotations" Version="2019.1.1" />
 
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0-preview7.19362.6" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0-preview9.19423.6" />
 
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.0.0-preview7.19365.7" />
-		<PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="3.0.0-preview7.19365.7" />
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview7.19365.7" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.0.0-preview7.19365.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.0.0-preview9.19424.4" />
+		<PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="3.0.0-preview9.19424.4" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview9.19424.4" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.0.0-preview9.19424.4" />
 
-		<PackageReference Include="System.Data.SqlClient" Version="4.7.0-preview7.19362.9" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.7.0-preview9.19421.4" />
 
 
 		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="3.0.0" />
-
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.0.0" />
-
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="3.0.0" />
-
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.0.0" />
-
 		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="3.0.0" />
-
 
 
 		<PackageReference Include="Microsoft.SqlServer.Types" Version="14.0.1016.290" />
 
-
-		<PackageReference Include="Microsoft.Windows.Compatibility" Version="3.0.0-preview7.19362.9" />
+		<PackageReference Include="Microsoft.Windows.Compatibility" Version="3.0.0-preview9.19421.4" />
 
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
 
@@ -92,14 +94,14 @@
 		<PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
 		<PackageReference Include="Terminal.Gui" Version="0.19.0" />
 
-		 <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.44" />
+<!-- Wait for https://github.com/dotnet/sdk/issues/3510 to re-include TraceEvent package -->
+		 <!-- <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.45" />  -->
 
 
 	</ItemGroup>
 	<ItemGroup>
 		<DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.4" />
 	</ItemGroup>
-
-
+ 
 
 </Project> 
