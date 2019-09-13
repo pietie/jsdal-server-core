@@ -171,18 +171,43 @@ namespace jsdal_server_core
 
                 ExceptionWrapper parent = null;
 
+                // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)                
+
+                // look at last (n) exceptions for an exact match
+                if (parent == null)
+                {
+                    parent = exceptionDict[listKey]
+                        .TakeLast(5)
+                        .Where(e => e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false)
+                        .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
+                        .FirstOrDefault();
+                }
+
+
                 // look for recent similiar entry, if found just tag it onto that rather than logging a new main entry
+                if (parent == null)
                 {
                     DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
 
-                    // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)
-
                     parent = exceptionDict[listKey]
                                 .Where(e => e.created >= thresholdDate)
+                                .Where(e => e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false)
                                 .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
                                 .FirstOrDefault();
 
 
+                }
+
+                // group recent timeouts (to the same server) together under common parent as a bunch of timeouts tend to occur shortly after each
+                if (parent == null && ew.sqlErrorType.HasValue && ew.sqlErrorType.Value == SqlErrorType.Timeout)
+                {
+                    DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
+
+                    parent = exceptionDict[listKey]
+                                              .Where(e => e.created >= thresholdDate)
+                                              .Where(e => e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false)
+                                              .Where(e => e.sqlErrorType.HasValue && e.sqlErrorType.Value == SqlErrorType.Timeout)
+                                              .FirstOrDefault();
                 }
 
                 if (parent == null) exceptionDict[listKey].Add(ew);
