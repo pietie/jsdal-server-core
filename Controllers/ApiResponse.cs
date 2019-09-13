@@ -42,11 +42,11 @@ namespace jsdal_server_core
             return new ApiResponse() { Message = msg, Type = ApiResponseType.InfoMsg, Data = data };
         }
 
-        public static ApiResponse ExecException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
+        public static ApiResponse ExecException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             SessionLog.Exception(ex);
 
-            var id = ExceptionLogger.LogException(ex, execOptions, additionalInfo, appTitle);
+            var id = ExceptionLogger.LogException(ex, execOptions, additionalInfo, appTitle, appVersion);
 
             var ret = new ApiResponse();
 
@@ -57,11 +57,11 @@ namespace jsdal_server_core
 
             return ret;
         }
-        public static ApiResponse Exception(Exception ex, string additionalInfo = null, string appTitle = null)
+        public static ApiResponse Exception(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             SessionLog.Exception(ex);
 
-            var id = ExceptionLogger.LogException(ex, additionalInfo, appTitle);
+            var id = ExceptionLogger.LogException(ex, additionalInfo, appTitle, appVersion);
 
             var ret = new ApiResponse();
 

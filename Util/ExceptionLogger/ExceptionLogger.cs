@@ -140,19 +140,19 @@ namespace jsdal_server_core
             }
         }
 
-        public static string LogException(Exception ex, string additionalInfo = null, string appTitle = null)
+        public static string LogException(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            return AddException("Global", ex, null, additionalInfo, appTitle);
+            return AddException("Global", ex, null, additionalInfo, appTitle, appVersion);
         }
 
-        public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null)
+        public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             var endpointKey = $"{execOptions.project}/{execOptions.application}/{execOptions.endpoint}".ToUpper();
 
-            return AddException(endpointKey, ex, execOptions, additionalInfo, appTitle);
+            return AddException(endpointKey, ex, execOptions, additionalInfo, appTitle, appVersion);
         }
 
-        private static string AddException(string listKey, Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo, string appTitle)
+        private static string AddException(string listKey, Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo, string appTitle, string appVersion = null)
         {
             lock (exceptionDict)
             {
@@ -167,7 +167,7 @@ namespace jsdal_server_core
                     ExceptionLogger.exceptionDict[listKey].RemoveRange(0, ExceptionLogger.exceptionDict.Count - ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT + 1);
                 }
 
-                var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle);
+                var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle, appVersion);
 
                 ExceptionWrapper parent = null;
 

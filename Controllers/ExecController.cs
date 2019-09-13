@@ -342,6 +342,7 @@ namespace jsdal_server_core.Controllers
             var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
             var referer = req.Headers["Referer"].FirstOrDefault();
             var appTitle = req.Headers["App-Title"].FirstOrDefault();
+            var appVersion = req.Headers["App-Ver"].FirstOrDefault();
 
             var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
@@ -365,7 +366,7 @@ namespace jsdal_server_core.Controllers
                 inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
             }
 
-            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, inputParameters, req.Headers, referer, remoteIpAddress, appTitle, out var responseHeaders);
+            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, inputParameters, req.Headers, referer, remoteIpAddress, appTitle, appVersion, out var responseHeaders);
 
             if (responseHeaders != null && responseHeaders.Count > 0)
             {
@@ -392,7 +393,7 @@ namespace jsdal_server_core.Controllers
         }
 
         public static (ApiResponse, RoutineExecution, CommonReturnValue) ExecuteRoutine(ExecOptions execOptions, Dictionary<string, string> inputParameters,
-        Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders, string referer, string remoteIpAddress, string appTitle, out Dictionary<string, string> responseHeaders)
+        Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders, string referer, string remoteIpAddress, string appTitle, string appVersion, out Dictionary<string, string> responseHeaders)
         {
             var debugInfo = "";
 
@@ -565,7 +566,7 @@ namespace jsdal_server_core.Controllers
 
                 }
 
-                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle);
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle, appVersion);
 
                 // TODO: Get Execution plugin list specifically
                 if (pluginList != null)

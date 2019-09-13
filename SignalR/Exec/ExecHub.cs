@@ -34,7 +34,7 @@ namespace jsdal_server_core.Hubs
             return base.OnDisconnectedAsync(exception);
         }
 
-        public ApiResponse Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, int n, string appTitle)
+        public ApiResponse Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, int n, string appTitle, string appVersion)
         {
             ExecController.ExecType type = (ExecController.ExecType)n;
             var endpointElems = endpoint.Split('/'); // TODO: error handling
@@ -43,7 +43,7 @@ namespace jsdal_server_core.Hubs
             {
 
                 var execOptions = new ExecController.ExecOptions() { project = endpointElems[0], application = endpointElems[1], endpoint = endpointElems[2], schema = schema, routine = routine, type = type };
-                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, parameters, null/*requestHeaders*/, "$WEB SOCKETS$", null, appTitle, out var responseHeaders);
+                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, parameters, null/*requestHeaders*/, "$WEB SOCKETS$", null, appTitle, appVersion, out var responseHeaders);
 
                 if (mayAccess != null && !mayAccess.IsSuccess)
                 {

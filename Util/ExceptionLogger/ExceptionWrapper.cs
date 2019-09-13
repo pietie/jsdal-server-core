@@ -26,6 +26,7 @@ namespace jsdal_server_core
         public DateTime created;
         public string id;
         public string appTitle;
+        public string appVersion;
 
         // SQL-specific  stuff
         public string procedure;
@@ -60,10 +61,11 @@ namespace jsdal_server_core
         {
         }
 
-        public ExceptionWrapper(Exception ex, string additionalInfo = null, string appTitle = null)
+        public ExceptionWrapper(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             this.created = DateTime.Now;
             this.appTitle = appTitle;
+            this.appVersion = appVersion;
             this.type = ex.GetType().FullName;
 
             var msg = ex.Message;
@@ -101,7 +103,7 @@ namespace jsdal_server_core
                 this.innerException = new ExceptionWrapper(ex.InnerException);
             }
         }
-        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null) : this(ex, additionalInfo, appTitle)
+        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null, string appVersion = null) : this(ex, additionalInfo, appTitle, appVersion)
         { // TODO: do something interesting with additionalInfo
 
             this.execOptions = eo;

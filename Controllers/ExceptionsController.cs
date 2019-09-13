@@ -55,6 +55,7 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Payload(new
                 {
                     ret.appTitle,
+                    ret.appVersion,
                     ret.created,
                     ret.errorCode,
                     ret.execOptions,
@@ -147,6 +148,7 @@ namespace jsdal_server_core.Controllers
                               exception.message,
                               exception.procedure,
                               exception.appTitle,
+                              exception.appVersion,
                               relatedCount = exception.related?.Count ?? 0
                           }
                           ;
