@@ -124,10 +124,13 @@ namespace jsdal_server_core
                 UserManagement.loadUsersFromFile();
                 ExceptionLogger.Init();
 
-                SettingsInstance.LoadSettingsFromFile();
+                if (SettingsInstance.LoadSettingsFromFile())
+                {
+                    ServerMethodManager.RebuildCacheForAllApps();
+                }
 
 
-                ServerMethodManager.RebuildCacheForAllApps();
+
 
                 _startDate = DateTime.Now;
 

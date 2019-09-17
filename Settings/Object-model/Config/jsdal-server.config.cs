@@ -48,6 +48,22 @@ namespace jsdal_server_core.Settings
             return existing != null;
         }
 
+        public static JsDalServerConfig CreateDefault()
+        {
+            var ret = new JsDalServerConfig();
+
+            ret.Settings = new CommonSettings();
+            ret.Settings.WebServer = new WebServerSettings()
+            {
+                 EnableSSL = false,
+                 EnableBasicHttp = true,
+                 HttpServerHostname = "localhost",
+                 HttpServerPort = 9086                
+            };
+
+            return ret;
+        }
+
         public Project GetProject(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;

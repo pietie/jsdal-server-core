@@ -296,9 +296,24 @@ namespace jsdal_server_core
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
                                         //MetadataReference.CreateFromFile(typeof(System.Collections.ArrayList).Assembly.Location),
                                         //MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<string,string>).Assembly.Location),
-                                        MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location),
-                                        Microsoft.CodeAnalysis.MetadataReference.CreateFromFile("./plugins/jsdal-plugin.dll")
+                                        MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location)
+
             };
+
+            var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
+
+            if (File.Exists("./plugins/jsdal-plugin.dll"))
+            {
+                Array.Resize(ref all, all.Length + 1);
+
+                all[all.Length - 1] = Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(jsDALBasePluginPath);
+            }
+            else
+            {
+                Console.WriteLine($"ERR! Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
+            }
+
 
 
             var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
