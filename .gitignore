@@ -13,7 +13,7 @@
 key*.xml
 jsdal-server.json
 generated
-cache
+/cache
 wwwroot
 data
 00-Release
