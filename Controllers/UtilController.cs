@@ -28,11 +28,11 @@ namespace jsdal_server_core.Controllers
 
                 if (!string.IsNullOrWhiteSpace(user))
                 {
-                    connStr = string.Format("Data Source={0};Persist Security Info=False;User ID={1};Password={2};", datasource, user, pass);
+                    connStr = $"Data Source={datasource},{port};Persist Security Info=False;User ID={u};Password={p};";
                 }
                 else
                 {
-                    connStr = string.Format("Data Source={0};Persist Security Info=False;Integrated Security=True", datasource);
+                    connStr = $"Data Source={datasource},{port};Persist Security Info=False;UIntegrated Security=True";
                 }
 
                 List<dynamic> ret = null;
