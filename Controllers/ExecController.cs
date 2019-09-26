@@ -190,7 +190,6 @@ namespace jsdal_server_core.Controllers
 
                 foreach (var file in req.Form.Files)
                 {
-                    var id = shortid.ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
                     var data = new byte[file.Length];
 
                     using (var stream = file.OpenReadStream())
@@ -198,7 +197,7 @@ namespace jsdal_server_core.Controllers
                         stream.Read(data, 0, data.Length);
                     }
 
-                    BlobStore.Add(id, data);
+                    BlobStore.Add(data, out var id);
                     keyList.Add(id);
                 }
 
