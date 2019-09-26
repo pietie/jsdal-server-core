@@ -126,7 +126,7 @@ namespace jsdal_server_core
 
                 if (SettingsInstance.LoadSettingsFromFile())
                 {
-                    ServerMethodManager.RebuildCacheForAllApps();
+                    //ServerMethodManager.RebuildCacheForAllApps();
                 }
 
 

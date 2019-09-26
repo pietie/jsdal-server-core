@@ -238,6 +238,7 @@ namespace jsdal_server_core
                     PluginManager.Instance = pmInst;
                     PluginManager.Instance.LoadAllAssemblies();
                     PluginManager.Instance.InitServerWidePlugins();
+                    ServerMethodManager.RebuildCacheForAllApps();
 
                     Console.WriteLine("Starting work spawner.");
                     WorkSpawner.Start();
