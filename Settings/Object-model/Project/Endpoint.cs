@@ -609,6 +609,21 @@ namespace jsdal_server_core.Settings.ObjectModel
                             SessionLog.Warning($"Failed to find InitSM method on plugin {matchedRegMethod.Registration.TypeInfo.FullName} from assembly {matchedRegMethod.Registration.Assembly.FullName}. Make sure the correct version of the jsdal plugin is used and that you derive from the correct base class (should be ServerMethodPlugin).");
                         }
 
+                        var setGetServicesFuncMethod = typeof(plugin.PluginBase).GetMethod("SetGetServicesFunc", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                        if (setGetServicesFuncMethod != null)
+                        {
+                            setGetServicesFuncMethod.Invoke(pluginInstance, new object[] { new Func<Type, plugin.PluginService>(serviceType =>
+                            {
+                                if (serviceType == typeof(plugin.BlobStoreBase))
+                                {
+                                    return BlobStore.Instance;
+                                }
+
+                                return null;
+                            })});
+                        }
+
                         ServerMethodInstanceCache.Add(cacheKey, pluginInstance);
                     }
                     catch (Exception ex)

@@ -197,7 +197,7 @@ namespace jsdal_server_core.Controllers
                         stream.Read(data, 0, data.Length);
                     }
 
-                    BlobStore.Add(data, out var id);
+                    BlobStore.Instance.Add(data, out var id);
                     keyList.Add(id);
                 }
 

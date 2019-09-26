@@ -147,7 +147,12 @@ namespace jsdal_server_core
 
         public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            var endpointKey = $"{execOptions.project}/{execOptions.application}/{execOptions.endpoint}".ToUpper();
+            string endpointKey = "Global";
+
+            if (execOptions != null)
+            {
+                endpointKey = $"{execOptions.project}/{execOptions.application}/{execOptions.endpoint}".ToUpper();
+            }
 
             return AddException(endpointKey, ex, execOptions, additionalInfo, appTitle, appVersion);
         }
