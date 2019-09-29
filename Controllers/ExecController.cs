@@ -134,11 +134,11 @@ namespace jsdal_server_core.Controllers
 
                 if (!BlobStore.Exists(blobRef)) return NotFound($"Invalid, non-existent or expired blob reference specified: '{blobRef}'");
 
-                var blob = BlobStore.Get(blobRef);
+                var blobData = BlobStore.Get(blobRef);
 
                 var client = new System.Net.Http.HttpClient();
 
-                using (var content = new System.Net.Http.ByteArrayContent(blob))
+                using (var content = new System.Net.Http.ByteArrayContent(blobData.Data))
                 {
                     var barcodeServiceUrl = this.config["AppSettings:BarcodeService.URL"].TrimEnd('/');
                     var postUrl = $"{barcodeServiceUrl}/scan/pdf417?raw={raw}&veh={veh}&drv={drv}";
@@ -155,7 +155,7 @@ namespace jsdal_server_core.Controllers
                     }
                     else
                     {
-                        SessionLog.Error("Barcode failed. postUrl = {0}; contentLength: {1}; responseText={2}", postUrl ?? "(null)", blob?.Length ?? -1, responseText ?? "(null)");
+                        SessionLog.Error("Barcode failed. postUrl = {0}; contentLength: {1}; responseText={2}", postUrl ?? "(null)", blobData?.Data?.Length ?? -1, responseText ?? "(null)");
 
                         //return StatusCode((int)response.StatusCode, responseText);
                         //return new ContentResult() { Content = responseText, StatusCode = (int)response.StatusCode, ContentType = "text/plain" };
@@ -197,11 +197,32 @@ namespace jsdal_server_core.Controllers
                         stream.Read(data, 0, data.Length);
                     }
 
-                    BlobStore.Instance.Add(data, out var id);
+                    //file.FileName
+                    //?file.Name
+                    //file.ContentType
+
+                    BlobStore.Instance.Add(new BlobStoreData() { Filename = file.FileName, Data = data, ContentType = file.ContentType }, out var id);
                     keyList.Add(id);
                 }
 
                 return Ok(ApiResponse.Payload(keyList));
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/blob/serve/{ref}")]
+        public IActionResult ServeBlob([FromRoute(Name = "ref")] string blobRef)
+        {
+            try
+            {
+                if (!BlobStore.Exists(blobRef)) return NotFound("Invalid or expired blob ref");
+                var blob = BlobStore.Get(blobRef);
+
+                return new FileContentResult(blob.Data, blob.ContentType);
             }
             catch (Exception ex)
             {

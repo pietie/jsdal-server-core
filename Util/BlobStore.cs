@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using jsdal_plugin;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace jsdal_server_core
 {
-    public class BlobStore : jsdal_plugin.BlobStoreBase
+    public class BlobStore : BlobStoreBase
     {
         private BlobStore()
         {
@@ -17,10 +18,10 @@ namespace jsdal_server_core
 
         public static BlobStore Instance { get { return _instance; } }
 
-        public override bool Add(byte[] data, out string key)
+        public override bool Add(BlobStoreData data, out string key)
         {
             key = shortid.ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
-            BlobStore.Cache.Set<byte[]>(key, data, DateTime.Now.AddMinutes(10));  // TODO: Make expiration configurable
+            BlobStore.Cache.Set<BlobStoreData>(key, data, DateTime.Now.AddMinutes(10));  // TODO: Make expiration configurable
             return true;
         }
 
@@ -33,9 +34,9 @@ namespace jsdal_server_core
         //     return BlobStore.Cache.getStats();
         // }
 
-        public static byte[] Get(string key)
+        public static BlobStoreData Get(string key)
         {
-            return BlobStore.Cache.Get<byte[]>(key);
+            return BlobStore.Cache.Get<BlobStoreData>(key);
         }
 
 

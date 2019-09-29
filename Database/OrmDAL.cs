@@ -583,7 +583,7 @@ namespace jsdal_server_core
                 var key = str.Substring(blobRefPrefix.Length);
 
                 if (!BlobStore.Exists(key)) throw new Exception($"Invalid, non-existent or expired blob reference specified: '{str}'");
-                return BlobStore.Get(key);
+                return BlobStore.Get(key).Data;
             }
             else if (str.Equals("dbnull", StringComparison.OrdinalIgnoreCase))
             {
