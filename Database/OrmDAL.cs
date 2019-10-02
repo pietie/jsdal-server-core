@@ -148,7 +148,7 @@ namespace jsdal_server_core
                int commandTimeOutInSeconds,
                out Dictionary<string, dynamic> outputParameterDictionary,
                ExecutionBase execRoutineQueryMetric,
-               out Dictionary<string, string> responseHeaders,
+               ref Dictionary<string, string> responseHeaders,
                out int rowsAffected
            )
         {
@@ -156,7 +156,7 @@ namespace jsdal_server_core
             SqlCommand cmd = null;
 
             rowsAffected = 0;
-            responseHeaders = new Dictionary<string, string>();
+
 
             try
             {
@@ -281,22 +281,24 @@ namespace jsdal_server_core
                             // trim leading '@'
                             var expectedParmName = expectedParm.Name.Substring(1);
 
-                            var pluginParamVal = GetParameterValueFromPlugins(expectedParmName, plugins);
+                            var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
 
-                            if (pluginParamVal != PluginSetParameterValue.DontSet)
+
+                            // if the expected parameter was defined in the request or if a plugin provided an override
+                            if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
                             {
-                                object val = pluginParamVal.Value;
+                                object val = null;
 
-                                // look for special jsDAL Server variables
-                                val = jsDALServerVariables.Parse(remoteIpAddress, val);
-
-                                newSqlParm.Value = pluginParamVal;
-                            }
-
-                            // if the expected parameter was defined in the request
-                            if (inputParameters.ContainsKey(expectedParmName))
-                            {
-                                object val = inputParameters[expectedParmName];
+                                // TODO: Should input parameter if specified be able to override any plugin value?
+                                // TODO: For now a plugin value take precendence over an input value - we can perhaps make this a property of the plugin return value (e.g. AllowInputOverride)
+                                if (pluginParamVal != PluginSetParameterValue.DontSet)
+                                {
+                                    val = pluginParamVal.Value;
+                                }
+                                else if (inputParameters.ContainsKey(expectedParmName))
+                                {
+                                    val = inputParameters[expectedParmName];
+                                }
 
                                 // look for special jsDAL Server variables
                                 val = jsDALServerVariables.Parse(remoteIpAddress, val);
@@ -484,13 +486,13 @@ namespace jsdal_server_core
             }
         } // execRoutine
 
-        private static PluginSetParameterValue GetParameterValueFromPlugins(string parameterName, List<ExecutionPlugin> plugins)
+        private static PluginSetParameterValue GetParameterValueFromPlugins(CachedRoutine routine, string parameterName, List<ExecutionPlugin> plugins)
         {
             foreach (var plugin in plugins)
             {
                 try
                 {
-                    var val = plugin.GetParameterValue(parameterName);
+                    var val = plugin.GetParameterValue(routine.Schema, routine.Routine, parameterName);
 
                     if (val != PluginSetParameterValue.DontSet)
                     {

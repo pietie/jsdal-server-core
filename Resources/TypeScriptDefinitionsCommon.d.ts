@@ -9,33 +9,37 @@ interface IDALConfig {
     AutoSetTokenGuid?: boolean;
     AutoProcessApiResponse?: boolean;
     HandleExceptions?: boolean;
-    ShowPageLoadingIndicator?: boolean;
-    CommandTimeoutInSeconds?: number;
+    CommandTimeoutInSeconds?: number; // SQL Command timeout
     $select?: string;
     $captcha?: string;
-    HttpMethod?: string;
+    HttpMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    HttpHeaders?: { [key: string]: string };
+    UseWebSockets?: boolean;
+    AsyncExecution?: boolean;
+    ParameterNull?: string;
 }
 
 interface IDALServerMethodConfig {
     HttpMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     UseWebSockets?: boolean;
     AsyncExecution?: boolean;
+    ParameterNull?: string;
 }
 
-interface IServerMethodVoid<OuputParameters, InputParameters>
-{
+interface IServerMethodVoid<OuputParameters, InputParameters> {
     configure(config: IDALServerMethodConfig): IServerMethodVoid<OuputParameters, InputParameters>;
     afterExec(cb: (...any) => any): IServerMethodVoid<OuputParameters, InputParameters>;
     always(cb: (...fn: any[]) => any): IServerMethodVoid<OuputParameters, InputParameters>;
     exec(parameters?: InputParameters): Promise<IServerMethodVoidResult<InputParameters>>;
+    setAuthBearer(token: string): IServerMethodVoid<OuputParameters, InputParameters>;
 }
 
-interface IServerMethod<OuputParameters, ResultType, InputParameters>
-{
+interface IServerMethod<OuputParameters, ResultType, InputParameters> {
     configure(config: IDALServerMethodConfig): IServerMethod<OuputParameters, ResultType, InputParameters>;
-    afterExec(cb: (...any) => any): IServerMethod<OuputParameters, ResultType,InputParameters>;
+    afterExec(cb: (...any) => any): IServerMethod<OuputParameters, ResultType, InputParameters>;
     always(cb: (...fn: any[]) => any): IServerMethod<OuputParameters, ResultType, InputParameters>;
     exec(parameters?: InputParameters): Promise<IServerMethodResult<OuputParameters, ResultType>>;
+    setAuthBearer(token: string): IServerMethod<OuputParameters, ResultType, InputParameters>;
 }
 
 interface IServerMethodResultBase<OuputParameters, T/*Result Type*/> {
@@ -51,6 +55,7 @@ interface IServerMethodVoidResult<OuputParameters> extends IServerMethodResultBa
 
 interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {
     configure(config: IDALConfig): ISprocExecGeneric0<O, U>;
+    setAuthBearer(token: string): ISprocExecGeneric0<O, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric0<O, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric0<O, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric0<O, U>;
@@ -62,6 +67,7 @@ interface ISprocExecGeneric0<O/*Output*/, U/*Parameters*/> {
 
 interface ISprocExecGeneric1<O/*Output*/, T1/*Result set*/, U/*Parameter*/> {
     configure(config?: IDALConfig): ISprocExecGeneric1<O, T1, U>;
+    setAuthBearer(token: string): ISprocExecGeneric1<O, T1, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric1<O, T1, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric1<O, T1, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric1<O, T1, U>;
@@ -73,6 +79,7 @@ interface ISprocExecGeneric1<O/*Output*/, T1/*Result set*/, U/*Parameter*/> {
 
 interface ISprocExecGeneric2<O/*Output*/, T1, T2, U/*Parameter*/> {
     configure(config?: IDALConfig): ISprocExecGeneric2<O, T1, T2, U>;
+    setAuthBearer(token: string): ISprocExecGeneric2<O, T1, T2, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric2<O, T1, T2, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric2<O, T1, T2, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric2<O, T1, T2, U>;
@@ -84,6 +91,7 @@ interface ISprocExecGeneric2<O/*Output*/, T1, T2, U/*Parameter*/> {
 
 interface ISprocExecGeneric3<O, T1, T2, T3, U> {
     configure(config?: IDALConfig): ISprocExecGeneric3<O, T1, T2, T3, U>;
+    setAuthBearer(token: string): ISprocExecGeneric3<O, T1, T2, T3, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric3<O, T1, T2, T3, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric3<O, T1, T2, T3, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric3<O, T1, T2, T3, U>;
@@ -95,6 +103,7 @@ interface ISprocExecGeneric3<O, T1, T2, T3, U> {
 
 interface ISprocExecGeneric4<O, T1, T2, T3, T4, U> {
     configure(config?: IDALConfig): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
+    setAuthBearer(token: string): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric4<O, T1, T2, T3, T4, U>;
@@ -106,6 +115,7 @@ interface ISprocExecGeneric4<O, T1, T2, T3, T4, U> {
 
 interface ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U> {
     configure(config?: IDALConfig): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
+    setAuthBearer(token: string): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U>;
@@ -117,6 +127,7 @@ interface ISprocExecGeneric5<O, T1, T2, T3, T4, T5, U> {
 
 interface ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U> {
     configure(config?: IDALConfig): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
+    setAuthBearer(token: string): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U>;
@@ -128,6 +139,7 @@ interface ISprocExecGeneric6<O, T1, T2, T3, T4, T5, T6, U> {
 
 interface ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U> {
     configure(config?: IDALConfig): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
+    setAuthBearer(token: string): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U>;
@@ -139,6 +151,7 @@ interface ISprocExecGeneric7<O, T1, T2, T3, T4, T5, T6, T7, U> {
 
 interface ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U> {
     configure(config?: IDALConfig): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
+    setAuthBearer(token: string): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U>;
@@ -150,6 +163,7 @@ interface ISprocExecGeneric8<O, T1, T2, T3, T4, T5, T6, T7, T8, U> {
 
 interface ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U> {
     configure(config?: IDALConfig): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
+    setAuthBearer(token: string): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U>;
@@ -161,6 +175,7 @@ interface ISprocExecGeneric9<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, U> {
 
 interface ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U> {
     configure(config?: IDALConfig): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
+    setAuthBearer(token: string): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
     afterExec(cb: (...any) => any): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
     always(cb: (...fn: any[]) => any): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;
     captcha(captchaResponseValue: string): ISprocExecGeneric10<O, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, U>;

@@ -392,7 +392,7 @@ namespace jsdal_server_core.Controllers
 
 
 
-            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, req.Headers,
+            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, requestHeaders,
                 referer, remoteIpAddress,
                 appTitle, appVersion, out var responseHeaders);
 
@@ -442,6 +442,8 @@ namespace jsdal_server_core.Controllers
             // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             RoutineExecution routineExecutionMetric = null;
 
+            responseHeaders = new Dictionary<string, string>();
+
             try
             {
                 if (!ControllerHelper.GetProjectAndAppAndEndpoint(execOptions.project, execOptions.application, execOptions.endpoint, out project, out app, out endpoint, out var resp))
@@ -469,7 +471,7 @@ namespace jsdal_server_core.Controllers
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
 
-                pluginList = InitPlugins(app, execOptions.inputParameters);
+                pluginList = InitPlugins(app, execOptions.inputParameters, requestHeaders);
 
                 pluginsInitMetric.End();
 
@@ -479,7 +481,7 @@ namespace jsdal_server_core.Controllers
                 { // ask all ExecPlugins to authenticate
                     foreach (var plugin in pluginList)
                     {
-                        if (!plugin.IsAuthenticated(requestHeaders, out var error))
+                        if (!plugin.IsAuthenticated(execOptions.schema, execOptions.routine, out var error))
                         {
                             responseHeaders.Add("Plugin-AuthFailed", plugin.Name);
                             return (new UnauthorizedObjectResult(error), null, null);
@@ -506,7 +508,7 @@ namespace jsdal_server_core.Controllers
                     commandTimeOutInSeconds,
                     out outputParameters,
                     execRoutineQueryMetric,
-                    out responseHeaders,
+                    ref responseHeaders,
                     out rowsAffected
                 );
 
@@ -667,7 +669,9 @@ namespace jsdal_server_core.Controllers
         }
 
         private static MethodInfo initPluginMethod = typeof(ExecutionPlugin).GetMethod("InitPlugin", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static List<ExecutionPlugin> InitPlugins(Application app, Dictionary<string, string> queryString)
+
+        // TODO: Consider reworking this - ExecPlugins should only get instantiated once?! The assembly is instantiated once so maybe creating new instances of the plugin class is not that bad?
+        private static List<ExecutionPlugin> InitPlugins(Application app, Dictionary<string, string> queryString, Dictionary<string, string> requestHeaders)
         {
             var plugins = new List<ExecutionPlugin>();
 
@@ -675,7 +679,11 @@ namespace jsdal_server_core.Controllers
             {
                 foreach (string pluginGuid in app.Plugins)
                 {
-                    var plugin = PluginManager.Instance.PluginAssemblies.SelectMany(kv => kv.Value).FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
+                    var plugin = PluginManager.Instance
+                                                .PluginAssemblies
+                                                .SelectMany(kv => kv.Value)
+                                                .FirstOrDefault(p => p.Guid.ToString()
+                                                .Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
                     if (plugin != null && plugin.Type == PluginType.Execution)
                     {
@@ -683,7 +691,7 @@ namespace jsdal_server_core.Controllers
                         {
                             var concrete = (ExecutionPlugin)plugin.Assembly.CreateInstance(plugin.TypeInfo.FullName);
 
-                            initPluginMethod.Invoke(concrete, new object[] { queryString });
+                            initPluginMethod.Invoke(concrete, new object[] { queryString, requestHeaders });
 
                             plugins.Add(concrete);
                         }
