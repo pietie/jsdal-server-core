@@ -355,22 +355,19 @@ namespace jsdal_server_core.Controllers
             var res = this.Response;
             var req = this.Request;
 
-            Dictionary<string, string> inputParameters = null;
             string body = null;
 
             // TODO: log remote IP with exception and associate with request itself?
             var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
-            var referer = req.Headers["Referer"].FirstOrDefault();
-            var appTitle = req.Headers["App-Title"].FirstOrDefault();
-            var appVersion = req.Headers["App-Ver"].FirstOrDefault();
+
+            // convert request headers to normal Dictionary
+            var requestHeaders = req.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            var referer = requestHeaders.Val("Referer");
+            var appTitle = requestHeaders.Val("App-Title");
+            var appVersion = requestHeaders.Val("App-Ver");
 
             var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
-
-            // var syncIOFeature = HttpContext.Features.Get<IHttpBodyControlFeature>();
-            // if (syncIOFeature != null)
-            // {
-            //     syncIOFeature.AllowSynchronousIO = true;
-            // }
 
             if (isPOST)
             {
@@ -378,15 +375,26 @@ namespace jsdal_server_core.Controllers
                 {
                     body = sr.ReadToEnd();
 
-                    inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
+                    execOptions.inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
                 }
             }
             else
             {
-                inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
+                execOptions.inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
             }
 
-            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, inputParameters, req.Headers, referer, remoteIpAddress, appTitle, appVersion, out var responseHeaders);
+            if (execOptions.OverridingInputParameters != null)
+            {
+                execOptions.inputParameters = execOptions.OverridingInputParameters;
+            }
+
+            if (execOptions.inputParameters == null) execOptions.inputParameters = new Dictionary<string, string>();
+
+
+
+            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, req.Headers,
+                referer, remoteIpAddress,
+                appTitle, appVersion, out var responseHeaders);
 
             if (responseHeaders != null && responseHeaders.Count > 0)
             {
@@ -399,7 +407,7 @@ namespace jsdal_server_core.Controllers
             if (mayAccess != null && !mayAccess.IsSuccess)
             {
                 res.ContentType = "text/plain";
-                res.StatusCode = 403;
+                res.StatusCode = 403; // Forbidden
                 return this.Content(mayAccess.userErrorVal);
             }
 
@@ -409,11 +417,18 @@ namespace jsdal_server_core.Controllers
                 res.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
             }
 
+            if (result is IActionResult) return result as IActionResult;
+
             return Ok(result);
         }
 
-        public static (ApiResponse, RoutineExecution, CommonReturnValue) ExecuteRoutine(ExecOptions execOptions, Dictionary<string, string> inputParameters,
-        Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders, string referer, string remoteIpAddress, string appTitle, string appVersion, out Dictionary<string, string> responseHeaders)
+        public static (object/*ApiResponse | IActionResult*/, RoutineExecution, CommonReturnValue) ExecuteRoutine(ExecOptions execOptions,
+            Dictionary<string, string> requestHeaders,
+            string referer,
+            string remoteIpAddress,
+            string appTitle,
+            string appVersion,
+            out Dictionary<string, string> responseHeaders)
         {
             var debugInfo = "";
 
@@ -444,26 +459,33 @@ namespace jsdal_server_core.Controllers
                 if (!mayAccess.IsSuccess) return (null, null, mayAccess);
 
 
-                string body = null;
-                //Dictionary<string, string> inputParameters = null;
+                //!?string body = null;
+
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
 
-                if (execOptions.OverridingInputParameters != null)
-                {
-                    inputParameters = execOptions.OverridingInputParameters;
-                }
 
-                if (inputParameters == null) inputParameters = new Dictionary<string, string>();
-
-                execOptions.inputParameters = inputParameters;
 
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
 
-                pluginList = InitPlugins(app, inputParameters);
+                pluginList = InitPlugins(app, execOptions.inputParameters);
 
                 pluginsInitMetric.End();
+
+                ////////////////////
+                // Auth stage
+                ///////////////////
+                { // ask all ExecPlugins to authenticate
+                    foreach (var plugin in pluginList)
+                    {
+                        if (!plugin.IsAuthenticated(requestHeaders, out var error))
+                        {
+                            responseHeaders.Add("Plugin-AuthFailed", plugin.Name);
+                            return (new UnauthorizedObjectResult(error), null, null);
+                        }
+                    }
+                }
 
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
@@ -477,7 +499,7 @@ namespace jsdal_server_core.Controllers
                     execOptions.schema,
                     execOptions.routine,
                     endpoint,
-                    inputParameters,
+                    execOptions.inputParameters,
                     requestHeaders,
                     remoteIpAddress,
                     pluginList,

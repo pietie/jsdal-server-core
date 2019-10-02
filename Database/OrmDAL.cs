@@ -142,7 +142,7 @@ namespace jsdal_server_core
                string routineName,
                Endpoint endpoint,
                Dictionary<string, string> inputParameters,
-               Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders,
+               Dictionary<string, string> requestHeaders,
                string remoteIpAddress,
                List<ExecutionPlugin> plugins,
                int commandTimeOutInSeconds,
@@ -281,6 +281,18 @@ namespace jsdal_server_core
                             // trim leading '@'
                             var expectedParmName = expectedParm.Name.Substring(1);
 
+                            var pluginParamVal = GetParameterValueFromPlugins(expectedParmName, plugins);
+
+                            if (pluginParamVal != PluginSetParameterValue.DontSet)
+                            {
+                                object val = pluginParamVal.Value;
+
+                                // look for special jsDAL Server variables
+                                val = jsDALServerVariables.Parse(remoteIpAddress, val);
+
+                                newSqlParm.Value = pluginParamVal;
+                            }
+
                             // if the expected parameter was defined in the request
                             if (inputParameters.ContainsKey(expectedParmName))
                             {
@@ -410,7 +422,7 @@ namespace jsdal_server_core
                     else if (type == Controllers.ExecController.ExecType.NonQuery)
                     {
                         var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
-                        
+
                         //TODO: Implement Async versions cmd.ExecuteNonQueryAsync()
 
                         rowsAffected = cmd.ExecuteNonQuery();
@@ -472,6 +484,28 @@ namespace jsdal_server_core
             }
         } // execRoutine
 
+        private static PluginSetParameterValue GetParameterValueFromPlugins(string parameterName, List<ExecutionPlugin> plugins)
+        {
+            foreach (var plugin in plugins)
+            {
+                try
+                {
+                    var val = plugin.GetParameterValue(parameterName);
+
+                    if (val != PluginSetParameterValue.DontSet)
+                    {
+                        return val;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SessionLog.Error("Plugin {0} GetParameterValue failed", plugin.Name);
+                    SessionLog.Exception(ex);
+                }
+            }
+
+            return PluginSetParameterValue.DontSet;
+        }
 
         private static void ProcessPlugins(List<ExecutionPlugin> pluginList, SqlConnection con)
         {
@@ -597,7 +631,7 @@ namespace jsdal_server_core
         }
 
 
-        private static string ProcessMetadata(Microsoft.AspNetCore.Http.IHeaderDictionary requestHeaders, ref Dictionary<string, string> responseHeaders, CachedRoutine cachedRoutine)
+        private static string ProcessMetadata(Dictionary<string, string> requestHeaders, ref Dictionary<string, string> responseHeaders, CachedRoutine cachedRoutine)
         {
             if (cachedRoutine?.jsDALMetadata?.jsDAL?.security?.requiresCaptcha ?? false)
             {
@@ -613,7 +647,7 @@ namespace jsdal_server_core
                     return "The setting GoogleRecaptchaSecret is not configured on this jsDAL server.";
                 }
 
-                var captchaHeaderVal = requestHeaders["captcha-val"].FirstOrDefault();
+                var captchaHeaderVal = requestHeaders.Val("captcha-val");
                 if (captchaHeaderVal != null)
                 {
                     var capResp = ValidateGoogleRecaptcha(captchaHeaderVal);
@@ -636,7 +670,7 @@ namespace jsdal_server_core
             {
                 var postData = $"secret={Settings.SettingsInstance.Instance.Settings.GoogleRecaptchaSecret}&response={captcha}";
                 var webClient = new WebClient();
-                
+
                 webClient.Headers["Content-Type"] = "application/x-www-form-urlencoded";
                 //var response = webClient.UploadString("https://www.google.com/recaptcha/api/siteverify", postData);
                 var responseBytes = webClient.UploadData("https://www.google.com/recaptcha/api/siteverify", "POST", System.Text.Encoding.UTF8.GetBytes(postData));

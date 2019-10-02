@@ -9,6 +9,12 @@ namespace jsdal_server_core
 {
     public static class MyExtensions
     {
+        public static V Val<T,V>(this Dictionary<T,V>  dict, T key)
+        {
+            if (!dict.ContainsKey(key)) return default;
+
+            return dict[key];
+        }
         public static long? ToEpochMS(this DateTime? dt)
         {
             if (!dt.HasValue) return null;

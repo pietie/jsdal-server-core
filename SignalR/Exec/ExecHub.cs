@@ -42,15 +42,26 @@ namespace jsdal_server_core.Hubs
             if (type != ExecController.ExecType.ServerMethod)
             {
 
-                var execOptions = new ExecController.ExecOptions() { project = endpointElems[0], application = endpointElems[1], endpoint = endpointElems[2], schema = schema, routine = routine, type = type };
-                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, parameters, null/*requestHeaders*/, "$WEB SOCKETS$", null, appTitle, appVersion, out var responseHeaders);
+                var execOptions = new ExecController.ExecOptions()
+                {
+                    project = endpointElems[0],
+                    application = endpointElems[1],
+                    endpoint = endpointElems[2],
+                    schema = schema,
+                    routine = routine,
+                    type = type,
+                    inputParameters = parameters
+                };
+
+                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null,
+                appTitle, appVersion, out var responseHeaders);
 
                 if (mayAccess != null && !mayAccess.IsSuccess)
                 {
                     throw new Exception("Unauthorised access");
                 }
 
-                return result;
+                return (ApiResponse)result;
             }
             else
             {
