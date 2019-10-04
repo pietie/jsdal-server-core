@@ -364,8 +364,8 @@ namespace jsdal_server_core.Controllers
             var requestHeaders = req.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
 
             var referer = requestHeaders.Val("Referer");
-            var appTitle = requestHeaders.Val("App-Title");
-            var appVersion = requestHeaders.Val("App-Ver");
+            var appTitle = requestHeaders.Val("app-title");
+            var appVersion = requestHeaders.Val("app-ver");
 
             var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
@@ -460,8 +460,6 @@ namespace jsdal_server_core.Controllers
 
                 if (!mayAccess.IsSuccess) return (null, null, mayAccess);
 
-
-                //!?string body = null;
 
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
@@ -610,7 +608,10 @@ namespace jsdal_server_core.Controllers
 
                 }
 
-                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, debugInfo, appTitle, appVersion);
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, out var exceptionId, debugInfo, appTitle, appVersion);
+
+                if (debugInfo == null) debugInfo = "";
+                debugInfo = exceptionId + " " + debugInfo;
 
                 // TODO: Get Execution plugin list specifically
                 if (pluginList != null)
@@ -623,8 +624,16 @@ namespace jsdal_server_core.Controllers
                         {
                             try
                             {
+                                string additionalInfo = debugInfo;
+
+                                if (execOptions?.inputParameters != null)
+                                {
+                                    additionalInfo += " ";
+                                    additionalInfo += string.Join(",", execOptions.inputParameters.Select(kv => $"{kv.Key}={kv.Value}").ToArray());
+                                }
+
                                 con.Open();
-                                ProcessPluginExecutionExceptionHandlers(pluginList, con, ex, out externalRef);
+                                ProcessPluginExecutionExceptionHandlers(pluginList, con, ex, additionalInfo, appTitle, appVersion, out externalRef);
                                 ((dynamic)exceptionResponse.Data).ExternalRef = externalRef;
                             }
                             catch (Exception e)
@@ -641,7 +650,13 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        private static void ProcessPluginExecutionExceptionHandlers(List<ExecutionPlugin> pluginList, SqlConnection con, Exception ex, out string externalRef)
+        private static void ProcessPluginExecutionExceptionHandlers(List<ExecutionPlugin> pluginList,
+                        SqlConnection con,
+                        Exception ex,
+                        string additionalInfo,
+                        string appTitle,
+                        string appVersion,
+                        out string externalRef)
         {
             externalRef = null;
             if (pluginList == null) return;
@@ -653,7 +668,7 @@ namespace jsdal_server_core.Controllers
                     string msg = null;
                     string externalRefTmp = null;
 
-                    plugin.OnExecutionException(con, ex, out externalRefTmp, out msg);
+                    plugin.OnExecutionException(con, ex, additionalInfo, appTitle, appVersion, out externalRefTmp, out msg);
 
                     if (!string.IsNullOrWhiteSpace(externalRefTmp))
                     {
