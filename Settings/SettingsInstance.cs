@@ -56,10 +56,12 @@ namespace jsdal_server_core.Settings
 
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 
-                settingsInst.ProjectList.ForEach(p => p.UpdateParentReferences());
-                settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
-                            .ToList()
-                            .ForEach(ep => ep.AfterDeserializationInit());
+                settingsInst.ProjectList.ForEach(p => p.AfterDeserializationInit());
+                
+                
+                // settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
+                //             .ToList()
+                //             .ForEach(ep => ep.AfterDeserializationInit());
 
                 SettingsInstance._instance = settingsInst;
                 return true;

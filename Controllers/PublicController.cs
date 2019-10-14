@@ -11,6 +11,8 @@ using System.Security.Cryptography;
 using System.Text;
 using jsdal_server_core.Changes;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
+using Newtonsoft.Json;
+
 
 namespace jsdal_server_core.Controllers
 {
@@ -74,6 +76,67 @@ namespace jsdal_server_core.Controllers
             {
                 SessionLog.Exception(ex);
                 throw;
+            }
+        }
+
+
+
+        [HttpPost("/api/jsdal/subscription/watch")]
+        public IActionResult WatchSubscription([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string file)
+        {
+            try
+            {
+                if (SettingsInstance.Instance.ProjectList == null) return NotFound();
+
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
+                {
+                    return NotFound();
+                }
+
+                var jsFile = application.GetJsFile(file);
+
+                if (jsFile == null) return NotFound();
+
+                string json;
+                string jsEtag = null;
+                string smEtag = null;
+
+                using (var sr = new System.IO.StreamReader(this.Request.Body))
+                {
+                    json = sr.ReadToEnd();
+
+                    var watch = JsonConvert.DeserializeObject<dynamic>(json);
+
+                    if (watch["JsEtag"] != null)
+                    {
+                        jsEtag = watch["JsEtag"].Value;
+                    }
+
+                    if (watch["SMEtag"] != null)
+                    {
+                        smEtag = watch["SMEtag"].Value;
+                    }
+                }
+
+                bool hasJsChanges = false;
+                bool hasSMChanges = false;
+                int watchForSeconds = 20;
+                int tickCountEnd = Environment.TickCount + (watchForSeconds * 1000);
+
+                while (!hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
+                {
+                    hasJsChanges = jsFile.ETag != jsEtag;
+
+                    //hasSMChanges = jsFile.ETag != jsEtag;
+                    System.Threading.Thread.Sleep(500);
+                }
+
+                return Ok(new { HasJsChanges = hasJsChanges, HasSMChanges = hasSMChanges });
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return BadRequest(ex.Message);
             }
         }
 
@@ -245,11 +308,11 @@ namespace jsdal_server_core.Controllers
                 }
 
                 var etagFromRequest = this.Request.Headers["If-None-Match"];
-                string etag = tsd? application.ServerMethodTSDEtag : application.ServerMethodJsEtag;
+                string etag = tsd ? application.ServerMethodTSDEtag : application.ServerMethodJsEtag;
 
                 if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etag))
                 {
-                    if (etag == etagFromRequest) 
+                    if (etag == etagFromRequest)
                     {
                         return StatusCode(StatusCodes.Status304NotModified);
                     }

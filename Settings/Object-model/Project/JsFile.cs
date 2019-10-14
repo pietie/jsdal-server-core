@@ -3,6 +3,8 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using shortid;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -18,6 +20,9 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int Version { get; set; }
         public List<BaseRule> Rules { get; set; }
 
+        public string ETag { get; set; }
+        public string ETagMinified { get; set; }
+
         public JsFile(string id)
         {
             this.Rules = new List<BaseRule>();
@@ -30,6 +35,38 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Rules = new List<BaseRule>();
             this.Id = ShortId.Generate();
             this.Version = 1;
+        }
+
+
+        public void AfterDeserializationInit(List<Endpoint> endpoints)
+        {
+            RecomputeETag(endpoints);
+        }
+
+        private void RecomputeETag(List<Endpoint> endpoints)
+        {
+            var jsFileEtagCalculated = false;
+            var jsFileMinEtagCalculated = false;
+
+            foreach (var ep in endpoints)
+            {
+                var filePath = ep.OutputFilePath(this);
+                var minfiedFilePath = ep.MinifiedOutputFilePath(this);
+
+                if (File.Exists(filePath))
+                {
+                    this.ETag = Controllers.PublicController.ComputeETag(File.ReadAllBytes(filePath));
+                    jsFileEtagCalculated = true;
+                }
+
+                if (File.Exists(minfiedFilePath))
+                {
+                    this.ETagMinified = Controllers.PublicController.ComputeETag(File.ReadAllBytes(minfiedFilePath));
+                    jsFileMinEtagCalculated = true;
+                }
+
+                if (jsFileEtagCalculated && jsFileMinEtagCalculated) return;
+            }
         }
 
         public void IncrementVersion()
@@ -69,7 +106,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     throw new Exception($"Unsupported rule type: ${ruleType}");
             }
 
-            rule.Id = ShortId.Generate(useNumbers: true, useSpecial:true, length: 6);
+            rule.Id = ShortId.Generate(useNumbers: true, useSpecial: true, length: 6);
 
             this.Rules.Add(rule);
 

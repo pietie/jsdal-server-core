@@ -42,6 +42,19 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Rules = new List<BaseRule>();
         }
 
+        public void AfterDeserializationInit()
+        {
+            if (this.Endpoints != null)
+            {
+                this.Endpoints.ForEach(ep => ep.AfterDeserializationInit());
+            }
+
+            if (this.JsFiles != null)
+            {
+                this.JsFiles.ForEach(js => js.AfterDeserializationInit(this.Endpoints));
+            }
+        }
+
         public void UpdateParentReferences(Project project)
         {
             this.Project = project;

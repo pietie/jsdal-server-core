@@ -366,6 +366,12 @@ namespace jsdal_server_core
 
             if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
 
+            var jsFinalBytes = System.Text.Encoding.UTF8.GetBytes(finalOutput);
+            var jsFinalMinifiedBytes = System.Text.Encoding.UTF8.GetBytes(minifiedSource);
+
+            jsFile.ETag = Controllers.PublicController.ComputeETag(jsFinalBytes);
+            jsFile.ETagMinified = Controllers.PublicController.ComputeETag(jsFinalMinifiedBytes);
+
             File.WriteAllText(filePath, finalOutput);
             File.WriteAllText(minfiedFilePath, minifiedSource);
             File.WriteAllText(tsTypingsFilePath, typescriptDefinitionsOutput);

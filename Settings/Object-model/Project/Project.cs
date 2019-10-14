@@ -13,14 +13,14 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         [JsonProperty("Apps")] public List<Application> Applications { get; set; }
 
-        
+
 
         public Project()
         {
             this.Applications = new List<Application>();
         }
 
-        public void UpdateParentReferences()
+        private void UpdateParentReferences()
         { // this cannot be done during JSON deserialization without adding ugly ref tags to the JSON
             if (this.Applications != null)
             {
@@ -81,7 +81,15 @@ namespace jsdal_server_core.Settings.ObjectModel
             return this.Applications.Remove(app);
         }
 
-       
+        public void AfterDeserializationInit()
+        {
+            this.UpdateParentReferences();
+            if (this.Applications != null)
+            {
+                this.Applications.ForEach(app => app.AfterDeserializationInit());
+            }
+        }
+
 
     }
 }

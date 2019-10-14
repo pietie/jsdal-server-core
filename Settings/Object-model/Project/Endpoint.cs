@@ -40,6 +40,8 @@ namespace jsdal_server_core.Settings.ObjectModel
         public void UpdateParentReferences(Application app)
         {
             this.Application = app;
+
+          
         }
 
         public string GetBgTaskKey()
@@ -353,6 +355,8 @@ namespace jsdal_server_core.Settings.ObjectModel
                 this.MetadataConnection.Endpoint = this;
                 this.MetadataConnection.Type = "metadata";
             }
+
+            
         }
 
         public void LoadCache()
