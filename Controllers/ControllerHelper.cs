@@ -68,7 +68,7 @@ namespace jsdal_server_core
 
             if (!app.GetEndpoint(endpointName, out endpoint, out var retVal))
             {
-                resp = ApiResponse.ExclamationModal($"Failed to retrive an endpoint from {projectName ?? "(null)"}/{appName ?? "(null)"}/{endpointName ?? "(null)"}");
+                resp = ApiResponse.ExclamationModal($"Failed to retrieve an endpoint from {projectName ?? "(null)"}/{appName ?? "(null)"}/{endpointName ?? "(null)"}");
             }
 
 

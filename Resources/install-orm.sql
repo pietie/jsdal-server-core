@@ -47,7 +47,6 @@ ALTER FUNCTION [ormv2].[RoutineParameterDefaults]
 RETURNS @ret TABLE (ParmId smallint, Name varchar(128), DefVal varchar(8000))
 AS
 BEGIN
-
 	DECLARE @routineSource varchar(max)
 	
 	DECLARE @parmLookup TABLE (ParameterId SMALLINT, Name varchar(128), DataType varchar(128)) 
@@ -170,7 +169,8 @@ BEGIN
 				
 				if (@parmState = 4/*EQ*/)
 				begin
-					set @parmState = 100 -- found what we are looking for
+					-- PL: don't think this is needed
+					--set @parmState = 100 -- found what we are looking for
 					set @defBuf = SUBSTRING(@routineSource, @i2, @i - @i2 + 1)
 				end
 			
@@ -212,7 +212,7 @@ BEGIN
 
 				insert @ret (ParmId, Name) values (@curParameterId, @curParameterName)
 			 				
-				set @i += len(@curParameterName)
+				set @i += len(@curParameterName) - 1 -- minus one because the param name already includes the @ sign that we just landed on, i.e. @ch ='@'
 			
 				set @parmState = 1/*Found @*/
 				set @defBuf = null
@@ -223,7 +223,7 @@ BEGIN
 			else 
 			begin
 				-- skip over some whitespace chars
-				if (@parmState > 0 and @ch in (char(9), char(10), char(13)))
+				if (@parmState > 0 and @ch in (char(9), char(10), char(13), char(32)))
 				begin
 					set @i += 1
 					CONTINUE
@@ -244,7 +244,7 @@ BEGIN
 					CONTINUE
 
 				end
-				else if (@parmState in (1/*@*/, 2/*AS*/) AND @unknownTokenComplete = @curParameterDataType)
+				else if (@parmState in (1/*@*/, 2/*AS*/) AND REPLACE(REPLACE(REPLACE(REPLACE(@unknownTokenComplete,char(10), ''),char(13),''),char(9),''),char(32),'')/*get rid of any whitespace*/ = @curParameterDataType)
 				begin
 					set @unknownTokenStartIx = null
 					set @unknownToken = null

@@ -123,15 +123,12 @@ namespace jsdal_server_core
                 Console.WriteLine("Loading settings.");
                 UserManagement.loadUsersFromFile();
                 ExceptionLogger.Init();
-
+ 
                 if (SettingsInstance.LoadSettingsFromFile())
                 {
                     //ServerMethodManager.RebuildCacheForAllApps();
                 }
-
-
-
-
+              
                 _startDate = DateTime.Now;
 
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
