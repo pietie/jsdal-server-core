@@ -309,7 +309,7 @@ namespace jsdal_server_core
                                 }
                                 // TODO: Consider making this 'null' mapping configurable.This is just a nice to have for when the client does not call the API correctly
                                 // convert the string value of 'null' to actual C# null
-                                else if (val.ToString().Equals("null"))
+                                else if (val.ToString().Trim().ToLower().Equals("null"))
                                 {
                                     parmValue = DBNull.Value;
                                 }

@@ -239,6 +239,11 @@ namespace jsdal_server_core.Controllers
 
             try
             {
+                // always start off not caching whatever we send back
+                res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+                res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
+                res.Headers["Content-Type"] = "application/json";
+
                 // TODO: Add batch metrics? Or just note on exec that it was part of a batch?
 
                 string body = null;
@@ -357,8 +362,16 @@ namespace jsdal_server_core.Controllers
 
             string body = null;
 
+            // always start off not caching whatever we send back
+            res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+            res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
+            res.Headers["Content-Type"] = "application/json";
+            res.Headers["Expires"] = "-1";
+
             // TODO: log remote IP with exception and associate with request itself?
             var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
+
+            //   var remoteIpAddress2 = req.HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
 
             // convert request headers to normal Dictionary
             var requestHeaders = req.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
