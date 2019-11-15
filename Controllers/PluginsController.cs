@@ -38,9 +38,20 @@ namespace jsdal_server_core.Controllers
                     string bodyContent = sr.ReadToEnd();
                     var bodyJson = JsonSerializer.Deserialize<JsonElement>(bodyContent);
 
-                    name = bodyJson.GetProperty("name").GetString();
-                    description = bodyJson.GetProperty("description").GetString();
-                    code = bodyJson.GetProperty("code").GetString();
+                    if (bodyJson.TryGetProperty("name", out var nameProperty))
+                    {
+                        name = nameProperty.GetString();
+                    }
+
+                    if (bodyJson.TryGetProperty("description", out var descProperty))
+                    {
+                        description = descProperty.GetString();
+                    }
+
+                    if (bodyJson.TryGetProperty("code", out var codeProperty))
+                    {
+                        code = codeProperty.GetString();
+                    }
 
                     if (string.IsNullOrWhiteSpace(name)) name = null;
                     if (string.IsNullOrWhiteSpace(description)) description = null;
@@ -55,6 +66,28 @@ namespace jsdal_server_core.Controllers
                 }
 
                 return ApiResponse.Payload(new { id = id, CompilationError = codeProblems });
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
+        }
+
+        [HttpGet("/inline-plugin/{id}")]
+        public ApiResponse GetInlinePluginModuleSource([FromRoute] string id)
+        {
+            try
+            {
+                var ret =  PluginLoader.Instance.GetInlinePluginModuleSource(id, out var source);
+
+                if (ret.IsSuccess)
+                {
+                    return ApiResponse.Payload(source);
+                }
+                else
+                {
+                    return ApiResponse.ExclamationModal(ret.userErrorVal);
+                }
             }
             catch (Exception ex)
             {

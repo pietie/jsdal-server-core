@@ -57,7 +57,7 @@ namespace jsdal_server_core
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton(typeof(PluginManager));
+            services.AddSingleton(typeof(PluginLoader));
             services.AddSingleton(typeof(BackgroundThreadPluginManager));
             services.AddSingleton(typeof(MainStatsMonitorThread));
             services.AddSingleton(typeof(WorkerMonitor));
@@ -221,7 +221,7 @@ namespace jsdal_server_core
 
             // force instantiation on singletons
             {
-                var pmInst = app.ApplicationServices.GetService<PluginManager>();
+                var pmInst = app.ApplicationServices.GetService<PluginLoader>();
 
                 app.ApplicationServices.GetService<MainStatsMonitorThread>();
 
@@ -235,9 +235,9 @@ namespace jsdal_server_core
                 DotNetCoreCounterListener.Instance.Start();
 
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
-                    PluginManager.Instance = pmInst;
-                    PluginManager.Instance.LoadAllAssemblies();
-                    PluginManager.Instance.InitServerWidePlugins();
+                    PluginLoader.Instance = pmInst;
+                    PluginLoader.Instance.Init();
+                    
                     ServerMethodManager.RebuildCacheForAllApps();
 
                     Console.WriteLine("Starting work spawner.");

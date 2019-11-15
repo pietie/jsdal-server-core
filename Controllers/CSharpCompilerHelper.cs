@@ -11,6 +11,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Scripting;
 using jsdal_server_core.PluginManagement;
 using jsdal_server_core.Settings.ObjectModel.Plugins;
+using Microsoft.CodeAnalysis.Emit;
+using System.Reflection;
 
 namespace jsdal_server_core
 {
@@ -22,19 +24,27 @@ namespace jsdal_server_core
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
             MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                                        //?MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "mscorlib.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
-                                        //MetadataReference.CreateFromFile(typeof(System.Collections.ArrayList).Assembly.Location),
-                                        //MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<string,string>).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location),
                                         Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
             };
 
             return all;
+
+            //   {
+            //     MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            //     MetadataReference.CreateFromFile(typeof(System.Console).Assembly.Location),
+            //     MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location),
+            //     MetadataReference.CreateFromFile(typeof(System.Data.Common.DbCommand).Assembly.Location),
+            //     MetadataReference.CreateFromFile(typeof(System.ComponentModel.Component).Assembly.Location),
+            //     pluginBaseRef,
+            //     MetadataReference.CreateFromFile(netstandardAssembly.Location),
+            //     MetadataReference.CreateFromFile(collectionsAssemlby.Location)
+            // };            
 
 
             // var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
@@ -61,6 +71,102 @@ namespace jsdal_server_core
             {
                 return (false, (from d in ce.Diagnostics
                                 select d.ToString()).ToList());
+            }
+        }
+
+        // public static void CompileIntoAssembly(string assemblyName, string code, out List<string> problems)
+        // {
+        //     problems = new List<string>();
+
+        //     try
+        //     {
+        //         var tree = CSharpSyntaxTree.ParseText(code);
+        //         var compilation = CSharpCompilation.Create(assemblyName, syntaxTrees: new[] { tree }, references: GetCommonMetadataReferences());
+
+
+        //     }
+        //     catch (CompilationErrorException ce)
+        //     {
+        //         problems.Add("Compilation errors.");
+
+        //         foreach (var d in ce.Diagnostics)
+        //         {
+        //             problems.Add(d.ToString());
+        //         }
+
+        //         return false;
+        //     }
+        // }
+
+        public static Assembly CompileIntoAssembly(string assemblyName, string source, out List<string> problems)
+        {
+            problems = new List<string>();
+
+            try
+            {
+                CSharpParseOptions parseOptions = CSharpParseOptions.Default;
+
+                SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, options: parseOptions);
+
+                // if (Debugger.IsAttached)
+                // {
+                //     pluginBasePath = "./../jsdal-plugin/bin/Debug/netcoreapp2.0/jsdal-plugin.dll";
+                // }
+
+                //var pluginBaseRef = MetadataReference.CreateFromFile(pluginBasePath);
+
+                //var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
+
+                MetadataReference[] references = GetCommonMetadataReferences();
+
+
+                var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                                .WithUsings(new string[] { "System" });
+
+                CSharpCompilation compilation = CSharpCompilation.Create(
+                    assemblyName,
+                    syntaxTrees: new[] { syntaxTree },
+                    references: references,
+                    options: compilationOptions
+                    );
+
+
+                using (var ms = new MemoryStream())
+                {
+                    EmitResult result = compilation.Emit(ms);
+
+                    if (!result.Success)
+                    {
+                        IEnumerable<Diagnostic> failures = result.Diagnostics.Where(diagnostic =>
+                            diagnostic.IsWarningAsError ||
+                            diagnostic.Severity == DiagnosticSeverity.Error);
+
+                        problems = failures.Select(f => f.GetMessage()).ToList();
+
+                        foreach (Diagnostic diagnostic in failures)
+                        {
+                            Console.Error.WriteLine("{0}: {1}", diagnostic.Id, diagnostic.GetMessage());
+                        }
+
+                        return null;
+                    }
+                    else
+                    {
+                        ms.Seek(0, SeekOrigin.Begin);
+
+                        Assembly assembly = Assembly.Load(ms.ToArray());
+
+                        return assembly;
+                        //ParseAndLoadPluginAssembly(assembly);
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                problems.Add(ex.ToString());
+                SessionLog.Exception(ex);
+                return null;
             }
         }
 
@@ -144,7 +250,7 @@ namespace jsdal_server_core
                             }
 
                             // if adding a new module
-                            if (existingId == null || existingId.Equals("new", StringComparison.OrdinalIgnoreCase ))
+                            if (existingId == null || existingId.Equals("new", StringComparison.OrdinalIgnoreCase))
                             {
                                 var existing = ServerMethodManager
                                                     .GetRegistrations()

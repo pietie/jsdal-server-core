@@ -5,18 +5,20 @@ using System.IO;
 using jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins;
 using jsdal_server_core.Settings.ObjectModel.Plugins;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace jsdal_server_core
 {
     public class InlinePluginManager
     {
-        public static string InlinePluginLibPath
-        {
-            get { return "./data/inline-plugins.json"; }
-        }
+        // public static string InlinePluginLibPath
+        // {
+        //     get { return "./data/inline-plugins.json"; }
+        // }
 
         private static InlinePluginManager _instance;
 
+        [Obsolete("Dont think we need this anymore..just use the main PluginManager")]
         public List<InlinePluginModule> Modules { get; set; }
 
         private InlinePluginManager()
@@ -33,52 +35,68 @@ namespace jsdal_server_core
             }
         }
 
-        public async void Init()
-        {
-            try
-            {
-                var inlinePluginManager = Load();
+        // // public List<Assembly> LoadInlineAssemblies()
+        // // {
+        // //     List<Assembly> ret = new List<Assembly>();
+        // //     try
+        // //     {
+        // //         var inlinePluginManager = Load();
 
-                if (inlinePluginManager != null)
-                {
-                    foreach (var mod in inlinePluginManager.Modules)
-                    {
-                        var path = Path.Combine(Path.GetFullPath(InlinePluginModule.InlinePluginPath), mod.Id);
+        // //         if (inlinePluginManager != null)
+        // //         {
+        // //             foreach (var mod in inlinePluginManager.Modules)
+        // //             {
+        // //                 var path = Path.Combine(Path.GetFullPath(InlinePluginModule.InlinePluginPath), mod.Id);
 
-                        if (File.Exists(path))
-                        {
-                            var code = File.ReadAllText(path);
+        // //                 if (File.Exists(path))
+        // //                 {
+        // //                     var code = File.ReadAllText(path);
 
-                            var (isValid, problems, parsedPluginCollection) = await EvalAndParseAsync(mod.Id, code);
+        // //                     var assembly = CSharpCompilerHelper.CompileIntoAssembly(mod.Name, code, out var problems);
 
-                            if (InlinePluginModule.Create(mod.Id, mod.Name, mod.Description, code, isValid, parsedPluginCollection, saveToDisk: false, out var newModule, out var error))
-                            {
-                                this.Modules.Add(newModule);
-                                //this.Save();
-                            }
+        // //                     if ((problems != null && problems.Count == 0) && assembly != null)
+        // //                     {
+        // //                         ret.Add(assembly);
+        // //                     }
+        // //                     else
+        // //                     {
+        // //                         SessionLog.Error($"Inline plugin {mod.Name} ({mod.Id}) failed to compile with the following error(s): {string.Join(", ", problems)}");
+        // //                         continue;
+        // //                     }
 
-                            if (!string.IsNullOrEmpty(error))
-                            {
-                                SessionLog.Error($"Inline plugin {mod.Name} ({mod.Id}) error: {error}");
-                            }
 
-                            if (problems?.Count > 0)
-                            {
-                                SessionLog.Error($"Inline plugin {mod.Name} ({mod.Id}) failed to compile with the following error(s): {string.Join(", ", problems)}");
-                            }
-                        }
-                        else
-                        {
-                            SessionLog.Error($"Inline module {mod.Name} not found at '{path}'");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                SessionLog.Exception(ex);
-            }
-        }
+        // //                     ///!???                            var (isValid, problems, parsedPluginCollection) = await EvalAndParseAsync(mod.Id, code);
+
+        // //                     ///?!  if (InlinePluginModule.Create(mod.Id, mod.Name, mod.Description, code, isValid, parsedPluginCollection, saveToDisk: false, out var newModule, out var error))
+        // //                     //!?{
+        // //                     //!? this.Modules.Add(newModule);
+        // //                     //this.Save();
+        // //                     //!?}
+
+        // //                     // if (!string.IsNullOrEmpty(error))
+        // //                     // {
+        // //                     //     SessionLog.Error($"Inline plugin {mod.Name} ({mod.Id}) error: {error}");
+        // //                     // }
+
+        // //                     // if (problems?.Count > 0)
+        // //                     // {
+        // //                     //     SessionLog.Error($"Inline plugin {mod.Name} ({mod.Id}) failed to compile with the following error(s): {string.Join(", ", problems)}");
+        // //                     // }
+        // //                 }
+        // //                 else
+        // //                 {
+        // //                     SessionLog.Error($"Inline module {mod.Name} not found at '{path}'");
+        // //                 }
+        // //             }
+        // //         }
+        // //     }
+        // //     catch (Exception ex)
+        // //     {
+        // //         SessionLog.Exception(ex);
+        // //     }
+
+        // //     return ret;
+        // // }
 
         private async Task<(bool/*isValid*/, List<string>/*problems*/, List<BasePluginRuntime>/*parsedPluginCollection*/)> EvalAndParseAsync(string id, string code)
         {
@@ -107,8 +125,10 @@ namespace jsdal_server_core
             {
                 if (InlinePluginModule.Create(null, name, description, code, isValid, parsedPluginCollection, saveToDisk: true, out newModule, out error))
                 {
-                    this.Modules.Add(newModule);
-                    this.Save();
+                    System.Diagnostics.Debugger.Break();
+                    // TODO: !!
+                    // this.Modules.Add(newModule);
+                    // this.Save();
                 }
                 else
                 {
@@ -132,36 +152,34 @@ namespace jsdal_server_core
             return (error, id, problems);
         }
 
-        private InlinePluginManager Load()
-        {
-            var path = Path.GetFullPath(InlinePluginLibPath);
+        // private InlinePluginManager Load()
+        // {
+        //     var path = Path.GetFullPath(InlinePluginLibPath);
 
-            //this.Modules = new List<InlinePluginModule>();
+        //     if (File.Exists(path))
+        //     {
+        //         var json = File.ReadAllText(path);
+        //         var pm = System.Text.Json.JsonSerializer.Deserialize<InlinePluginManager>(json);
+        //         return pm;
+        //         //this.Modules = pm.Modules;
+        //     }
+        //     return null;
+        // }
 
-            if (File.Exists(path))
-            {
-                var json = File.ReadAllText(path);
-                var pm = System.Text.Json.JsonSerializer.Deserialize<InlinePluginManager>(json);
-                return pm;
-                //this.Modules = pm.Modules;
-            }
-            return null;
-        }
+        // private void Save()
+        // {
+        //     var path = Path.GetFullPath(InlinePluginLibPath);
+        //     var fi = new FileInfo(path);
 
-        private void Save()
-        {
-            var path = Path.GetFullPath(InlinePluginLibPath);
-            var fi = new FileInfo(path);
+        //     if (!fi.Directory.Exists)
+        //     {
+        //         fi.Directory.Create();
+        //     }
 
-            if (!fi.Directory.Exists)
-            {
-                fi.Directory.Create();
-            }
+        //     var json = System.Text.Json.JsonSerializer.Serialize(this);
 
-            var json = System.Text.Json.JsonSerializer.Serialize(this);
-
-            File.WriteAllText(path, json);
-        }
+        //     File.WriteAllText(path, json);
+        // }
 
 
     }

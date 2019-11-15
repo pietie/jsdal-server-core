@@ -594,37 +594,39 @@ namespace jsdal_server_core.Controllers
 
 
 
-//         [AllowAnonymous]
-//         [HttpGet("/api/webmanifest")]
-//         public IActionResult ServeWebManifest()
-//         {
-//             try
-//             {
-//                 string manifest = System.IO.File.ReadAllText("C:\\00-Work\\00 - Projects\\10 - EA\\10 - PWAs\\10 - Member app\\MemberHtmlApp\\MemberHtmlApp\\dist\\whitelabel\\aon\\manifest.json");
+        [AllowAnonymous]
+        [HttpGet("/api/webmanifest")]
+        public IActionResult ServeWebManifest([FromQuery] string pmg)
+        {
+            try
+            {
+                string manifest = System.IO.File.ReadAllText("C:\\00-Work\\00 - Projects\\10 - EA\\10 - PWAs\\10 - Member app\\MemberHtmlApp\\MemberHtmlApp\\dist\\whitelabel\\aon\\manifest.json");
 
-//                 var d = JsonConvert.DeserializeObject<dynamic>(manifest);
+                var d = JsonConvert.DeserializeObject<dynamic>(manifest);
 
-// d["name"] = "name" + Environment.TickCount;
-// d["short_name"] = "short" + Environment.TickCount;
+                d["name"] = "name" + Environment.TickCount;
+                d["short_name"] = "short" + Environment.TickCount;
 
-//                 d["super-secret"] = "sec" + Environment.TickCount;
+                d["super-secret"] = "sec" + Environment.TickCount;
 
-// //d["start_url"] = "https://servicedev.europassistance.co.za:4302/test-start";
-//                 //d["start_url"] = "https://servicedev.europassistance.co.za:4302/test-start";
-//                 d["start_url"] = "https://servicetest4.europassistance.co.za/test-start";
+                //d["start_url"] = "https://servicedev.europassistance.co.za:4302/test-start";
+                //d["start_url"] = "https://servicedev.europassistance.co.za:4302/test-start";
+                d["start_url"] = "https://mobidispatchdev.europassistance.co.za/test-start";
 
-//                 manifest = JsonConvert.SerializeObject(d);
+                manifest = JsonConvert.SerializeObject(d);
+
+                manifest = manifest.Replace("servicetest2", "mobidispatchdev");
 
 
-//                 var data = System.Text.Encoding.UTF8.GetBytes(manifest);
+                var data = System.Text.Encoding.UTF8.GetBytes(manifest);
 
-//                 return new FileContentResult(data, "application/json");
-//             }
-//             catch (Exception ex)
-//             {
-//                 return BadRequest(ex.Message);
-//             }
-//         }
+                return new FileContentResult(data, "application/json");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
     }
 }

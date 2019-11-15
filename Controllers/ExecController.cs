@@ -554,6 +554,23 @@ namespace jsdal_server_core.Controllers
 
                 if (execOptions.type == ExecType.Query)
                 {
+
+                    // TMP!!!
+                    // {
+
+                    //     if (execOptions.routine == "AttachmentServe")
+                    //     {
+                    //         var ds = executionResult.DataSet;
+
+                    //         var data = ds.Tables[0].Rows[0]["Data"];
+
+                    //         responseHeaders.Add("Content-Type", "image/jpeg");
+
+                            
+                    //         return (data, routineExecutionMetric, mayAccess);
+                    //     }
+                    // }
+
                     var dataSet = executionResult.DataSet;
                     var dataContainers = dataSet.ToJsonDS();
 
@@ -703,13 +720,13 @@ namespace jsdal_server_core.Controllers
         {
             var plugins = new List<ExecutionPlugin>();
 
-            if (PluginManager.Instance.PluginAssemblies != null && app.Plugins != null)
+            if (PluginLoader.Instance.PluginAssemblies != null && app.Plugins != null)
             {
                 foreach (string pluginGuid in app.Plugins)
                 {
-                    var plugin = PluginManager.Instance
+                    var plugin = PluginLoader.Instance
                                                 .PluginAssemblies
-                                                .SelectMany(kv => kv.Value)
+                                                .SelectMany(a => a.Plugins)
                                                 .FirstOrDefault(p => p.Guid.ToString()
                                                 .Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 

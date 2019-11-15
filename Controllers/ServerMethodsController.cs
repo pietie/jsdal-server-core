@@ -211,16 +211,16 @@ namespace jsdal_server_core.Controllers
                 var outputLookupIx = invokeParameters.Where(p => p.IsOut || p.IsByRef).Select(p => p.Position).ToArray();
 
                 var outputParametersWithValuesFull = (from p in invokeParameters
-                                                  join o in outputLookupIx on p.Position equals o
-                                                  select new
-                                                  {
-                                                      p.Name,
-                                                      Value = inputParamArray[o]
-                                                      // Value = new ApiSingleValueOutputWrapper(p.Name, inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
-                                                      //Value = GlobalTypescriptTypeLookup.SerializeCSharpToJavaScript(inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
-                                                  });
+                                                      join o in outputLookupIx on p.Position equals o
+                                                      select new
+                                                      {
+                                                          p.Name,
+                                                          Value = inputParamArray[o]
+                                                          // Value = new ApiSingleValueOutputWrapper(p.Name, inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
+                                                          //Value = GlobalTypescriptTypeLookup.SerializeCSharpToJavaScript(inputParamArray[o]) // TODO: need more custom serialization here? Test Lists, Dictionaries, Tuples,Byte[] etc
+                                                      });
 
-                var outputParametersWithValues =  outputParametersWithValuesFull.ToDictionary(x => x.Name, x => x.Value);
+                var outputParametersWithValues = outputParametersWithValuesFull.ToDictionary(x => x.Name, x => x.Value);
 
 
                 if (isVoidResult)
@@ -254,30 +254,23 @@ namespace jsdal_server_core.Controllers
             public object Value { get { return _value; } }
         }
 
-        [HttpGet("/server-api")]
+       
+        [HttpGet("/server-method")]
         public ApiResponse GetServerMethodCollection()
         {
             try
             {
-                // var q = SettingsInstance.Instance.InlinePluginModules
-                //             .SelectMany(m => m.PluginList, (mod, plugin) => new
-                //             {
-                //                 mod.Id,
-                //                 mod.IsValid,
-                //                 plugin.Name,
-                //                 plugin.Description
-                //             });
+                var q = from asm in PluginLoader.Instance.PluginAssemblies
+                          select new
+                          {
+                              Id = asm.InstanceId,
+                              Name = asm.Assembly.GetName().Name,
+                              IsValid = true, //TODO: Still relevant?
+                              asm.IsInline,
+                              Plugins = asm.Plugins.Where(p=>p.Type == Settings.ObjectModel.PluginType.ServerMethod).Select(p=>new { p.Name, p.Description })
+                          };
 
-
-                var q = from mod in SettingsInstance.Instance.InlinePluginModules
-                        select new
-                        {
-                            mod.Id,
-                            mod.IsValid,
-                            Plugins = mod.PluginList.Select(p => new { p.Name, p.Description })
-                        };
-
-                return ApiResponse.Payload(q);
+                return ApiResponse.Payload(q.Where(mod=>mod.Plugins != null && mod.Plugins.Count() > 0));
             }
             catch (Exception ex)
             {

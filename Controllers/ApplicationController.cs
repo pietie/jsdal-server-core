@@ -185,7 +185,7 @@ namespace jsdal_server_core.Controllers
 
                 if (app.Plugins == null) app.Plugins = new List<string>();
 
-                var ret = PluginManager.Instance.PluginAssemblies.SelectMany(p => p.Value).Select(p =>
+                var ret = PluginLoader.Instance.PluginAssemblies.SelectMany(a => a.Plugins).Select(p =>
                   {
                       return new
                       {
@@ -198,6 +198,21 @@ namespace jsdal_server_core.Controllers
                       };
                   }).ToList();
 
+
+                var inlinePlugins = PluginLoader.Instance.PluginAssemblies
+                        .Where(pa => pa.IsInline)
+                        .SelectMany(pa => pa.Plugins)
+                        .Select(p => new
+                        {
+                            Name = p.Name,
+                            Description = p.Description,
+                            Guid = p.Guid,
+                            Included = app.IsPluginIncluded(p.Guid.ToString()),
+                            p.Type,
+                            SortOrder = 0
+                        });
+
+                /*
                 var inlinePlugins = (from mod in Settings.SettingsInstance.Instance.InlinePluginModules
                                      where mod.IsValid
                                      select mod).SelectMany(mod => mod.PluginList).Select(p => new
@@ -209,7 +224,7 @@ namespace jsdal_server_core.Controllers
                                          p.Type,
                                          SortOrder = 0
                                      });
-
+*/
 
                 ret.AddRange(inlinePlugins);
 

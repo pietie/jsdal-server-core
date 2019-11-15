@@ -63,17 +63,6 @@ namespace jsdal_server_core.Settings.ObjectModel.Plugins.InlinePlugins
             return true;
         }
 
-        // private void UpdateCodeBase(string code)
-        // {
-        //     if (!Directory.Exists(InlinePluginPath))
-        //     {
-        //         Directory.CreateDirectory(InlinePluginPath);
-        //     }
-
-        //     this.Path = System.IO.Path.Combine(InlinePluginPath, this.Id);
-        //     File.WriteAllText(this.Path, code);
-        // }
-
         public virtual bool Update(string name, string description, string updatedCode, bool isValid, IEnumerable<BasePluginRuntime> pluginList, bool saveToDisk, out string error)
         {
             error = null;
