@@ -29,15 +29,16 @@ using jsdal_server_core.Hubs.Performance;
 using jsdal_server_core.PluginManagement;
 using jsdal_server_core.Settings.ObjectModel;
 using jsdal_server_core.SignalR.HomeDashboard;
+using Microsoft.Extensions.Hosting;
 
 namespace jsdal_server_core
 {
     public class Startup
     {
         public IConfiguration Configuration { get; private set; }
-        public IHostingEnvironment HostingEnvironment { get; private set; }
+        public IWebHostEnvironment HostingEnvironment { get; private set; }
 
-        public Startup(IConfiguration configuration, IHostingEnvironment env)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
             //  var configurationBuilder = new ConfigurationBuilder();
@@ -215,7 +216,7 @@ namespace jsdal_server_core
             }
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory, IHostApplicationLifetime applicationLifetime)
         {
             //app.UseDeveloperExceptionPage();
 

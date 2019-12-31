@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 using shortid;
 using jsdal_server_core.PluginManagement;
+using System.Text;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -366,29 +367,15 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             try
             {
-                var registrations = ServerMethodManager.GetRegistrations().Where(reg => this.IsPluginIncluded(reg.PluginGuid));
+                var registrations = ServerMethodManager.GetRegistrationsForApp(this);
 
                 if (registrations.Count() > 0)
                 {
-                    var (js, tsd) = ServerMethodPluginRegistration.GenerateOutputFiles(this, registrations);
-
-                    this.ServerMethodJs = js;
-                    this.ServerMethodTSD = tsd;
-
-                    this.ServerMethodJsEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(js));
-                    this.ServerMethodTSDEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(tsd));
-
-
-                    // using (var sha = System.Security.Cryptography.SHA256.Create())
-                    // {
-                    //     var jsHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(this.ServerMethodJs));
-                    //     var tsdHash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(this.ServerMethodTSD));
-
-
-                    //     this.ServerMethodJsHash = jsHash;
-                    //     this.ServerMethodTSDHash = tsdHash;
-                    // }
-
+                    this.GenerateX(registrations);
+                }
+                else
+                {
+                    this.ServerMethodJs = this.ServerMethodTSD = this.ServerMethodJsEtag = this.ServerMethodTSDEtag = null;
                 }
             }
             catch (Exception ex)
@@ -396,6 +383,123 @@ namespace jsdal_server_core.Settings.ObjectModel
                 SessionLog.Error($"Failed to generate ServerMethod output files for {this.Project.Name}/{this.Name}.See exception that follows.");
                 SessionLog.Exception(ex);
             }
+        }
+
+        private void GenerateX(IEnumerable<ServerMethodPluginRegistration> registrations)
+        {
+            var combinedJS = new Dictionary<string/*Namespace*/, List<Definition>>();
+            var combinedTSD = new Dictionary<string/*Namespace*/, List<Definition>>();
+            var combinedConverterLookup = new List<string>();
+
+            // combine outputs first
+            foreach (var pluginReg in registrations)
+            {
+                pluginReg.ScriptGenerator.CombineOutput(this, ref combinedJS, ref combinedTSD, ref combinedConverterLookup);
+            }
+
+            var (js, tsd) = GenerateFullServerMethodCode(combinedJS, combinedTSD, combinedConverterLookup);
+
+            //!?      var (js, tsd) = ServerMethodPluginRegistration.GenerateOutputFiles(this, registrations);
+
+            this.ServerMethodJs = js;
+            this.ServerMethodTSD = tsd;
+            this.ServerMethodJsEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(js));
+            this.ServerMethodTSDEtag = Controllers.PublicController.ComputeETag(System.Text.Encoding.UTF8.GetBytes(tsd));
+        }
+
+        private (string/*js*/, string /*TSD*/) GenerateFullServerMethodCode(Dictionary<string/*Namespace*/, List<Definition>> appCombinedJS,
+                Dictionary<string/*Namespace*/, List<Definition>> appCombinedTSD, List<string> appCombinedConverterLookup)
+        {
+            var sbJavascriptAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodContainer);
+            var sbTSDAll = new StringBuilder(ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer);
+
+            var now = DateTime.Now;
+
+            // JavaScript
+            {
+                var sbJS = new StringBuilder();
+
+                foreach (var kv in appCombinedJS)
+                {// kv.Key is the namespace
+                    string objName = null;
+
+                    if (kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
+                    {
+                        objName = "var x = dal.ServerMethods";
+                    }
+                    else
+                    {
+                        objName = $"x.{kv.Key}";
+                    }
+
+                    sbJS.AppendLine($"\t{objName} = {{");
+
+                    sbJS.Append(string.Join(",\r\n", kv.Value.Select(definition => "\t\t" + definition.Line).ToArray()));
+
+                    sbJS.AppendLine("\r\n\t};\r\n");
+                }
+
+                // TODO: FOOTER/global stuff ->> move out to App level or something?
+
+                var nsLookupArray = string.Join(',', appCombinedJS.Where(kv => kv.Key != "ServerMethods").Select(kv => $"\"{kv.Key}\"").ToArray());
+
+                var converterLookupJS = string.Join(", ", appCombinedConverterLookup);
+
+                sbJavascriptAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<NAMESPACE_LOOKUP>>", nsLookupArray)
+                    .Replace("<<CONVERTER_LOOKUP>>", converterLookupJS)
+                    .Replace("<<ROUTINES>>", sbJS.ToString())
+                    .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    ;
+            }
+
+            // TSD
+            {
+                var sbTSD = new StringBuilder();
+                var sbTypeDefs = new StringBuilder();
+                var sbComplexTypeDefs = new StringBuilder();
+
+                foreach (var kv in appCombinedTSD)
+                {
+                    var insideCustomNamespace = false;
+
+                    if (!kv.Key.Equals("ServerMethods", StringComparison.Ordinal))
+                    {
+                        insideCustomNamespace = true;
+
+                        sbTSD.AppendLine($"\t\tstatic {kv.Key}: {{");
+                    }
+
+                    sbTSD.AppendLine(string.Join("\r\n", kv.Value.Select(definition => (insideCustomNamespace ? "\t" : "") + "\t\t" + definition.Line).ToArray()));
+
+                    var typeDefLines = kv.Value.SelectMany(def => def.TypesLines).Where(typeDef => typeDef != null).Select(l => "\t\t" + l).ToArray();
+
+                    sbTypeDefs.AppendLine(string.Join("\r\n", typeDefLines));
+
+                    if (insideCustomNamespace)
+                    {
+                        sbTSD.AppendLine("\t\t};");
+                    }
+                }
+
+                // TODO: this should only be for those types that apply to this particular App plugin inclusion..currently we generate types for EVERYTHING found 
+                // TSD: build types for Complex types we picked up
+                foreach (var def in GlobalTypescriptTypeLookup.Definitions)
+                {
+                    sbComplexTypeDefs.AppendLine($"\t\ttype {def.TypeName} = {def.Definition};");
+                }
+
+                sbTypeDefs.Insert(0, sbComplexTypeDefs);
+
+                // TODO: FOOTER/global stuff ->> move out to App level or something?
+                sbTSDAll.Replace("<<DATE>>", now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<ResultAndParameterTypes>>", sbTypeDefs.ToString().TrimEnd(new char[] { '\r', '\n' }))
+                    .Replace("<<MethodsStubs>>", sbTSD.ToString())
+                    .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    ;
+            }
+
+            return (sbJavascriptAll.ToString(), sbTSDAll.ToString());
         }
 
 

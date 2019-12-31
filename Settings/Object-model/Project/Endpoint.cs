@@ -511,7 +511,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public (plugin.ServerMethodPlugin, ServerMethodRegistrationMethod/*matched Method*/, string/*error*/) GetServerMethodPluginInstance(string nameSpace, string methodName, Dictionary<string, string> inputParameters)
         {
             // find all registered ServerMethods for this app
-            var registrations = ServerMethodManager.GetRegistrations().Where(reg => this.Application.IsPluginIncluded(reg.PluginGuid));
+            var registrations = ServerMethodManager.GetRegistrationsForApp(this.Application);
 
             // TODO: To support overloading we need to match name + best fit parameter list
             var methodCandidates = registrations.SelectMany(reg => reg.Methods)

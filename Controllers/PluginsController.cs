@@ -20,7 +20,7 @@ namespace jsdal_server_core.Controllers
     public class PluginsController : Controller
     {
         [HttpPost("/inline-plugin/{id?}")]
-        public async Task<ApiResponse> AddUpdate([FromRoute] string id, dynamic bodyIgnored)
+        public ApiResponse AddUpdate([FromRoute] string id, dynamic bodyIgnored)
         {
             try
             {
@@ -29,9 +29,6 @@ namespace jsdal_server_core.Controllers
                 string name = null;
                 string description = null;
                 string code = null;
-                string error = null;
-
-                var codeProblems = new List<string>();
 
                 using (var sr = new System.IO.StreamReader(this.Request.Body))
                 {
@@ -58,11 +55,34 @@ namespace jsdal_server_core.Controllers
                     if (string.IsNullOrWhiteSpace(code)) code = null;
                 }
 
-                (error, id, codeProblems) = await InlinePluginManager.Instance.AddUpdateModuleAsync(id, name, description, code);
+                var assembly = CSharpCompilerHelper.CompileIntoAssembly(name, code, out var codeProblems);
 
-                if (!string.IsNullOrWhiteSpace(error))
+                if (codeProblems.Count == 0)
                 {
-                    return ApiResponse.ExclamationModal(error);
+                    InlineModuleManifestEntry existingEntry = null;
+
+                    // look for existing inline module
+                    if (id != null)
+                    {
+                        existingEntry = InlineModuleManifest.Instance.GetEntryById(id);
+
+                        if (existingEntry == null)
+                        {
+                            return ApiResponse.ExclamationModal($"Inline module with id {id} not found");
+                        }
+
+                        PluginLoader.Instance.LoadOrUpdateInlineAssembly(existingEntry.Id, assembly, out codeProblems);
+
+                    }
+                }
+                else
+                {
+                    return ApiResponse.Payload(new { id = id, CompilationError = codeProblems });
+                }
+
+                if (codeProblems.Count == 0/* || saveAnyway*/)
+                {
+                    InlineModuleManifest.Instance.AddUpdateSource(id, name, description, code);
                 }
 
                 return ApiResponse.Payload(new { id = id, CompilationError = codeProblems });
@@ -78,11 +98,16 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                var ret =  PluginLoader.Instance.GetInlinePluginModuleSource(id, out var source);
+                var ret = PluginLoader.Instance.GetInlinePluginModuleSource(id, out var inlineEntry, out var source);
 
                 if (ret.IsSuccess)
                 {
-                    return ApiResponse.Payload(source);
+                    return ApiResponse.Payload(new
+                    {
+                        Name = inlineEntry.Name,
+                        Description = inlineEntry.Description,
+                        Source = source
+                    });
                 }
                 else
                 {

@@ -339,7 +339,7 @@ namespace jsdal_server_core
 
         static GlobalConverterLookup()
         {
-            _cachedLookups = new Dictionary<string, ComplexTypeConverterDefinitionWrapper>();
+            _cachedLookups = new Dictionary<string/*AssemblyQualifiedName*/, ComplexTypeConverterDefinitionWrapper>();
         }
 
         public static (ComplexTypeConverterDefinitionWrapper, bool/*isExisting*/) RegisterDefinition(Type type)

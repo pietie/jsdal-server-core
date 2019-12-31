@@ -3,17 +3,15 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core.PluginManagement
 {
     public static class ServerMethodManager
     {
-        private static List<ServerMethodPluginRegistration> Registrations { get; set; }
+        //!private static List<ServerMethodPluginRegistration> Registrations { get; set; }
 
-        public static ReadOnlyCollection<ServerMethodPluginRegistration> GetRegistrations()
-        {
-            return Registrations.AsReadOnly();
-        }
+        private static Dictionary<string/*Assembly Instance Reg*/, List<ServerMethodPluginRegistration>> GlobalRegistrations = new Dictionary<string, List<ServerMethodPluginRegistration>>();
 
         public static string TEMPLATE_ServerMethodContainer { get; private set; }
         public static string TEMPLATE_ServerMethodFunctionTemplate { get; private set; }
@@ -23,7 +21,8 @@ namespace jsdal_server_core.PluginManagement
         {
             try
             {
-                Registrations = new List<ServerMethodPluginRegistration>();
+
+                //!  Registrations = new List<ServerMethodPluginRegistration>();
 
                 ServerMethodManager.TEMPLATE_ServerMethodContainer = File.ReadAllText("./resources/ServerMethodContainer.txt");
                 ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate = File.ReadAllText("./resources/ServerMethodTemplate.txt");
@@ -35,16 +34,64 @@ namespace jsdal_server_core.PluginManagement
             }
         }
 
-        public static void Register(PluginInfo pluginInfo)
+        public static List<ServerMethodPluginRegistration> GetRegistrationsForApp(Application app)
+        {
+            return GlobalRegistrations.SelectMany(kv => kv.Value).Where(v => app.IsPluginIncluded(v.PluginGuid)).ToList();
+        }
+
+        public static ServerMethodPluginRegistration GetRegistrationByPluginGuid(string pluginGuid)
+        {
+            return GlobalRegistrations.SelectMany(kv => kv.Value).FirstOrDefault(reg => reg.PluginGuid.Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static void Register(string pluginAssemblyInstanceId, PluginInfo pluginInfo)
         {
             try
             {
-                Registrations.Add(ServerMethodPluginRegistration.Create(pluginInfo));
+                var reg = ServerMethodPluginRegistration.Create(pluginAssemblyInstanceId, pluginInfo);
+
+                lock (GlobalRegistrations)
+                {
+                    if (!GlobalRegistrations.ContainsKey(pluginAssemblyInstanceId))
+                    {
+                        GlobalRegistrations.Add(pluginAssemblyInstanceId, new List<ServerMethodPluginRegistration>());
+                    }
+
+                    GlobalRegistrations[pluginAssemblyInstanceId].Add(reg);
+                }
             }
             catch (Exception ex)
             {
                 SessionLog.Error($"Failed to instantiate plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. See exception that follows.");
                 SessionLog.Exception(ex);
+            }
+        }
+
+
+
+        // called when an inline assembly is updated
+        public static void HandleAssemblyUpdated(string pluginAssemblyInstanceId, List<PluginInfo> pluginList)
+        {
+            lock (GlobalRegistrations)
+            {
+                if (GlobalRegistrations.ContainsKey(pluginAssemblyInstanceId))
+                {
+                    ///GlobalConverterLookup.
+
+                    GlobalRegistrations[pluginAssemblyInstanceId].Clear();
+                }
+                else
+                {
+                    GlobalRegistrations.Add(pluginAssemblyInstanceId, new List<ServerMethodPluginRegistration>());
+                }
+
+                pluginList.ForEach(pluginInfo =>
+                {
+                    var reg = ServerMethodPluginRegistration.Create(pluginAssemblyInstanceId, pluginInfo);
+
+                    GlobalRegistrations[pluginAssemblyInstanceId].Add(reg);
+
+                });
             }
         }
 

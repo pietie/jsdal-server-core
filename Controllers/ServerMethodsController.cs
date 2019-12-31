@@ -264,6 +264,7 @@ namespace jsdal_server_core.Controllers
                           select new
                           {
                               Id = asm.InstanceId,
+                              asm.InlineEntryId,
                               Name = asm.Assembly.GetName().Name,
                               IsValid = true, //TODO: Still relevant?
                               asm.IsInline,
