@@ -34,6 +34,27 @@ namespace jsdal_server_core.PluginManagement
             }
         }
 
+        private static Dictionary<string/*Assembly InstanceId*/, HashSet<Endpoint>> EndpointInstanceUse = new Dictionary<string, HashSet<Endpoint>>();
+        public static void RegisterInstanceUse(Endpoint endpoint, ServerMethodRegistrationMethod method)
+        {
+            lock (EndpointInstanceUse)
+            {
+                if (EndpointInstanceUse.ContainsKey(method.Registration.PluginAssemblyInstanceId))
+                {
+                    if (EndpointInstanceUse[method.Registration.PluginAssemblyInstanceId].Contains(endpoint))
+                    {
+                        EndpointInstanceUse[method.Registration.PluginAssemblyInstanceId].Add(endpoint);
+                    }
+                }
+                else
+                {
+                    EndpointInstanceUse.Add(method.Registration.PluginAssemblyInstanceId, new HashSet<Endpoint>() { endpoint });
+                }
+
+                //!method.Registration.Assembly.FullName
+            }
+        }
+
         public static List<ServerMethodPluginRegistration> GetRegistrationsForApp(Application app)
         {
             return GlobalRegistrations.SelectMany(kv => kv.Value).Where(v => app.IsPluginIncluded(v.PluginGuid)).ToList();
@@ -67,8 +88,6 @@ namespace jsdal_server_core.PluginManagement
             }
         }
 
-
-
         // called when an inline assembly is updated
         public static void HandleAssemblyUpdated(string pluginAssemblyInstanceId, List<PluginInfo> pluginList)
         {
@@ -92,6 +111,19 @@ namespace jsdal_server_core.PluginManagement
                     GlobalRegistrations[pluginAssemblyInstanceId].Add(reg);
 
                 });
+            }
+
+            lock (EndpointInstanceUse)
+            {
+                if (EndpointInstanceUse.ContainsKey(pluginAssemblyInstanceId))
+                {
+                    foreach(var ep in EndpointInstanceUse[pluginAssemblyInstanceId])
+                    {
+                        ep.HandleAssemblyUpdated(pluginAssemblyInstanceId);
+                    }
+
+                    EndpointInstanceUse.Remove(pluginAssemblyInstanceId);
+                }
             }
         }
 

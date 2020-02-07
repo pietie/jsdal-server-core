@@ -97,6 +97,30 @@ namespace jsdal_server_core.Controllers
 
                 if (jsFile == null) return NotFound();
 
+                dynamic workerState = null;
+
+                Worker worker = null;
+
+                // worker-state
+                {
+                    worker = WorkSpawner.GetWorkerByEndpoint(ep);
+
+                    if (worker != null)
+                    {
+                        workerState = new { Running = worker.IsRunning, Status = worker.Status };
+
+                        if (!worker.IsRunning)
+                        {
+                            return Ok(new { Worker = workerState, HasJsChanges = false, HasSMChanges = false });
+                        }
+                    }
+                    else
+                    {
+                        return Ok(new { Worker = new { Running = false, Status = "No worker thread" }, HasJsChanges = false, HasSMChanges = false });
+                    }
+                }
+
+
                 string json;
                 string jsEtag = null;
                 string smEtag = null;
@@ -125,13 +149,15 @@ namespace jsdal_server_core.Controllers
 
                 while (!hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
                 {
+                    if (!worker.IsRunning) break;
                     hasJsChanges = jsFile.ETag != jsEtag;
 
                     //hasSMChanges = jsFile.ETag != jsEtag;
                     System.Threading.Thread.Sleep(500);
                 }
 
-                return Ok(new { HasJsChanges = hasJsChanges, HasSMChanges = hasSMChanges });
+
+                return Ok(new { Worker = workerState, HasJsChanges = hasJsChanges, HasSMChanges = hasSMChanges });
             }
             catch (Exception ex)
             {
@@ -183,29 +209,29 @@ namespace jsdal_server_core.Controllers
 
                 var etagFromRequest = this.Request.Headers["If-None-Match"];
 
-                // worker-state
-                {
-                    string workerStateHeaderValue = null;
-                    var worker = WorkSpawner.GetWorkerByEndpoint(ep);
+                // // worker-state
+                // {
+                //     string workerStateHeaderValue = null;
+                //     var worker = WorkSpawner.GetWorkerByEndpoint(ep);
 
-                    if (worker != null)
-                    {
-                        if (worker.IsRunning)
-                        {
-                            workerStateHeaderValue = "running - " + worker.Status;
-                        }
-                        else
-                        {
-                            workerStateHeaderValue = "stopped - " + worker.Status;
-                        }
-                    }
-                    else
-                    {
-                        workerStateHeaderValue = "no-worker";
-                    }
+                //     if (worker != null)
+                //     {
+                //         if (worker.IsRunning)
+                //         {
+                //             workerStateHeaderValue = "running - " + worker.Status;
+                //         }
+                //         else
+                //         {
+                //             workerStateHeaderValue = "stopped - " + worker.Status;
+                //         }
+                //     }
+                //     else
+                //     {
+                //         workerStateHeaderValue = "no-worker";
+                //     }
 
-                    this.Response.Headers.Add("w-state", workerStateHeaderValue);
-                }
+                //     this.Response.Headers.Add("w-state", workerStateHeaderValue);
+                // }
 
                 if (!string.IsNullOrWhiteSpace(etagFromRequest) && !string.IsNullOrWhiteSpace(etagForLatestFile))
                 {

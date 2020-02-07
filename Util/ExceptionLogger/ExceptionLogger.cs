@@ -183,11 +183,11 @@ namespace jsdal_server_core
                 {
                     parent = exceptionDict[listKey]
                         .TakeLast(5)
-                        .Where(e => e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false)
+                        .Where(e => e.server == null && ew.server == null ||  (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
                         .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
+                        .Where(e => e.innerException == null && ew.innerException == null || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false) )
                         .FirstOrDefault();
                 }
-
 
                 // look for recent similiar entry, if found just tag it onto that rather than logging a new main entry
                 if (parent == null)

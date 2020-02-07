@@ -453,6 +453,8 @@ namespace jsdal_server_core
                 //existingPluginAssembly.Assembly.
             }
 
+            
+
 
             // TODO: Perhaps this can be optimised to run only on apps that are affected by plugin change
             ServerMethodManager.RebuildCacheForAllApps();

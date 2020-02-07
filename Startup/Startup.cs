@@ -289,18 +289,7 @@ namespace jsdal_server_core
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
-            MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                                        //?MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "mscorlib.dll")),
-                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
-                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
-                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
-                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),
-                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
-                                        //MetadataReference.CreateFromFile(typeof(System.Collections.ArrayList).Assembly.Location),
-                                        //MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<string,string>).Assembly.Location),
-                                        MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location)
-
-            };
+             var all = CSharpCompilerHelper.GetCommonMetadataReferences();
 
             var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
 

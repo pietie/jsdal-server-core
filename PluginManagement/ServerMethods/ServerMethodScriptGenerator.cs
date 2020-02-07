@@ -15,72 +15,30 @@ namespace jsdal_server_core
         private const string SERVER_TSD_METHOD_NONSTATIC_TEMPLATE = "<<FUNC_NAME>>(<<PARM_LIST>>): <<RET_TYPE>>;";
         private const string SERVER_TSD_METHOD_TEMPLATE = "static <<FUNC_NAME>>(<<PARM_LIST>>): <<RET_TYPE>>;";
 
-        private List<ScriptableMethodInfo> _methods;
-        public ReadOnlyCollection<ScriptableMethodInfo> Methods { get; private set; }
+        public ServerMethodPluginRegistration Registration { get; private set; }
 
-        private ServerMethodScriptGenerator(string assemblyInstanceId, PluginInfo pluginInfo) : base(assemblyInstanceId, pluginInfo)
+        // private List<ScriptableMethodInfo> _methods;
+        // public ReadOnlyCollection<ScriptableMethodInfo> Methods { get; private set; }
+
+        private ServerMethodScriptGenerator(ServerMethodPluginRegistration registration, string assemblyInstanceId, PluginInfo pluginInfo) : base(assemblyInstanceId, pluginInfo)
         {
+            this.Registration = registration;
 
         }
 
 
-        public static ServerMethodScriptGenerator Create(string assemblyInstanceId, PluginInfo pluginInfo)
+        public static ServerMethodScriptGenerator Create(ServerMethodPluginRegistration registration, PluginInfo pluginInfo)
         {
-            var ret = new ServerMethodScriptGenerator(assemblyInstanceId, pluginInfo);
-
+            var ret = new ServerMethodScriptGenerator(registration, registration.PluginAssemblyInstanceId, pluginInfo);
+            ret.Process();
             return ret;
         }
 
         protected override void Process()
         {
-            _methods = new List<ScriptableMethodInfo>();
-            this.Methods = _methods.AsReadOnly();
-
-            var pluginInfo = this.PluginInfo;
-
-            var classLevelAttrib = pluginInfo.TypeInfo.GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute;
-
-            // static methods not supported 
-            var methods = pluginInfo.TypeInfo.GetMethods(BindingFlags.Public /* | BindingFlags.Static*/ | BindingFlags.Instance);
-
-            string classLevelNamespace = classLevelAttrib?.Namespace;
-
-            var serverMethodCollection = (from mi in methods
-                                          select new
-                                          {
-                                              MethodInfo = mi,
-                                              ServerMethodAttribute = mi.GetCustomAttribute(typeof(ServerMethodAttribute)) as ServerMethodAttribute
-                                          })
-                                              .Where(m => m.ServerMethodAttribute != null);
-
-            if (serverMethodCollection.Count() == 0)
-            {
-                SessionLog.Warning($"No server method's found in plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. Add a [ServerMethod] attribute to the methods you want to expose.");
-                return;
-            }
-
-            foreach (var m in serverMethodCollection)
-            {
-                string ns = m.ServerMethodAttribute?.Namespace;
-
-                if (ns == null)
-                {
-                    ns = classLevelNamespace;
-                }
-
-                this.AddMethod(m.MethodInfo.Name, ns, m.MethodInfo);
-            }
-
             this.GenerateAndCacheJsInterface();
         }
 
-        // TODO: Can this be extracted?
-        public ScriptableMethodInfo AddMethod(string name, string nameSpace, MethodInfo methodInfo)
-        {
-            var method = new ScriptableMethodInfo(name, nameSpace, methodInfo);
-            this._methods.Add(method);
-            return method;
-        }
 
         // generates and caches the ServerMethod .js and .tsd for a specific ServerMethod Plugin Registration
         private void GenerateAndCacheJsInterface()
@@ -100,7 +58,7 @@ namespace jsdal_server_core
                 definitionsJS.Add("ServerMethods", new List<Definition>());
                 definitionsTSD.Add("ServerMethods", new List<Definition>());
 
-                foreach (var method in this.Methods)
+                foreach (var method in this.Registration.Methods)
                 {
                     var namespaceKey = "ServerMethods";
                     var namespaceKeyTSD = "ServerMethods";

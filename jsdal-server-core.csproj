@@ -71,6 +71,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.Hosting.WindowsServices" Version="3.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.0.0" />
+ 
 
 		<PackageReference Include="System.Data.SqlClient" Version="4.7.0" />
 
@@ -89,6 +90,7 @@
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
 
 		<PackageReference Include="NUglify" Version="1.5.13" />
+ 
 
 		<!-- <PackageReference Include="System.Reactive.Linq" Version="4.1.0" /> -->
 		<PackageReference Include="System.Runtime.Loader" Version="4.3.0" />

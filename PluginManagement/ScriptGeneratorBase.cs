@@ -28,8 +28,6 @@ namespace jsdal_server_core
         {
             this.AssemblyInstanceId = assemblyInstanceId;
             this.PluginInfo = pluginInfo;
-
-            this.Process();
         }
 
         protected virtual void Process()
@@ -42,7 +40,7 @@ namespace jsdal_server_core
         //     this.PluginInfo = pluginInfo;
         //     this.Process();
         // }
-        
+
         public void CombineOutput(OM.Application appContext, ref Dictionary<string/*Namespace*/, List<Definition>> combinedJS, ref Dictionary<string/*Namespace*/, List<Definition>> combinedTSD, ref List<string> combinedConverterLookup)
         {
             // converters

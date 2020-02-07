@@ -82,7 +82,7 @@ namespace jsdal_server_core.Controllers
                 }
 
                 // match up input parameters with expected parameters and order according to MethodInfo expectation
-                var invokeParameters = (from methodParam in method.MethodInfo.GetParameters()
+                var invokeParameters = (from methodParam in method.AssemblyMethodInfo.GetParameters()
                                         join inputParam in inputParameters on methodParam.Name equals inputParam.Key into grp
                                         from parm in grp.DefaultIfEmpty()
                                         orderby methodParam.Position
@@ -203,9 +203,9 @@ namespace jsdal_server_core.Controllers
 
                 var inputParamArray = invokeParametersConverted.ToArray();
 
-                var invokeResult = method.MethodInfo.Invoke(pluginInstance, inputParamArray);
+                var invokeResult = method.AssemblyMethodInfo.Invoke(pluginInstance, inputParamArray);
 
-                var isVoidResult = method.MethodInfo.ReturnType.FullName.Equals("System.Void", StringComparison.Ordinal);
+                var isVoidResult = method.AssemblyMethodInfo.ReturnType.FullName.Equals("System.Void", StringComparison.Ordinal);
 
                 // create a lookup of the indices of the out/ref parameters
                 var outputLookupIx = invokeParameters.Where(p => p.IsOut || p.IsByRef).Select(p => p.Position).ToArray();
@@ -226,6 +226,10 @@ namespace jsdal_server_core.Controllers
                 if (isVoidResult)
                 {
                     return Ok(ApiResponseServerMethodVoid.Success(outputParametersWithValues));
+                }
+                else if (invokeResult is IActionResult) // return 'as is' if already IActionResult compatible
+                {
+                    return (IActionResult)invokeResult;
                 }
                 else
                 {
@@ -254,24 +258,24 @@ namespace jsdal_server_core.Controllers
             public object Value { get { return _value; } }
         }
 
-       
+
         [HttpGet("/server-method")]
         public ApiResponse GetServerMethodCollection()
         {
             try
             {
                 var q = from asm in PluginLoader.Instance.PluginAssemblies
-                          select new
-                          {
-                              Id = asm.InstanceId,
-                              asm.InlineEntryId,
-                              Name = asm.Assembly.GetName().Name,
-                              IsValid = true, //TODO: Still relevant?
-                              asm.IsInline,
-                              Plugins = asm.Plugins.Where(p=>p.Type == Settings.ObjectModel.PluginType.ServerMethod).Select(p=>new { p.Name, p.Description })
-                          };
+                        select new
+                        {
+                            Id = asm.InstanceId,
+                            asm.InlineEntryId,
+                            Name = asm.Assembly.GetName().Name,
+                            IsValid = true, //TODO: Still relevant?
+                            asm.IsInline,
+                            Plugins = asm.Plugins.Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod).Select(p => new { p.Name, p.Description })
+                        };
 
-                return ApiResponse.Payload(q.Where(mod=>mod.Plugins != null && mod.Plugins.Count() > 0));
+                return ApiResponse.Payload(q.Where(mod => mod.Plugins != null && mod.Plugins.Count() > 0));
             }
             catch (Exception ex)
             {

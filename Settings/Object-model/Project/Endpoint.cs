@@ -41,7 +41,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             this.Application = app;
 
-          
+
         }
 
         public string GetBgTaskKey()
@@ -356,7 +356,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 this.MetadataConnection.Type = "metadata";
             }
 
-            
+
         }
 
         public void LoadCache()
@@ -508,7 +508,8 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         private Dictionary<string, plugin.ServerMethodPlugin> ServerMethodInstanceCache = new Dictionary<string, plugin.ServerMethodPlugin>();
-        public (plugin.ServerMethodPlugin, ServerMethodRegistrationMethod/*matched Method*/, string/*error*/) GetServerMethodPluginInstance(string nameSpace, string methodName, Dictionary<string, string> inputParameters)
+        public (plugin.ServerMethodPlugin, ServerMethodRegistrationMethod/*matched Method*/, string/*error*/) GetServerMethodPluginInstance(string nameSpace,
+            string methodName, Dictionary<string, string> inputParameters)
         {
             // find all registered ServerMethods for this app
             var registrations = ServerMethodManager.GetRegistrationsForApp(this.Application);
@@ -525,7 +526,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             // find the best matching overload (if any)
             foreach (var regMethod in methodCandidates)
             {
-                var methodParameters = regMethod.MethodInfo.GetParameters();
+                var methodParameters = regMethod.AssemblyMethodInfo.GetParameters();
 
                 if (inputParameters.Count > methodParameters.Length)
                 {
@@ -566,7 +567,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             if (!string.IsNullOrWhiteSpace(bestMatch.Item2))
             {
-                var parms = bestMatch.Item3.MethodInfo.GetParameters();
+                var parms = bestMatch.Item3.AssemblyMethodInfo.GetParameters();
                 var parmDesc = "(no parameters)";
                 if (parms.Length > 0)
                 {
@@ -578,7 +579,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             var matchedRegMethod = bestMatch.Item3;
 
-            var cacheKey = $"{matchedRegMethod.Registration.Assembly.FullName}; {matchedRegMethod.Registration.TypeInfo.FullName}";
+            var cacheKey = $"{matchedRegMethod.Registration.PluginAssemblyInstanceId}; {matchedRegMethod.Registration.TypeInfo.FullName}";
 
             plugin.ServerMethodPlugin pluginInstance = null;
 
@@ -601,9 +602,13 @@ namespace jsdal_server_core.Settings.ObjectModel
                                 new Func<System.Data.SqlClient.SqlConnection>(()=>{
                                     if (this.ExecutionConnection != null)
                                     {
-                                        Console.WriteLine(this.ExecutionConnection.ConnectionStringDecrypted);
+                                        var con = new SqlConnection(this.ExecutionConnection.ConnectionStringDecrypted);
+
+                                        con.Open();
+
+                                        return con;
                                     }
-                                    Console.WriteLine("Func called!");
+
                                     return new System.Data.SqlClient.SqlConnection();
                                 })
                            });
@@ -628,6 +633,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                             })});
                         }
 
+                        ServerMethodManager.RegisterInstanceUse(this, matchedRegMethod);
                         ServerMethodInstanceCache.Add(cacheKey, pluginInstance);
                     }
                     catch (Exception ex)
@@ -641,6 +647,20 @@ namespace jsdal_server_core.Settings.ObjectModel
             return (pluginInstance, matchedRegMethod, null);
         }
 
+        public void HandleAssemblyUpdated(string assemblyInstanceId)
+        {
+            var startsWith = $"{assemblyInstanceId}";
+
+            lock (ServerMethodInstanceCache)
+            {
+                var keysToRemove = ServerMethodInstanceCache.Keys.Where(k => k.StartsWith(startsWith)).ToList();
+
+                foreach (var k in keysToRemove)
+                {
+                    ServerMethodInstanceCache.Remove(k);
+                }
+            }
+        }
 
     }
 

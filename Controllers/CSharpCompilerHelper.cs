@@ -19,7 +19,7 @@ namespace jsdal_server_core
     public static class CSharpCompilerHelper
     {
 
-        private static MetadataReference[] GetCommonMetadataReferences()
+        public static MetadataReference[] GetCommonMetadataReferences()
         {
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
@@ -29,7 +29,12 @@ namespace jsdal_server_core
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
+                                        MetadataReference.CreateFromFile(typeof(System.Data.Common.DbConnection).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(System.Data.SqlClient.SqlConnection).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.IActionResult).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.FileContentResult).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.Net.Http.Headers.MediaTypeHeaderValue).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(System.ComponentModel.IComponent).Assembly.Location),
                                         Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
             };
 

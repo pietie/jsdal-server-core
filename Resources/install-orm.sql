@@ -53,7 +53,12 @@ BEGIN
 	
 	insert into @parmLookup
 	select parameter_id, name, CONCAT(type_name(user_type_id), case
-												when type_name(user_type_id) in ('varchar','nvarchar', 'char', 'nchar', 'varbinary') then
+												when type_name(user_type_id) in ('nvarchar', 'nchar', 'ntext') then 
+														case max_length
+															when -1 then '(max)'
+															else concat('(',max_length / 2,')')
+														end
+												when type_name(user_type_id) in ('varchar','char', 'varbinary') then
 														case max_length
 															when -1 then '(max)'
 															else concat('(',max_length,')')
@@ -477,7 +482,10 @@ BEGIN
 
 			set @parmXml = (select p.Name [@Name]
 										,p.is_output [@IsOutput]
-										,p.max_length [@Max]
+										,case
+											when max_length != -1 AND type_name(user_type_id) in ('nvarchar', 'nchar','ntext') then  p.max_length / 2
+											else max_length
+										 end [@Max]
 										,p.precision [@Precision]
 										,p.scale [@Scale]
 										,TYPE_NAME(p.user_type_id) [@Type]
@@ -628,7 +636,10 @@ BEGIN
 							,(
 								select x.Name [@Name]
 									,p.is_output [@IsOutput]
-									,p.max_length [@Max]
+									,case
+											when max_length != -1 AND type_name(user_type_id) in (''nvarchar'', ''nchar'',''ntext'') then  p.max_length / 2
+											else max_length
+									  end [@Max]
 									,p.precision [@Precision]
 									,p.scale [@Scale]
 									,TYPE_NAME(p.user_type_id) [@Type]
@@ -708,7 +719,10 @@ BEGIN
 						,ParametersXml = (
 							select x.Name [@Name]
 									,p.is_output [@IsOutput]
-									,p.max_length [@Max]
+									,case
+											when max_length != -1 AND type_name(user_type_id) in (''nvarchar'', ''nchar'',''ntext'') then  p.max_length / 2
+											else max_length
+									 end [@Max]
 									,p.precision [@Precision]
 									,p.scale [@Scale]
 									,TYPE_NAME(p.user_type_id) [@Type]
