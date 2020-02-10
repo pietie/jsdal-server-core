@@ -15,7 +15,7 @@ namespace jsdal_server_core.Controllers
     {
 
         [HttpGet("/api/workers")]
-        public ApiResponse getAllWokers()
+        public ApiResponse GetAllWokers()
         {
             try
             {
@@ -44,7 +44,7 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpGet("/api/workers/{id}")]
-        public ApiResponse getWorkerLog([FromRoute] string id)
+        public ApiResponse GetWorkerLog([FromRoute] string id)
         {
             var worker = WorkSpawner.GetWorker(id);
 
@@ -86,7 +86,7 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpPost("/api/workers/{id}/stop")]
-        public ApiResponse stopWorker([FromRoute] string id)
+        public ApiResponse StopWorker([FromRoute] string id)
         {
             try
             {

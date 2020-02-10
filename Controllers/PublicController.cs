@@ -149,11 +149,15 @@ namespace jsdal_server_core.Controllers
 
                 while (!hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
                 {
-                    if (!worker.IsRunning) break;
+                    if (!worker.IsRunning)
+                    {
+                        workerState = new { Running = worker.IsRunning, Status = worker.Status };
+                        break;
+                    }
                     hasJsChanges = jsFile.ETag != jsEtag;
 
                     //hasSMChanges = jsFile.ETag != jsEtag;
-                    System.Threading.Thread.Sleep(500);
+                    System.Threading.Thread.Sleep(30);
                 }
 
 

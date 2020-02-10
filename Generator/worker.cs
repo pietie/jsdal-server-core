@@ -82,12 +82,13 @@ namespace jsdal_server_core
                 // give the thread 60 seconds to finish gracefully
                 if (!this.winThread.Join(TimeSpan.FromSeconds(60)))
                 {
-                    //this.winThread.Abort() -> not supported on dotnet core
-                    this.Status = "Failed to stop worker after 60 seconds";
+                    this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Failed to stop worker after 60 seconds";
                     return false;
                 }
                 this.winThread = null;
             }
+
+            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Stopped called";
 
             Hubs.WorkerMonitor.Instance.NotifyObservers();
             return true;
