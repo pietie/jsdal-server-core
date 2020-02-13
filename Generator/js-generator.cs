@@ -343,6 +343,7 @@ namespace jsdal_server_core
 
             finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                .Replace("<<SERVER_NAME>>", Environment.MachineName)
                 .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
                 .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
                 .Replace("<<DB_SOURCE_GUID>>", endpoint.Id); // TODO: fix placeholder name...or change to something more appropriate?
@@ -356,6 +357,7 @@ namespace jsdal_server_core
 
             finalTypeScriptSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                .Replace("<<SERVER_NAME>>", Environment.MachineName)
                 .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
                 .Replace("<<ResultAndParameterTypes>>", resultAndParameterTypes)
                 .Replace("<<MethodsStubs>>", tsSchemaAndRoutineDefs)

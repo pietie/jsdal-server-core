@@ -1,4 +1,4 @@
-/// v<<FILE_VERSION>>   jsDAL ServerMethods auto-generated, do not edit.
+/// v<<FILE_VERSION>> jsDAL ServerMethods auto-generated, do not edit.
 /// <<DATE>>
 var DAL;
 (function (dal) {

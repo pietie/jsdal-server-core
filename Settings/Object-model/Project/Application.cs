@@ -450,6 +450,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     .Replace("<<CONVERTER_LOOKUP>>", converterLookupJS)
                     .Replace("<<ROUTINES>>", sbJS.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
                     ;
             }
 
@@ -496,6 +497,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     .Replace("<<ResultAndParameterTypes>>", sbTypeDefs.ToString().TrimEnd(new char[] { '\r', '\n' }))
                     .Replace("<<MethodsStubs>>", sbTSD.ToString())
                     .Replace("<<FILE_VERSION>>", "001") // TODO: not sure if we need a fileversion here?
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
                     ;
             }
 

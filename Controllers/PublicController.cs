@@ -122,8 +122,8 @@ namespace jsdal_server_core.Controllers
 
 
                 string json;
-                string jsEtag = null;
-                string smEtag = null;
+                string currentJsEtag = null;
+                string currentServerMethodEtag = null;
 
                 using (var sr = new System.IO.StreamReader(this.Request.Body))
                 {
@@ -133,12 +133,12 @@ namespace jsdal_server_core.Controllers
 
                     if (watch["JsEtag"] != null)
                     {
-                        jsEtag = watch["JsEtag"].Value;
+                        currentJsEtag = watch["JsEtag"].Value;
                     }
 
                     if (watch["SMEtag"] != null)
                     {
-                        smEtag = watch["SMEtag"].Value;
+                        currentServerMethodEtag = watch["SMEtag"].Value;
                     }
                 }
 
@@ -154,7 +154,7 @@ namespace jsdal_server_core.Controllers
                         workerState = new { Running = worker.IsRunning, Status = worker.Status };
                         break;
                     }
-                    hasJsChanges = jsFile.ETag != jsEtag;
+                    hasJsChanges = jsFile.ETag != currentJsEtag;
 
                     //hasSMChanges = jsFile.ETag != jsEtag;
                     System.Threading.Thread.Sleep(30);
