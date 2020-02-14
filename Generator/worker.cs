@@ -597,6 +597,19 @@ namespace jsdal_server_core
             using (var sr = new StringReader(parametersXml))
             {
                 var val = (xmlSerializer.Deserialize(sr) as RoutineParameterContainerV2);
+
+                // if (val.Parameters != null)
+                // {
+                //     var paramsWithCustomTypes = val.Parameters.Where(p => p.UserType != null).ToList();
+
+                //     if (paramsWithCustomTypes.Count > 0)
+                //     {
+
+                //     }
+                    
+                    
+                // }
+
                 return val.Parameters;
             }
         }

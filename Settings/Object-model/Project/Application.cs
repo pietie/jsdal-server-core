@@ -358,10 +358,14 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
 
+        [JsonIgnore]
         public string ServerMethodJs { get; private set; }
+        [JsonIgnore]
         public string ServerMethodTSD { get; private set; }
 
+        [JsonIgnore]
         public string ServerMethodJsEtag { get; private set; }
+        [JsonIgnore]
         public string ServerMethodTSDEtag { get; private set; }
         public void BuildAndCacheServerMethodJsAndTSD()
         {

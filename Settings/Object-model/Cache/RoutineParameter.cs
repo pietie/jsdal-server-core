@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json;
 using System.Xml.Serialization;
+using System.Collections.Generic;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -31,6 +33,30 @@ namespace jsdal_server_core.Settings.ObjectModel
         [XmlAttribute("Result")]
         public bool IsResult { get; set; }
 
+
+        //private string _userType;
+
+        [XmlElement("UserType")]
+        [JsonIgnore]
+        public string UserType
+        {
+            //?get { return _userType; }
+            get { return null; }
+            set
+            {
+                if (value != null)
+                {
+                    var options = new System.Text.Json.JsonSerializerOptions() { };
+                    
+                    this.CustomType = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, RoutineParameterCustomType>>>(value, options);
+                }
+            }
+        }
+
+        [XmlIgnore]
+        public Dictionary<string, Dictionary<string, RoutineParameterCustomType>> CustomType { get; set; }
+
+
         [XmlIgnore]
         [JsonIgnore]
         public bool HasDefault
@@ -43,9 +69,9 @@ namespace jsdal_server_core.Settings.ObjectModel
             return $"{SqlDataType},{Name},{MaxLength},{DefaultValue},{Scale},{Precision},{IsResult}".ToLower();
         }
 
-       
 
-        public static string GetTypescriptTypeFromSql(string sqlType)
+
+        public static string GetTypescriptTypeFromSql(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType)
         {
             var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
             var dt = elems[elems.Length - 1];
@@ -110,7 +136,15 @@ namespace jsdal_server_core.Settings.ObjectModel
                 case "numeric":
                     return "number";
                 default:
-                    throw new Exception("getDataTypeForTypeScript::Unsupported data type: " + sqlType);
+                {
+                    if (customType != null)
+                    {
+                     // TODO: We first need to register all custom types for TSD and then just pass in a ref in here
+                     return "any";   
+                    }
+
+                    throw new Exception("GetTypescriptTypeFromSql::Unsupported data type: " + sqlType);
+                }
             }
         }
 
@@ -175,11 +209,12 @@ namespace jsdal_server_core.Settings.ObjectModel
                 case "numeric":
                     return typeof(decimal).FullName;
                 default:
+
                     throw new Exception("GetDataTypeForCSharp::Unsupported data type: " + sqlDataType);
             }
         }
 
-        public static string GetDataTypeForJavaScriptComment(string sqlType)
+        public static string GetDataTypeForJavaScriptComment(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType)
         {
             var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
             var dt = elems[elems.Length - 1];
@@ -238,8 +273,28 @@ namespace jsdal_server_core.Settings.ObjectModel
                 case "timestamp":
                     return "string";
                 default:
+                {
+                    if (customType != null)
+                    {
+                        var key = customType.Keys.FirstOrDefault();
+
+                        if (key != null) return key;
+                    }
+
                     throw new Exception("getDataTypeForJavaScriptComment::Unsupported data type: " + sqlType);
+                }
             }
         }
+    }
+
+    public class RoutineParameterCustomType
+    {
+        public int Ordinal { get; set; }
+        public string DataType { get; set; }
+
+        public int MaxLength { get; set; }
+        public int Precision { get; set; }
+        public int Scale { get; set; }
+        public bool IsNullable { get; set; }
     }
 }

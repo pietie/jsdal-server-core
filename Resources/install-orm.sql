@@ -16,7 +16,7 @@ BEGIN
 		[rowver] [timestamp] NOT NULL,
 		[IsDeleted] [bit] NOT NULL,
 		[LastUpdateByHostName] [nvarchar](128) NULL,
-		[ParametersXml] [varchar](max) NULL,
+		[ParametersXml] [nvarchar](max) NULL,
 		[ParametersHash] varbinary(32),
 		[ResultSetXml] [varchar](max) NULL,
 		[ResultSetHash] varbinary(32),
@@ -305,6 +305,81 @@ BEGIN
 END
 GO
 
+IF (OBJECT_ID('ormv2.BuildUserTypeJson') IS NULL) 
+	EXEC ('CREATE FUNCTION ormv2.BuildUserTypeJson() RETURNS NVARCHAR(MAX) as BEGIN RETURN NULL END')
+GO
+
+ALTER FUNCTION [ormv2].[BuildUserTypeJson]
+(
+	@userTypeId INT
+)
+RETURNS NVARCHAR(MAX)
+as
+BEGIN
+
+	DECLARE @json nvarchar(max) 
+
+	SELECT @json = CONCAT(@json + ',','"', c.Name, '": '
+					,(
+						SELECT c2.column_id Ordinal,
+								t2.name DataType,
+								c2.max_length MaxLength,
+								c2.precision Precision,
+								c2.scale Scale,
+								c2.is_nullable IsNullable
+							FROM sys.columns c2
+								INNER JOIN sys.types t2 ON t2.user_type_id = c2.user_type_id 
+							where c2.object_id = c.object_id and c2.column_id = c.column_id
+							ORDER BY c2.column_id
+							FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+
+					)
+				)
+				FROM sys.columns As c
+					INNER JOIN sys.table_types AS tt ON c.object_id = tt.type_table_object_id
+					INNER JOIN sys.types AS t ON t.user_type_id = c.user_type_id 
+				where tt.user_type_id = @userTypeId
+
+	select @json = CONCAT('{ "',Name,'": { ',@json,' } }') from sys.table_types where user_type_Id = @userTypeId
+
+	return @json
+END
+GO
+
+IF OBJECT_ID('ormv2.BuildParameterXml') is null
+	EXEC ('CREATE FUNCTION ormv2.BuildParameterXml(@objectID INT) RETURNS NVARCHAR(MAX) AS BEGIN RETURN NULL END')
+GO
+ALTER FUNCTION [ormv2].[BuildParameterXml]
+(
+	@objectId INT
+)
+RETURNS NVARCHAR(MAX)
+as
+BEGIN
+
+	DECLARE @ret NVARCHAR(MAX) = (
+		select p.Name [@Name]
+						,p.is_output [@IsOutput]
+						,case
+							when max_length != -1 AND type_name(user_type_id) in ('nvarchar', 'nchar','ntext') then  p.max_length / 2
+							else max_length
+						end [@Max]
+						,p.precision [@Precision]
+						,p.scale [@Scale]
+						,TYPE_NAME(p.user_type_id) [@Type]
+						,l.DefVal [@DefVal]
+						,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
+						,[ormv2].[BuildUserTypeJson](p.user_type_id) [UserType]
+					from sys.parameters p 
+						left join ormv2.RoutineParameterDefaults(@objectId) l on l.ParmId = p.parameter_id
+					where p.object_id = @objectId
+				for xml path('Parm'), elements
+	)
+
+	return @ret
+END
+GO
+
 IF OBJECT_ID('ormv2.JsonMetadata') is null
 	EXEC ('CREATE FUNCTION ormv2.JsonMetadata(@procID INT) RETURNS VARCHAR(MAX) AS BEGIN RETURN null END')
 GO
@@ -448,8 +523,8 @@ BEGIN
 	
 		DECLARE @objectId INT
 				,@type char(2)
-				,@parmXml varchar(max)
-				,@resultXml varchar(max)
+				,@parmXml nvarchar(max)
+				,@resultXml nvarchar(max)
 				,@ix INT = 0
 				,@numOfRows float
 				,@perc float
@@ -480,22 +555,7 @@ BEGIN
 				RAISERROR(@msg, 0,0) WITH NOWAIT		
 			end
 
-			set @parmXml = (select p.Name [@Name]
-										,p.is_output [@IsOutput]
-										,case
-											when max_length != -1 AND type_name(user_type_id) in ('nvarchar', 'nchar','ntext') then  p.max_length / 2
-											else max_length
-										 end [@Max]
-										,p.precision [@Precision]
-										,p.scale [@Scale]
-										,TYPE_NAME(p.user_type_id) [@Type]
-										,l.DefVal [@DefVal]
-										,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-									from sys.parameters p 
-										left join ormv2.RoutineParameterDefaults(@objectId) l on l.ParmId = p.parameter_id
-									where p.object_id = @objectId
-								for xml path('Parm'), elements)
-
+			set @parmXml = [ormv2].[BuildParameterXml](@objectId)
 			set @resultXml = null
 
 			if (@type = 'P')
@@ -633,24 +693,7 @@ BEGIN
 							,convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id)) END) ReturnType
 							,0 IsDeleted
 							,HOST_NAME() LastUpdateByHostName
-							,(
-								select x.Name [@Name]
-									,p.is_output [@IsOutput]
-									,case
-											when max_length != -1 AND type_name(user_type_id) in (''nvarchar'', ''nchar'',''ntext'') then  p.max_length / 2
-											else max_length
-									  end [@Max]
-									,p.precision [@Precision]
-									,p.scale [@Scale]
-									,TYPE_NAME(p.user_type_id) [@Type]
-									,x.DefVal [@DefVal]
-									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-								from sys.parameters p 
-									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
-								where p.object_id = o.object_id
-							for xml path(''Parm''), elements
-						)  ParametersXml
-
+							,[ormv2].[BuildParameterXml](o.object_id) ParametersXml
 						,(
 								select * from 
 								(
@@ -716,23 +759,7 @@ BEGIN
 						,RoutineType = convert(nvarchar(20), CASE WHEN o.type IN (''P'',''PC'') THEN ''PROCEDURE'' ELSE ''FUNCTION'' END) 
 						,ReturnType = convert(sysname, CASE WHEN o.type IN (''TF'', ''IF'', ''FT'') THEN N''TABLE'' ELSE ISNULL(TYPE_NAME(c.system_type_id),TYPE_NAME(c.user_type_id))  END)
 						,IsDeleted = @isDeleted
-						,ParametersXml = (
-							select x.Name [@Name]
-									,p.is_output [@IsOutput]
-									,case
-											when max_length != -1 AND type_name(user_type_id) in (''nvarchar'', ''nchar'',''ntext'') then  p.max_length / 2
-											else max_length
-									 end [@Max]
-									,p.precision [@Precision]
-									,p.scale [@Scale]
-									,TYPE_NAME(p.user_type_id) [@Type]
-									,x.DefVal [@DefVal]
-									,CASE WHEN p.parameter_id = 0 THEN 1 ELSE null END [@Result]
-								from sys.parameters p 
-									left join ormv2.RoutineParameterDefaults(o.object_id) x  on x.ParmId = p.parameter_id 
-								where p.object_id = o.object_id
-							for xml path(''Parm''), elements
-						)
+						,ParametersXml = [ormv2].[BuildParameterXml](o.object_id)
 						,ResultSetXml = (
 								select * from 
 								(
@@ -865,7 +892,7 @@ BEGIN
 	IF (exists(select 1/0 from sys.triggers where Name = 'DB_Trigger_DALMonitor' and parent_class_desc = 'DATABASE')) DROP TRIGGER DB_Trigger_DALMonitor on database
 
 	IF (OBJECT_ID('ormv2.JsonMetadata') IS NOT NULL) DROP FUNCTION ormv2.JsonMetadata
-			
+		
 	IF (OBJECT_ID('ormv2.Init') IS NOT NULL) DROP PROCEDURE ormv2.Init
 	IF (OBJECT_ID('ormv2.GetRoutineList') IS NOT NULL) DROP PROCEDURE ormv2.GetRoutineList
 	IF (OBJECT_ID('ormv2.GetRoutineListCnt') IS NOT NULL) DROP PROCEDURE ormv2.GetRoutineListCnt
@@ -877,6 +904,9 @@ BEGIN
 	IF (OBJECT_ID('ormv2.RoutineMeta') IS NOT NULL) DROP TABLE ormv2.RoutineMeta
 
 	IF (OBJECT_ID('ormv2.CreateDBTrigger') IS NOT NULL) DROP PROCEDURE ormv2.CreateDBTrigger
+
+	IF (OBJECT_ID('ormv2.BuildParameterXml') IS NOT NULL) DROP FUNCTION ormv2.BuildParameterXml
+	IF (OBJECT_ID('ormv2.BuildUserTypeJson') IS NOT NULL) DROP FUNCTION ormv2.BuildUserTypeJson	
 	
 	DROP PROCEDURE ormv2.Uninstall
 	IF (SCHEMA_ID('ormv2') IS NOT NULL) DROP SCHEMA ormv2
