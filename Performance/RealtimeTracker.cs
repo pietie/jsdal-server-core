@@ -8,16 +8,14 @@ namespace jsdal_server_core.Performance
 
     public class RealtimeTracker
     {
-        private static SortedList<long, RealtimeInfo> List = new SortedList<long, RealtimeInfo>();
+        //private static SortedList<long, RealtimeInfo> List = new SortedList<long, RealtimeInfo>();
+        private static List<RealtimeInfo> _realtimeItemList = new List<RealtimeInfo>();
 
         public static List<RealtimeInfo> RealtimeItems
         {
             get
             {
-                lock (List)
-                {
-                    return List.Values.ToList();
-                }
+                return _realtimeItemList;
             }
         }
         static RealtimeTracker()
@@ -34,9 +32,9 @@ namespace jsdal_server_core.Performance
             {
                 var ri = new RealtimeInfo(e);
 
-                lock (List)
+                lock (_realtimeItemList)
                 {
-                    List.Add(ri.createdEpoch, ri);
+                    _realtimeItemList.Add(ri);
 
                     Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
                 }
@@ -51,19 +49,19 @@ namespace jsdal_server_core.Performance
         {
             try
             {
-                lock (List)
+                lock (_realtimeItemList)
                 {
                     // TODO: Make retention configurable
                     var epochCutOff = DateTime.Now.AddSeconds(-10).ToEpochMS();
                     int remoteCnt = 0;
 
-                    for (var i = 0; i < List.Keys.Count; i++)
+                    for (var i = 0; i < _realtimeItemList.Count; i++)
                     {
-                        var key = List.Keys[i];
+                        var item = _realtimeItemList[i];
 
-                        if (key <= epochCutOff)
+                        if (item.createdEpoch <= epochCutOff)
                         {
-                            List.RemoveAt(i);
+                            _realtimeItemList.RemoveAt(i);
                             remoteCnt++;
                             i--;
                         }

@@ -46,6 +46,9 @@ namespace jsdal_server_core
             var routineTemplate = WorkSpawner.TEMPLATE_Routine;
             var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
 
+            // maps Custom SQL types to TypeScript definitions
+            var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
+
             endpoint.ApplyRules(jsFile);
 
             var includedRoutines = (from row in endpoint.cache
@@ -60,7 +63,7 @@ namespace jsdal_server_core
                 changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0).ToList();
 
                 // TODO: Consider if this is a good idea?
-                //       If we can reasonably say that there are now changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
+                //       If we can reasonably say that there are no changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
                 if (changesInFile.Count == 0)
                 {
                     return;
@@ -70,16 +73,12 @@ namespace jsdal_server_core
             var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
             var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
 
-            //from entry in InlineModuleManifest.Instance.Entries
-            //select entry.Id
 
             var serverMethodPlugins = PluginLoader.Instance.PluginAssemblies
                         .SelectMany(pa => pa.Plugins)
                         .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.Guid.ToString()));
 
-            // var serverMethodPlugins = SettingsInstance.Instance.InlinePluginModules?
-            //                 .SelectMany(mod => mod.PluginList)
-            //                 .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.PluginGuid));
+
 
             // TODO: use System.Threading.Tasks.Parallel.ForEach()
             includedRoutines.ForEach(r =>
@@ -139,7 +138,7 @@ namespace jsdal_server_core
                                                       p.IsOutput,
                                                       HasDefault = p.HasDefault,
                                                       JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType,p.CustomType),
-                                                      TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType,p.CustomType)
+                                                      TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType,p.CustomType, ref customTypeLookupWithTypeScriptDef)
                                                   };
 
 
@@ -158,7 +157,7 @@ namespace jsdal_server_core
                                                where !string.IsNullOrEmpty(p.Name) && !p.IsResult
                                                  && p.IsOutput
                                                select string.Format("{0}?: {1}", StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
-                                                , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType))).ToList();
+                                                , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
 
 
 
@@ -231,7 +230,7 @@ namespace jsdal_server_core
 
 
                                     // a bit backwards but gets the job done
-                                    var typeScriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(dbDataType, null);
+                                    var typeScriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(dbDataType, null, ref customTypeLookupWithTypeScriptDef);
 
                                     lst.Add(string.Format("{0}: {1}", colName, typeScriptDataType));
 
@@ -264,7 +263,7 @@ namespace jsdal_server_core
                                 var resultParm = r.Parameters.First(p => p.IsResult);
 
                                 var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): IUDFExecGeneric<{2}, {1}>", jsFunctionName, tsArguments
-                                , RoutineParameterV2.GetTypescriptTypeFromSql(resultParm.SqlDataType, null));
+                                , RoutineParameterV2.GetTypescriptTypeFromSql(resultParm.SqlDataType, resultParm.CustomType, ref customTypeLookupWithTypeScriptDef));
 
                                 tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
                             }

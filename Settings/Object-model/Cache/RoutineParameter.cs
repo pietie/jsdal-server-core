@@ -47,7 +47,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 if (value != null)
                 {
                     var options = new System.Text.Json.JsonSerializerOptions() { };
-                    
+
                     this.CustomType = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, RoutineParameterCustomType>>>(value, options);
                 }
             }
@@ -71,7 +71,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
 
 
-        public static string GetTypescriptTypeFromSql(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType)
+        public static string GetTypescriptTypeFromSql(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType,
+            ref Dictionary<string, string> customTypeLookupWithTypeScriptDef)
         {
             var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
             var dt = elems[elems.Length - 1];
@@ -136,15 +137,42 @@ namespace jsdal_server_core.Settings.ObjectModel
                 case "numeric":
                     return "number";
                 default:
-                {
-                    if (customType != null)
                     {
-                     // TODO: We first need to register all custom types for TSD and then just pass in a ref in here
-                     return "any";   
-                    }
+                        if (customType != null && customType.Keys.Count > 0)
+                        {
+                          //?  lock (customTypeLookupWithTypeScriptDef)
+                            {
+                                var customTypeName = customType.Keys.First();
 
-                    throw new Exception("GetTypescriptTypeFromSql::Unsupported data type: " + sqlType);
-                }
+                                if (customTypeLookupWithTypeScriptDef.ContainsKey(customTypeName))
+                                {// TODO: figure out correct ref
+                                    return $"CustomType.{customTypeName}";
+                                }
+
+
+                                // var q = from kv in customType[customTypeName] select $"\"{kv.Key}\": {GetTypescriptTypeFromSql(kv.Value.DataType, null, ref customTypeLookupWithTypeScriptDef)}";
+
+                                foreach (var kv in customType[customTypeName])
+                                {
+                                    var fieldName = kv.Key;
+                                    var dataType = kv.Value.DataType;
+
+                                    var tsTypeDef = GetTypescriptTypeFromSql(kv.Value.DataType, null, ref customTypeLookupWithTypeScriptDef);
+
+                                }
+
+                                customTypeLookupWithTypeScriptDef.Add(customTypeName, "TODO!");
+
+
+                                //customType[key]
+
+                                return "any";
+                            }
+                        }
+
+                        return "any";
+                        //throw new Exception("GetTypescriptTypeFromSql::Unsupported data type: " + sqlType);
+                    }
             }
         }
 
@@ -248,6 +276,8 @@ namespace jsdal_server_core.Settings.ObjectModel
                     return "string";
                 case "varbinary":
                     return "varbinary";
+                case "binary":
+                    return "binary";
                 case "decimal":
                     return "float";
                 case "uniqueidentifier":
@@ -272,17 +302,19 @@ namespace jsdal_server_core.Settings.ObjectModel
                     return "string";
                 case "timestamp":
                     return "string";
+                case "sysname":
+                    return "string";
                 default:
-                {
-                    if (customType != null)
                     {
-                        var key = customType.Keys.FirstOrDefault();
+                        if (customType != null)
+                        {
+                            var key = customType.Keys.FirstOrDefault();
 
-                        if (key != null) return key;
+                            if (key != null) return key;
+                        }
+
+                        throw new Exception("getDataTypeForJavaScriptComment::Unsupported data type: " + sqlType);
                     }
-
-                    throw new Exception("getDataTypeForJavaScriptComment::Unsupported data type: " + sqlType);
-                }
             }
         }
     }

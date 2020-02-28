@@ -155,8 +155,16 @@ namespace jsdal_server_core.Controllers
                 }
 
                 var referer = this.Request.Headers["Referer"].FirstOrDefault();
-                var mayAccess = app.MayAccessDbSource(referer);
-                
+
+                string jsDALApiKey = null;
+
+                if (this.Request.Headers.ContainsKey("api-key"))
+                {
+                    jsDALApiKey = this.Request.Headers["api-key"];
+                }
+
+                var mayAccess = app.MayAccessDbSource(referer, jsDALApiKey);
+
                 if (!mayAccess.IsSuccess)
                 {
                     return Unauthorized($"Host {referer} not authorised");

@@ -291,8 +291,17 @@ namespace jsdal_server_core.Settings.ObjectModel
             */
         }
 
-        public CommonReturnValue MayAccessDbSource(string referer)
+        public CommonReturnValue MayAccessDbSource(string referer, string jsDALApiKey)
         {
+            if (jsDALApiKey != null)
+            {
+                // TODO: test against some list
+                if (jsDALApiKey.Equals("C50AEA64-951C-45F4-AF8D-539929ACD9EF", StringComparison.OrdinalIgnoreCase))
+                {
+                    return CommonReturnValue.Success();
+                }
+            }
+
             if (referer != null && referer.Equals("$WEB SOCKETS$")) return CommonReturnValue.Success();
 
             if (this.WhitelistedDomainsCsv == null)

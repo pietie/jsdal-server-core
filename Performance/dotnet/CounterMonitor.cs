@@ -1,4 +1,5 @@
 using Microsoft.Diagnostics.Tools.RuntimeClient;
+using Microsoft.Diagnostics.Tracing;
 //using Microsoft.Diagnostics.Tracing;
 using System;
 using System.Collections.Generic;
@@ -7,30 +8,30 @@ using System.Collections.Generic;
 namespace jsdal_server_core.Performance.dotnet
 {
 
-    public class EventPipeEventSource
-    {
+    // public class EventPipeEventSource
+    // {
 
-        public EventPipeEventSource(object o) { }
-        public EventPipeEventSourceDyn Dynamic;
+    //     public EventPipeEventSource(object o) { }
+    //     public EventPipeEventSourceDyn Dynamic;
 
-        public void Process() { }
+    //     public void Process() { }
 
 
-    }  // TEMP!!!
+    // }  // TEMP!!!
 
-    public class EventPipeEventSourceDyn
-    {
-        public delegate void WhatWhatEvent(TraceEvent data);
-        public event WhatWhatEvent All;
-    }// TEMP
+    // public class EventPipeEventSourceDyn
+    // {
+    //     public delegate void WhatWhatEvent(TraceEvent data);
+    //     public event WhatWhatEvent All;
+    // }// TEMP
 
-    public class TraceEvent
-    {
-        public string ProviderName;
-        public string EventName;
-        public dynamic PayloadValue(int n) { return null; }
+    // public class TraceEvent
+    // {
+    //     public string ProviderName;
+    //     public string EventName;
+    //     public dynamic PayloadValue(int n) { return null; }
 
-    } // TEMP!!!
+    // } // TEMP!!!
 
 
     public class CounterMonitor
@@ -52,7 +53,7 @@ namespace jsdal_server_core.Performance.dotnet
         public void Start()
         {
             // single exe publishing not happy with trace package -- wait on https://github.com/dotnet/sdk/issues/3510
-            return;
+            //return;
 
             var configuration = new SessionConfiguration(
                 circularBufferSizeMB: 1000,

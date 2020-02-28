@@ -468,16 +468,21 @@ namespace jsdal_server_core.Controllers
 
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
+                string jsDALApiKey = null;
+
+                if (requestHeaders.ContainsKey("api-key"))
+                {
+                    jsDALApiKey = requestHeaders["api-key"];
+                }
+
                 // make sure the source domain/IP is allowed access
-                var mayAccess = app.MayAccessDbSource(referer);
+                var mayAccess = app.MayAccessDbSource(referer, jsDALApiKey);
 
                 if (!mayAccess.IsSuccess) return (null, null, mayAccess);
 
 
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
-
-
 
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
@@ -566,7 +571,7 @@ namespace jsdal_server_core.Controllers
 
                     //         responseHeaders.Add("Content-Type", "image/jpeg");
 
-                            
+
                     //         return (data, routineExecutionMetric, mayAccess);
                     //     }
                     // }
