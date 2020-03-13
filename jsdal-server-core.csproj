@@ -74,7 +74,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="3.1.1" />
  
 
-		<PackageReference Include="System.Data.SqlClient" Version="4.8.0" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
 
 
 		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="3.1.1" />
