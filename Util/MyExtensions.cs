@@ -33,6 +33,13 @@ namespace jsdal_server_core
             return new EntityTagHeaderValue('\"' + Convert.ToString(etagHash, 16) + '\"');
         }
 
+        public static string Left(this string s, int left, bool addEllipse = false)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            string ellipse = addEllipse? "..." : "";
+            return s.Length <= left? s : (s.Substring(0, left) + ellipse);
+        }
+
     }
 
     public static class TupleExtensions

@@ -91,7 +91,20 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal($"An exception with id \"{id}\" could not be found.");
                 }
 
-                return ApiResponse.Payload(ex.related);
+                var ret = (from exception in ex.related
+                           select new
+                           {
+                               exception.id,
+                               exception.created,
+                               message = exception.message.Left(200, true), // limit exception message length to something reasonable
+                               exception.procedure,
+                               exception.appTitle,
+                               exception.appVersion,
+                               relatedCount = exception.related?.Count ?? 0
+                           }
+                );
+
+                return ApiResponse.Payload(ret);
             }
             catch (Exception ex)
             {
@@ -145,7 +158,7 @@ namespace jsdal_server_core.Controllers
                           {
                               exception.id,
                               exception.created,
-                              exception.message,
+                              message = exception.message.Left(200, true), // limit exception message length to something reasonable
                               exception.procedure,
                               exception.appTitle,
                               exception.appVersion,

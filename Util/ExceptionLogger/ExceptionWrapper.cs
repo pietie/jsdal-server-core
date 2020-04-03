@@ -87,7 +87,7 @@ namespace jsdal_server_core
                 this.server = re.Server;
                 this.procedure = re.Procedure;
                 this.line = re.LineNumber;
-                this.message = re.Message;
+                this.message = re.Message.Left(1024, true); // limit message length to something reasonable
                 this.errorCode = re.Number;
                 this.level = re.Class;
                 this.state = re.State;
