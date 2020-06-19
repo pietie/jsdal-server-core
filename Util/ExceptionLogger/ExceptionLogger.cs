@@ -96,13 +96,17 @@ namespace jsdal_server_core
             return ExceptionLogger.exceptionDict.Values.SelectMany(l => l).FirstOrDefault(e => e.id == id);
         }
 
-        // public static IEnumerable<ExceptionWrapper> GetTopN(int n)
-        // {
-        //     if (n <= 0) return new List<ExceptionWrapper>();
-        //     var all = ExceptionLogger.exceptionDict.Values.ToList().SelectMany(l => l).OrderByDescending(e => e.created);
+        public static ExceptionWrapper DeepFindRelated(string id)
+        {
+            foreach (var topLevelException in ExceptionLogger.exceptionDict.Values.SelectMany(l => l))
+            {
+                var ew = topLevelException.GetRelated(id);
 
-        //     return all.Take(Math.Min(n, all.Count()));
-        // }
+                if (ew != null) return ew;
+            }
+
+            return null;
+        }
 
         public static IEnumerable<ExceptionWrapper> GetAll(string[] endpointLookup)
         {
@@ -124,6 +128,7 @@ namespace jsdal_server_core
                 return matchingLists;
             }
         }
+
 
         public static void ClearAll()
         {
@@ -183,9 +188,9 @@ namespace jsdal_server_core
                 {
                     parent = exceptionDict[listKey]
                         .TakeLast(5)
-                        .Where(e => e.server == null && ew.server == null ||  (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
+                        .Where(e => e.server == null && ew.server == null || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
                         .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
-                        .Where(e => e.innerException == null && ew.innerException == null || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false) )
+                        .Where(e => e.innerException == null && ew.innerException == null || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
                         .FirstOrDefault();
                 }
 

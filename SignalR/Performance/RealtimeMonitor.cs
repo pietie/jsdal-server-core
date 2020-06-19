@@ -24,8 +24,7 @@ namespace jsdal_server_core.Hubs.Performance
 
         public void NotifyObservers()
         {
-            var packet = RealtimeTracker.RealtimeItems.OrderByDescending(r=>r.createdEpoch).ToList();
-
+            var packet = RealtimeTracker.GetOrderedList();
             _hubContext.Clients.Group(RealtimeHub.GROUP_NAME).SendAsync("update", packet);
         }
     }

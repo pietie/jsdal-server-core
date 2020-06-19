@@ -11,19 +11,29 @@ namespace jsdal_server_core.Performance
         //private static SortedList<long, RealtimeInfo> List = new SortedList<long, RealtimeInfo>();
         private static List<RealtimeInfo> _realtimeItemList = new List<RealtimeInfo>();
 
-        public static List<RealtimeInfo> RealtimeItems
-        {
-            get
-            {
-                return _realtimeItemList;
-            }
-        }
+        // public static List<RealtimeInfo> RealtimeItems
+        // {
+        //     get
+        //     {
+        //         return _realtimeItemList;
+        //     }
+        // }
+
+
         static RealtimeTracker()
         {
             var t = new System.Timers.Timer(2000);
 
             t.Elapsed += (s, e) => { Purge(); };
             t.Start();
+        }
+
+        public static List<RealtimeInfo> GetOrderedList()
+        {
+            lock (_realtimeItemList)
+            {
+                return _realtimeItemList.OrderByDescending(r => r.createdEpoch).ToList();
+            }
         }
 
         public static void Add(RoutineExecution e)

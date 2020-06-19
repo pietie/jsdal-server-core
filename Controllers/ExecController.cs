@@ -197,10 +197,6 @@ namespace jsdal_server_core.Controllers
                         stream.Read(data, 0, data.Length);
                     }
 
-                    //file.FileName
-                    //?file.Name
-                    //file.ContentType
-
                     BlobStore.Instance.Add(new BlobStoreData() { Filename = file.FileName, Data = data, ContentType = file.ContentType }, out var id);
                     keyList.Add(id);
                 }

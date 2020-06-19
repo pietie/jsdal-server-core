@@ -40,9 +40,12 @@ namespace jsdal_server_core.Controllers
                 }
                 else
                 {
-
-
                     var ex = ExceptionLogger.GetException(id);
+
+                    if (ex == null)
+                    {
+                        ex = ExceptionLogger.DeepFindRelated(id);
+                    }
 
                     if (ex == null)
                     {
