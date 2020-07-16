@@ -6,6 +6,7 @@ namespace jsdal_server_core
 {
     public class LogWriter : StreamWriter
     {
+        public DateTime? LastDate = null;
         public LogWriter(Stream stream) : base(stream)
         {
         }
@@ -40,7 +41,19 @@ namespace jsdal_server_core
 
         public override void WriteLine(string value)
         {
+            if (LastDate.HasValue && DateTime.Now.ToString("yyyyMMdd") != LastDate.Value.ToString("yyyyMMdd"))
+            {
+                base.WriteLine($"\r\n[{DateTime.Now:yyyy-MM-dd}]\r\n");
+                LastDate = DateTime.Now;
+            }
+            else
+            {
+                LastDate = DateTime.Now;
+            }
+
             base.WriteLine(string.Format("{0:HH:mm:ss}\t{1}", DateTime.Now, value));
+
+            // FlushAsync();
         }
 
         public override void WriteLine(string format, params object[] arg)
@@ -57,7 +70,28 @@ namespace jsdal_server_core
             base.WriteLine(format, arg0, arg1);
         }
 
+        public override void Write(string value)
+        {
+            if (LastDate.HasValue && DateTime.Now.ToString("yyyyMMdd") != LastDate.Value.ToString("yyyyMMdd"))
+            {
+                base.WriteLine($"\r\n[{DateTime.Now:yyyy-MM-dd}]\r\n");
+                LastDate = DateTime.Now;
+            }
+            else
+            {
+                LastDate = DateTime.Now;
+            }
+            // might break up some messages a bit but we need to know the time of MS trace/log messages
+            base.WriteLine($"{DateTime.Now:HH:mm:ss}\t{value}");
 
+            //FlushAsync();
+            //base.Write(value);
+
+            // if (value?.EndsWith("\r\n") ?? false)
+            // {
+            //     base.WriteLine($"{DateTime.Now:HH:mm:ss}\t(prev write section time)");
+            // }
+        }
         public override System.Text.Encoding Encoding { get { return System.Text.Encoding.UTF8; } }
     }
 

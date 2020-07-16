@@ -5,7 +5,7 @@
    "version": "0.2.0",
    "configurations": [
         {
-            "name": "jsdal-SERVER (web)",
+            "name": "jsdal SERVER CORE",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-project",

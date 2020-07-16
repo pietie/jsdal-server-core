@@ -31,6 +31,8 @@ namespace jsdal_server_core
             _logger.LogInformation("OnStopping method called.");
             base.OnStopping();
             WorkSpawner.Shutdown();
+            Performance.StatsDB.Shutdown();
         }
+         
     }
 }

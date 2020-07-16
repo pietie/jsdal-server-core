@@ -79,7 +79,14 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
+            try
+            {
+                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
+            }
         }
 
         [AllowAnonymous]
@@ -87,7 +94,14 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
+            try
+            {
+                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
+            }
         }
 
         [AllowAnonymous]
@@ -95,7 +109,15 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
+            try
+            {
+                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
+
+            }
+            catch (Exception ex)
+            {
+                return Ok(ApiResponse.Exception(ex));
+            }
         }
 
         private class BatchData
@@ -460,7 +482,7 @@ namespace jsdal_server_core.Controllers
                     return (resp, null, null);
                 }
 
-                routineExecutionMetric = ExecTracker.Begin(endpoint.Id, execOptions.schema, execOptions.routine);
+                routineExecutionMetric = ExecTracker.Begin(endpoint, execOptions.schema, execOptions.routine);
 
                 debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
@@ -669,7 +691,7 @@ namespace jsdal_server_core.Controllers
                             }
                             catch (Exception e)
                             {
-                                SessionLog.Exception(e);
+                                ExceptionLogger.LogException(e, "ProcessPluginExecutionExceptionHandlers", "jsdal-server");
                             }
 
                         }

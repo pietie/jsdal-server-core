@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Diagnostics;
+using Serilog;
 
 namespace jsdal_server_core
 {
@@ -14,8 +15,8 @@ namespace jsdal_server_core
             startInfo.FileName = System.IO.Path.Combine(System.Environment.SystemDirectory, "netsh.exe");
             startInfo.Arguments = args;
 
-          
-            Console.WriteLine($"\r\n\tnetsh.exe {args}\r\n");
+
+            Log.Information($"\r\n\tnetsh.exe {args}\r\n");
 
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
@@ -37,7 +38,7 @@ namespace jsdal_server_core
             proc.WaitForExit();
             var consoleOutput = proc.StandardError.ReadToEnd();
             var output = proc.StandardOutput.ReadToEnd();
-            Console.WriteLine("§ERROR:\t{0}", output);
+            Log.Error("§ERROR:\t{0}", output);
         }
 
         public static void Register(string hostname, int port, string certHash)
@@ -48,7 +49,7 @@ namespace jsdal_server_core
             proc.WaitForExit();
             var consoleOutput = proc.StandardError.ReadToEnd();
             var output = proc.StandardOutput.ReadToEnd();
-            Console.WriteLine("§ERROR:\t{0}", output);
+            Log.Error("§ERROR:\t{0}", output);
         }
 
         public static bool AddUrlToACL(bool isHttps, string hostname, int port)
@@ -61,7 +62,7 @@ namespace jsdal_server_core
             var consoleOutput = proc.StandardError.ReadToEnd();
             var output = proc.StandardOutput.ReadToEnd();
 
-            Console.WriteLine("§ERROR:\t{0}", output);
+            Log.Error("§ERROR:\t{0}", output);
 
             return output?.ToLower().Contains("url reservation successfully added") ?? false;
         }

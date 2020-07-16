@@ -136,21 +136,22 @@ namespace jsdal_server_core.Settings.ObjectModel
                     return "Blob";  // TODO: Not sure about this one...worst case, make it a string                
                 case "numeric":
                     return "number";
+                case "sysname":
+                    return "any";
                 default:
                     {
                         if (customType != null && customType.Keys.Count > 0)
                         {
-                          //?  lock (customTypeLookupWithTypeScriptDef)
+                            //?  lock (customTypeLookupWithTypeScriptDef)
                             {
                                 var customTypeName = customType.Keys.First();
-
-                                if (customTypeLookupWithTypeScriptDef.ContainsKey(customTypeName))
-                                {// TODO: figure out correct ref
-                                    return $"CustomType.{customTypeName}";
+                                var typeName = $"$CustomType_{customTypeName}";
+                                if (customTypeLookupWithTypeScriptDef.ContainsKey(typeName))
+                                {
+                                    return typeName;
                                 }
 
-
-                                // var q = from kv in customType[customTypeName] select $"\"{kv.Key}\": {GetTypescriptTypeFromSql(kv.Value.DataType, null, ref customTypeLookupWithTypeScriptDef)}";
+                                var properties = new Dictionary<string, string>();
 
                                 foreach (var kv in customType[customTypeName])
                                 {
@@ -159,19 +160,17 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                                     var tsTypeDef = GetTypescriptTypeFromSql(kv.Value.DataType, null, ref customTypeLookupWithTypeScriptDef);
 
+                                    properties.Add(fieldName, tsTypeDef);
                                 }
 
-                                customTypeLookupWithTypeScriptDef.Add(customTypeName, "TODO!");
+                                var customTSD = string.Join(", ", from kv in properties select $"{kv.Key}: {kv.Value}");
+                                customTypeLookupWithTypeScriptDef.Add(typeName, $"{{{ customTSD }}}[]");
 
-
-                                //customType[key]
-
-                                return "any";
+                                return typeName;
                             }
                         }
 
                         return "any";
-                        //throw new Exception("GetTypescriptTypeFromSql::Unsupported data type: " + sqlType);
                     }
             }
         }

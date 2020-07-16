@@ -519,8 +519,7 @@ namespace jsdal_server_core
                 }
                 catch (Exception ex)
                 {
-                    SessionLog.Error("Plugin {0} OnConnectionOpened failed", plugin.Name);
-                    SessionLog.Exception(ex);
+                    ExceptionLogger.LogException(ex, $"Plugin {plugin.Name} OnConnectionOpened failed", "jsdal-server");
                 }
 
             }

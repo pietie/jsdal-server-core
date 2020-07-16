@@ -12,7 +12,8 @@ using System.Text;
 using jsdal_server_core.Changes;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Newtonsoft.Json;
-
+using Serilog;
+using jsdal_server_core.Performance;
 
 namespace jsdal_server_core.Controllers
 {
@@ -22,6 +23,7 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/jsdal/ping")]
         public string Ping()
         {
+            StatsDB.QueueRecordExecutionEnd("Test", "PublicController", "Ping", (ulong)new Random().Next(20,43), 1);
             return "1.0"; // TODO: Version?
         }
 
@@ -197,7 +199,7 @@ namespace jsdal_server_core.Controllers
 
                 if (!System.IO.File.Exists(path))
                 {
-                    Console.WriteLine($"412: {jsFileDescriptor}");
+                    Log.Warning($"412: {jsFileDescriptor}");
                     return StatusCode(StatusCodes.Status412PreconditionFailed, $"The requested file ({jsFileDescriptor}) is not valid or has not been generated yet");
                 }
 
@@ -549,7 +551,7 @@ namespace jsdal_server_core.Controllers
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine(ex.ToString());
+                       
                         SessionLog.Exception(ex);
                         return null;
                     }
@@ -581,7 +583,7 @@ namespace jsdal_server_core.Controllers
 
         //         if (!System.IO.File.Exists(path))
         //         {
-        //             Console.WriteLine("412: " + dbSource.Name + " -- " + jsFile.Filename);
+      
         //             //   return new HttpResponseMessage(HttpStatusCode.PreconditionFailed) { Content = new StringContent("The requested file is not valid or has not been generated yet") };
         //             return StatusCode(StatusCodes.Status412PreconditionFailed, "The requested file is not valid or has not been generated yet");
         //         }

@@ -30,7 +30,7 @@ namespace jsdal_server_core.Controllers
         public IActionResult AuthLogin(string username, string password)
         {
             var res = HttpContext.Response;
-            var isValid = UserManagement.validate(username, password);
+            var isValid = UserManagement.Validate(username, password);
 
             if (!isValid)
             {

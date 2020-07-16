@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Server.HttpSys;
 using System.Diagnostics;
 using System.Globalization;
 using jsdal_server_core.PluginManagement;
+using Serilog;
+using Serilog.Events;
 
 namespace jsdal_server_core
 {
@@ -27,8 +29,6 @@ namespace jsdal_server_core
 
         static StreamWriter consoleWriter;
         static FileStream fs;
-
-        private static EventLogWrapper eventLog;
 
         static void ABC()
         {
@@ -84,9 +84,26 @@ namespace jsdal_server_core
 
         public static void Main(string[] args)
         {
+            var loggerConfig = new LoggerConfiguration()
+                        .MinimumLevel.Debug()
+                        .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+                        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+                        .Enrich.FromLogContext()
+                        .WriteTo.File("log/detail-.txt",
+                                rollingInterval: RollingInterval.Day,
+                                shared: true,
+                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3} {Message:lj}{NewLine}{Exception}"
+                                )
+                      // .WriteTo.File("log/info-.txt",
+                      //         rollingInterval: RollingInterval.Day,
+                      //         shared: true,
+                      //         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3} {Message:lj}{NewLine}{Exception}",
+                      //         restrictedToMinimumLevel: LogEventLevel.Information
+                      //         )
+                      ;
+
             try
             {
-
                 var isService = args.Length == 1 && args[0].Equals("--service", StringComparison.OrdinalIgnoreCase);
                 var justRun = args.Length == 1 && args[0].Equals("--run", StringComparison.OrdinalIgnoreCase);
 
@@ -101,6 +118,12 @@ namespace jsdal_server_core
                     TerminalUI.Init();
                     return;
                 }
+                else
+                {
+                    loggerConfig.WriteTo.Console();
+                }
+        
+                Log.Logger = loggerConfig.CreateLogger();
 
                 var pathToContentRoot = Directory.GetCurrentDirectory();
 
@@ -115,76 +138,32 @@ namespace jsdal_server_core
                 }
 
 
-                eventLog = new EventLogWrapper(isService);
+                Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
-                Console.WriteLine("=================================");
-                Console.WriteLine($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
+                Log.Information("Loading users");
+                UserManagement.LoadUsersFromFile();
 
-                Console.WriteLine("Loading settings.");
-                UserManagement.loadUsersFromFile();
+                Log.Information("Initialising exception logger");
                 ExceptionLogger.Init();
- 
+
+                Log.Information("Loading settings");
                 if (SettingsInstance.LoadSettingsFromFile())
                 {
                     //ServerMethodManager.RebuildCacheForAllApps();
                 }
-              
+
                 _startDate = DateTime.Now;
 
+                Log.Information("Configuring global culture");
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
 
                 // set global culture to en-US - will help with things like parsing numbers from Javascript(e.g. 10.123) as double/decimal even if server uses a comma as decimal separator for example
                 CultureInfo.DefaultThreadCurrentCulture = globalCulture;
                 CultureInfo.DefaultThreadCurrentUICulture = globalCulture;
 
+                Log.Information("Building web host");
                 var builder = BuildWebHost(pathToContentRoot, args);
                 var host = builder.Build();
-
-                ////////////////////////////////////////////////////////
-                {
-                    //CauseTestExceptions();
-                    if (1 == 0)
-                    {
-                        System.Threading.ThreadPool.QueueUserWorkItem(state =>
-                        {
-                            while (true)
-                            {
-                                try
-                                {
-                                    using (var con = new System.Data.SqlClient.SqlConnection())
-                                    {
-
-                                        con.ConnectionString = $"Data source=172.16.1.98\\finance;connect timeout=1;user id=l2;password=Snippie23";
-
-                                        var x = con.ConnectionTimeout;
-                                        con.Open();
-
-                                        var cmd = new System.Data.SqlClient.SqlCommand();
-
-                                        cmd.Connection = con;
-                                        cmd.CommandText = "WAITFOR DELAY '00:00:05'";
-                                        cmd.CommandTimeout = 1;
-
-                                        var ds = new System.Data.DataSet();
-                                        var da = new System.Data.SqlClient.SqlDataAdapter(cmd);
-                                        da.Fill(ds);
-
-
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    ExceptionLogger.LogException(ex);
-                                }
-
-                                System.Threading.Thread.Sleep(4300);
-                            }
-
-                        });
-                    }
-
-                }
-                ////////////////////////////////////////////////////////
 
                 if (isService)
                 {
@@ -202,8 +181,9 @@ namespace jsdal_server_core
 
                         if (keyInfo.Key == ConsoleKey.X && (keyInfo.Modifiers & ConsoleModifiers.Control) == ConsoleModifiers.Control)
                         {
-                            Console.WriteLine("Shutting down workers...");
+                            Log.Information("Shutting down workers...");
                             WorkSpawner.Shutdown();
+                            Performance.StatsDB.Shutdown();
                             break;
                         }
 
@@ -212,11 +192,14 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Shutting down workers from catch...");
+                Log.Fatal(ex, "Application terminated unexpectedly");
                 WorkSpawner.Shutdown();
-
+                Performance.StatsDB.Shutdown();
                 SessionLog.Exception(ex);
-                Console.WriteLine(ex.ToString());
+            }
+            finally
+            {
+                Log.CloseAndFlush();
             }
         }
 
@@ -272,7 +255,9 @@ namespace jsdal_server_core
             // var appConfig = configurationBuilder.Build();
 
 
-            return WebHost.CreateDefaultBuilder(args)
+            return WebHost
+                  .CreateDefaultBuilder(args)
+                  .UseSerilog()
                   //return new WebHostBuilder()
                   //.UseConfiguration(appConfig)
                   .UseContentRoot(pathToContentRoot)
@@ -308,7 +293,7 @@ namespace jsdal_server_core
                               {
                                   if (NetshWrapper.ValidateUrlAcl(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
                                   {
-                                      eventLog.Info($"Listening to {httpsUrl}");
+                                      //!eventLog.Info($"Listening to {httpsUrl}");
                                       options.UrlPrefixes.Add(httpsUrl);
                                       interfaceCnt++;
                                   }
@@ -316,21 +301,21 @@ namespace jsdal_server_core
                                   {
                                       if (NetshWrapper.AddUrlToACL(true, webServerSettings.HttpsServerHostname, webServerSettings.HttpsServerPort.Value))
                                       {
-                                          eventLog.Info($"Listening to {httpsUrl}");
+                                          //!eventLog.Info($"Listening to {httpsUrl}");
                                           options.UrlPrefixes.Add(httpsUrl);
                                           interfaceCnt++;
                                       }
                                       else
                                       {
                                           SessionLog.Error($"The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
-                                          Console.WriteLine($"ERROR: The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                          Log.Error($"The url '{httpsUrl}' was not found in ACL list so a listener for this URL cannot be started.");
                                       }
                                   }
                               }
                               else
                               {
                                   SessionLog.Error($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
-                                  Console.WriteLine($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
+                                  Log.Error($"There is no SSL cert binding for '{httpsUrl}' so a listener for this URL cannot be started.");
                               }
 
 
@@ -338,6 +323,7 @@ namespace jsdal_server_core
                           catch (Exception ex)
                           {
                               SessionLog.Exception(ex);
+                              Log.Error(ex, "HTTPS init failed");
                           }
                       }
 
@@ -349,7 +335,7 @@ namespace jsdal_server_core
 
                               if (NetshWrapper.ValidateUrlAcl(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
                               {
-                                  eventLog.Info($"Listening to {httpUrl}");
+                                  //!eventLog.Info($"Listening to {httpUrl}");
                                   options.UrlPrefixes.Add(httpUrl);
                                   interfaceCnt++;
                               }
@@ -357,27 +343,27 @@ namespace jsdal_server_core
                               {
                                   if (NetshWrapper.AddUrlToACL(false, webServerSettings.HttpServerHostname, webServerSettings.HttpServerPort.Value))
                                   {
-                                      eventLog.Info($"Listening to {httpUrl}");
+                                      //!eventLog.Info($"Listening to {httpUrl}");
                                       options.UrlPrefixes.Add(httpUrl);
                                       interfaceCnt++;
                                   }
                                   else
                                   {
                                       SessionLog.Error($"The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
-                                      Console.WriteLine($"ERROR: The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
+                                      Log.Error($"The url '{httpUrl}' was not found in ACL list so a listener for this URL cannot be started.");
                                   }
                               }
                           }
                           catch (Exception ex)
                           {
                               SessionLog.Exception(ex);
+                              Log.Error(ex, "Basic Http init failed");
                           }
                       }
 
                       if (interfaceCnt == 0)
                       {
-                          Console.WriteLine("No valid interface (http or https) found so defaulting to localhost:9086");
-                          eventLog.Warning("No valid interface (http or https) found so defaulting to localhost:9086");
+                          Log.Warning("No valid interface (http or https) found so defaulting to localhost:9086");
                           options.UrlPrefixes.Add("http://localhost:9086");
                       }
 
@@ -406,14 +392,14 @@ namespace jsdal_server_core
                 //                   catch (System.Exception ex)
                 //                   {
                 //                       SessionLog.Exception(ex);
-                //                       Console.WriteLine(ex.ToString());
+                //                       Cons ole.WriteLine(ex.ToString());
                 //                       throw;
                 //                   }
                 //               });
                 //           }
                 //           else
                 //           {
-                //               Console.WriteLine("Cannot start HTTPS listener: The cert file '{0}' does not exists.", certPath);
+                //               Cons ole.WriteLine("Cannot start HTTPS listener: The cert file '{0}' does not exists.", certPath);
                 //           }
                 //       }
 
@@ -423,7 +409,10 @@ namespace jsdal_server_core
                 //       }
 
                 //   })
-                .UseStartup<Startup>();
+                .UseStartup<Startup>()
+                .UseSetting(WebHostDefaults.DetailedErrorsKey, "true")
+
+                ;
             //     .UseUrls("http://localhost:9086", "https://*:4430")
 
 

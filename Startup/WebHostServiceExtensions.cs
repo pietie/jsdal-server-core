@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
+using Serilog;
+using System;
 using System.ServiceProcess;
 
 namespace jsdal_server_core
@@ -7,8 +9,15 @@ namespace jsdal_server_core
     {
         public static void RunAsCustomService(this IWebHost host)
         {
-            var webHostService = new CustomWebHostService(host);
-            ServiceBase.Run(webHostService);
+            try
+            {
+                var webHostService = new CustomWebHostService(host);
+                ServiceBase.Run(webHostService);
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Failed in RunAsCustomService");
+            }
         }
     }
 }

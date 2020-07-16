@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Serilog;
 
 namespace jsdal_server_core
 {
@@ -23,40 +24,13 @@ namespace jsdal_server_core
                     {
                         var sourceData = new EventSourceCreationData(EventSourceName, EventLogName);
 
-                        // // Set the message resource file that the event source references.
-                        // // All event resource identifiers correspond to text in this file.
-                        // if (!System.IO.File.Exists(messageFile))
-                        // {
-                        //     Console.WriteLine("Input message resource file does not exist - {0}",
-                        //         messageFile);
-                        //     messageFile = "";
-                        // }
-                        // else
-                        // {
-                        //     // Set the specified file as the resource
-                        //     // file for message text, category text, and 
-                        //     // message parameter strings.  
-
-                        //     mySourceData.MessageResourceFile = messageFile;
-                        //     mySourceData.CategoryResourceFile = messageFile;
-                        //     mySourceData.CategoryCount = CategoryCount;
-                        //     mySourceData.ParameterResourceFile = messageFile;
-
-                        //     Console.WriteLine("Event source message resource file set to {0}",
-                        //         messageFile);
-                        // }
-
-                        Console.WriteLine("Registering new source for event log.");
+                        Log.Information("Registering new source for event log.");
                         EventLog.CreateEventSource(sourceData);
-                        Console.WriteLine("EventSource created.");
-                        //EventSourceCreationData mySourceData = new EventSourceCreationData(sourceName, myLogName);
-
-
-                        //System.Diagnostics.EventLog.CreateEventSource("jsDALServerSource", "jsDAL Server Log");
+                        Log.Information("EventSource created.");
                     }
                     else
                     {
-                        Console.WriteLine($"Event source '{EventSourceName}' already exists");
+                        Log.Information($"Event source '{EventSourceName}' already exists");
                     }
                 }
 
@@ -66,7 +40,7 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 SessionLog.Exception(ex);
-                Console.WriteLine(ex.ToString());
+                Log.Fatal(ex.ToString());
             }
         }
 

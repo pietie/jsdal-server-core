@@ -5,6 +5,7 @@ using jsdal_server_core.Settings.ObjectModel;
 using jsdal_server_core.Settings;
 using System.IO;
 using System.Threading;
+using Serilog;
 
 namespace jsdal_server_core
 {
@@ -78,9 +79,9 @@ namespace jsdal_server_core
                     worker.StopAsync();
                 });
 
-//                _workerList.Clear();
+                //                _workerList.Clear();
             }
-            
+
             Hubs.WorkerMonitor.Instance.NotifyObservers();
         }
 
@@ -113,14 +114,15 @@ namespace jsdal_server_core
                     }
                     catch (Exception e)
                     {
+                        Log.Error(e, $"Failed to create new work for {endpoint.Pedigree}");
                         ExceptionLogger.LogException(e);
-                        Console.WriteLine(e.ToString());
                     }
                 });
             }
             catch (Exception e)
             {
                 SessionLog.Exception(e);
+                Log.Error(e, "Work spawner error on start");
             }
 
         } // Start
@@ -133,7 +135,7 @@ namespace jsdal_server_core
 
                 var worker = new Worker(endpoint);
 
-                Console.WriteLine($"Spawning new worker for { endpoint.Pedigree }");
+                Log.Information($"Spawning new worker for { endpoint.Pedigree }");
 
                 WorkSpawner._workerList.Add(worker);
 
@@ -177,7 +179,7 @@ namespace jsdal_server_core
         //         {
         //             var worker = new Worker(app);
 
-        //             Console.WriteLine($"Spawning new worker for { app.Name}");
+         
 
         //             WorkSpawner._workerList.Add(worker);
 
@@ -205,7 +207,7 @@ namespace jsdal_server_core
         //         // {
         //         //     var worker = new Worker(dbSource);
 
-        //         //     Console.WriteLine($"Spawning new worker for { dbSource.Name}");
+        
 
         //         //     WorkSpawner._workerList.Add(worker);
 

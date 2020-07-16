@@ -20,7 +20,7 @@ namespace jsdal_server_core.Performance
 
 
         public string Name { get; protected set; }
-        public long? DurationInMS { get; private set; }
+        public ulong? DurationInMS { get; private set; }
 
         public ExecutionBase(string name)
         {
@@ -60,7 +60,7 @@ namespace jsdal_server_core.Performance
         {
             this._stopwatch.Stop();
 
-            this.DurationInMS = this._stopwatch.ElapsedMilliseconds;
+            this.DurationInMS = (ulong)this._stopwatch.ElapsedMilliseconds;
             this.EndedUtc = DateTime.UtcNow;
 
             var ms = this.EndedUtc.Value.Subtract(this.CreatedUtc.Value).TotalMilliseconds;

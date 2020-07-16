@@ -37,8 +37,8 @@ namespace jsdal_server_core.Settings.ObjectModel
             // // {
             // //     try
             // //     {// TODO: Replace console.log and console.error with Session Log
-            // //         Console.WriteLine("Creating private key for Connections...");
-            // //         Console.WriteLine("\t{0}", Path.GetFullPath(KEY_FILEPATH));
+            // //         Cons ole.WriteLine("Creating private key for Connections...");
+            // //         Cons ole.WriteLine("\t{0}", Path.GetFullPath(KEY_FILEPATH));
 
             // //         var key = StringCipher.Generate256BytesOfRandomEntropy();
             // //         var keyString = Convert.ToBase64String(key, Base64FormattingOptions.InsertLineBreaks);
@@ -46,7 +46,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             // //         connectionPrivateKey = keyString;
 
-            // //         Console.WriteLine("...private key created.");
+            // //         Co nsole.WriteLine("...private key created.");
             // //     }
             // //     catch (Exception e)
             // //     {

@@ -28,7 +28,7 @@ namespace jsdal_server_core.Performance
 
             string routineKey = $"[{re.Schema}].[{re.Name}]";
 
-            var endpointDict = EndpointStats.GetOrAdd(re.EndpointId, new ConcurrentDictionary<string, RoutineExecutionStats>());
+            var endpointDict = EndpointStats.GetOrAdd(re.Endpoint.Id, new ConcurrentDictionary<string, RoutineExecutionStats>());
 
             var executionStats = endpointDict.GetOrAdd(routineKey, new RoutineExecutionStats());
 
@@ -53,8 +53,8 @@ namespace jsdal_server_core.Performance
     public class RoutineExecutionStats
     {
         private int _executionCnt;
-        private long _maxDurationInMS;
-        private long _avgDurationInMS;
+        private ulong _maxDurationInMS;
+        private ulong _avgDurationInMS;
 
         // TODO:Track avg of last (X) calls or (X) seconds/mins/period... ==> Abstract into different structure?
         
@@ -65,12 +65,12 @@ namespace jsdal_server_core.Performance
             this._maxDurationInMS = 0;
             this._avgDurationInMS = 0;
         }
-        public void RecordExectuion(int rowsAffected, long durationInMS)
+        public void RecordExectuion(int rowsAffected, ulong durationInMS)
         {
             Interlocked.Increment(ref _executionCnt);
 
             this._maxDurationInMS = Math.Max(durationInMS, this._maxDurationInMS);
-            this._avgDurationInMS = (long)((((_executionCnt - 1) * this._avgDurationInMS) + durationInMS) / (double)_executionCnt);
+            this._avgDurationInMS = (ulong)(((((ulong)_executionCnt - 1) * this._avgDurationInMS) + durationInMS) / (double)_executionCnt);
         }
     }
 }

@@ -12,6 +12,7 @@ using jsdal_server_core.Changes;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
 using Newtonsoft.Json;
+using Serilog;
 using shortid;
 
 namespace jsdal_server_core
@@ -435,7 +436,7 @@ namespace jsdal_server_core
                         */
                         if (newCachedRoutine.ResultSetRowver >= newCachedRoutine.RowVer)
                         {
-                            Console.WriteLine("Result set metadata up to date");
+                            Log.Verbose("Result set metadata up to date");
                         }
                         else
                         {
@@ -606,8 +607,8 @@ namespace jsdal_server_core
                 //     {
 
                 //     }
-                    
-                    
+
+
                 // }
 
                 return val.Parameters;

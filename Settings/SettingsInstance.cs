@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using System.Linq;
+using Serilog;
 
 namespace jsdal_server_core.Settings
 {
@@ -44,8 +45,8 @@ namespace jsdal_server_core.Settings
             {
                 if (!File.Exists(SettingsInstance.SettingsFilePath))
                 {
-                    Console.WriteLine("INFO Settings file not found at {0}", Path.GetFullPath(SettingsInstance.SettingsFilePath));
-                    Console.WriteLine("INFO Creating blank Settings...");
+                    Log.Warning("Settings file not found at {0}", Path.GetFullPath(SettingsInstance.SettingsFilePath));
+                    Log.Information("Creating blank Settings...");
 
                     SettingsInstance._instance = JsDalServerConfig.CreateDefault();
 
@@ -57,11 +58,6 @@ namespace jsdal_server_core.Settings
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 
                 settingsInst.ProjectList.ForEach(p => p.AfterDeserializationInit());
-                
-                
-                // settingsInst.ProjectList.SelectMany(p => p.Applications.SelectMany(dbs => dbs.Endpoints))
-                //             .ToList()
-                //             .ForEach(ep => ep.AfterDeserializationInit());
 
                 SettingsInstance._instance = settingsInst;
                 return true;

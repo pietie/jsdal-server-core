@@ -137,8 +137,8 @@ namespace jsdal_server_core
                                                       p.SqlDataType,
                                                       p.IsOutput,
                                                       HasDefault = p.HasDefault,
-                                                      JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType,p.CustomType),
-                                                      TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType,p.CustomType, ref customTypeLookupWithTypeScriptDef)
+                                                      JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType, p.CustomType),
+                                                      TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef)
                                                   };
 
 
@@ -148,7 +148,7 @@ namespace jsdal_server_core
                             var tsParameters = from p in sprocParameters
                                                select string.Format("{0}{2}: {1}", StartsWithNum(p.Name) ? ("$" + p.Name) : p.Name, p.TypescriptDataType, p.HasDefault ? "?" : "");
 
-                            var typeScriptParameterDef = string.Format("\t\ttype {0} = {{ {1} }}", tsParameterTypeDefName, string.Join(",", tsParameters));
+                            var typeScriptParameterDef = string.Format("\t\ttype {0} = {{ {1} }}", tsParameterTypeDefName, string.Join(", ", tsParameters));
 
                             typeScriptParameterAndResultTypesSB.AppendLine(typeScriptParameterDef);
 
@@ -352,6 +352,13 @@ namespace jsdal_server_core
             var finalTypeScriptSB = new StringBuilder();
 
             finalTypeScriptSB = finalTypeScriptSB.Append(typescriptDefinitionsContainer);
+
+            // Custom/User types
+            if (customTypeLookupWithTypeScriptDef.Count > 0)
+            {
+                var customTSD = from kv in customTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value};";
+                typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD));
+            }
 
             var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();
 

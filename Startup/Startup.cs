@@ -30,6 +30,9 @@ using jsdal_server_core.PluginManagement;
 using jsdal_server_core.Settings.ObjectModel;
 using jsdal_server_core.SignalR.HomeDashboard;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using Serilog;
 
 namespace jsdal_server_core
 {
@@ -49,15 +52,21 @@ namespace jsdal_server_core
 
             HostingEnvironment = env;
 
-            Console.WriteLine($"WebRootPath: {env.WebRootPath}");
-            Console.WriteLine($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)");
+            Log.Information($"WebRootPath: {env.WebRootPath}");
+            Log.Information($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)");
         }
-
-
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // TODO: make configurable
+            // services.AddApplicationInsightsTelemetry(options =>
+            // {
+
+
+
+            // });
+
             services.AddSingleton(typeof(PluginLoader));
             services.AddSingleton(typeof(BackgroundThreadPluginManager));
             services.AddSingleton(typeof(MainStatsMonitorThread));
@@ -102,7 +111,7 @@ namespace jsdal_server_core
                     var issuer = Configuration["Tokens:Issuer"];
                     var key = Configuration["Tokens:Key"];
 
-                    Console.WriteLine("Issuer: {0}, Key: {1}", issuer, key);
+                    Log.Information("Issuer: {0}, Key: {1}", issuer, key);
 
                     var symKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
 
@@ -170,7 +179,7 @@ namespace jsdal_server_core
 
             var dataProtectionKeyPath = new System.IO.DirectoryInfo(Path.Combine(System.IO.Directory.GetCurrentDirectory(), "data\\keys"));
 
-            Console.WriteLine($"dataProtectionKeyPath: {dataProtectionKeyPath}");
+            Log.Information($"dataProtectionKeyPath: {dataProtectionKeyPath}");
 
             services.AddDataProtection()
                     .PersistKeysToFileSystem(dataProtectionKeyPath)
@@ -238,10 +247,10 @@ namespace jsdal_server_core
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
                     PluginLoader.Instance = pmInst;
                     PluginLoader.Instance.Init();
-                    
+
                     ServerMethodManager.RebuildCacheForAllApps();
 
-                    Console.WriteLine("Starting work spawner.");
+                    Log.Information("Starting work spawner.");
                     WorkSpawner.Start();
                 }
             }
@@ -249,12 +258,12 @@ namespace jsdal_server_core
 
             applicationLifetime.ApplicationStopped.Register(() =>
             {
-                Console.WriteLine("!!!  Stopped reached");
+                Log.Information("Application stopped");
             });
 
             applicationLifetime.ApplicationStopping.Register(() =>
             {
-                Console.WriteLine("!!!  Stopping reached");
+                Log.Information("Application is shutting down");
             });
 
 
@@ -289,7 +298,7 @@ namespace jsdal_server_core
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
-             var all = CSharpCompilerHelper.GetCommonMetadataReferences();
+            var all = CSharpCompilerHelper.GetCommonMetadataReferences();
 
             var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
 
@@ -301,7 +310,7 @@ namespace jsdal_server_core
             }
             else
             {
-                Console.WriteLine($"ERR! Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                Log.Error($" Failed to find base plugin assembly at {jsDALBasePluginPath}");
                 SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
             }
 
@@ -342,6 +351,8 @@ namespace jsdal_server_core
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
+            app.UseSerilogRequestLogging();
+
             // app.UseSignalR(routes =>
             // {
             //     routes.MapHub<Hubs.HomeDashboardHub>("/main-stats");
@@ -369,11 +380,39 @@ namespace jsdal_server_core
             app.UseWebSockets();
             app.UseCookiePolicy();
 
-            app.UseHsts();
+
 
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseHsts();
+
+                // unhandled exceptions
+                app.UseExceptionHandler(errorApp =>
+                {
+                    errorApp.Run(async context =>
+                    {
+                        try
+                        {
+                            var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+
+                            var id = ExceptionLogger.LogException(exceptionHandlerPathFeature.Error, exceptionHandlerPathFeature.Path, "jsdal-server", null);
+
+                            context.Response.StatusCode = 500;
+                            context.Response.ContentType = "text/plain";
+
+                            await context.Response.WriteAsync($"Server error. Ref: {id}");
+                            await context.Response.WriteAsync(new string(' ', 512)); // IE padding
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex, $"Failed to log unhandled exception because of:\r\n {ex.ToString()}");
+                        }
+                    });
+                });
             }
 
 

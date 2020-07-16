@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using Serilog;
 
 namespace jsdal_server_core
 {
@@ -20,7 +21,7 @@ namespace jsdal_server_core
             }
         }
 
-        public static void addUser(jsDALServerUser user)
+        public static void AddUser(jsDALServerUser user)
         {
             // TODO: Validate values. Check for existing users..blah blah
             if (UserManagement.users == null) UserManagement.users = new List<jsDALServerUser>();
@@ -28,7 +29,7 @@ namespace jsdal_server_core
             UserManagement.users.Add(user);
         }
 
-        public static void loadUsersFromFile()
+        public static void LoadUsersFromFile()
         {
             try
             {
@@ -42,13 +43,13 @@ namespace jsdal_server_core
 
                 UserManagement.users = users.ToList();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                //!ExceptionLogger.logException(e);
+                Log.Fatal(ex, "Failed to load users from file");
             }
         }
 
-        public static void saveToFile()
+        public static void SaveToFile()
         {
             try
             {
@@ -58,12 +59,11 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                //!SessionLog.Exception(ex);
+                Log.Fatal(ex, "Failed to save users file");
             }
         }
 
-        public static bool validate(string username, string password)
+        public static bool Validate(string username, string password)
         {
             //return UserManagement.users.find(u => u.username === username && u.password == password) != null;
             return UserManagement.users.FirstOrDefault(u => u.username.Equals(username, StringComparison.OrdinalIgnoreCase)
