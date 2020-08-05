@@ -47,23 +47,54 @@ namespace jsdal_server_core.Hubs
         public dynamic JoinAdminGroup() // TODO: Do we need to secure endpoints like these?
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, ADMIN_GROUP_NAME);
-
+            
             var ret = _bgThreadManager.Registrations
-                    .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst)=> new { Reg = reg, Instance = inst })
-                    .Select(a => new
-                    {
-                        Assymbly = a.Reg.Assembly.FullName, 
-                        InstanceId = a.Instance.Id,
-                        a.Instance.Plugin.Name,
-                        a.Instance.Plugin.IsRunning,
-                        a.Instance.Plugin.EndpointPedigree,
-                        a.Instance.Plugin.Status,
-                        a.Instance.Plugin.Progress,
-                        a.Instance.Plugin.Description,
-                        PluginGuid = a.Instance.Plugin.Guid
-                    });
+                                    .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
+                                    .Select(a => new
+                                    {
+                                        Assymbly = a.Reg.Assembly.FullName,
+                                        InstanceId = a.Instance.Id,
+                                        a.Instance.Plugin.Name,
+                                        a.Instance.Plugin.IsRunning,
+                                        a.Instance.Plugin.EndpointPedigree,
+                                        a.Instance.Plugin.Status,
+                                        a.Instance.Plugin.Progress,
+                                        a.Instance.Plugin.Description,
+                                        PluginGuid = a.Instance.Plugin.Guid
+                                    });
 
             return ret;
+        }
+
+        public object InvokePluginMethod(Guid pluginGuid, string endpoint, string methodName, Dictionary<string, string> inputParameters)
+        {
+            try
+            {
+                var ep = Settings.SettingsInstance.Instance.FindEndpoint(endpoint);
+
+                var pluginInstance = _bgThreadManager.FindPluginInstance(ep, pluginGuid);
+
+                if (pluginInstance == null) throw new Exception($"Plugin {pluginGuid} not found on endpoint {ep.Pedigree}");
+
+                var mi = PluginHelper.FindBestMethodMatch(pluginInstance.Plugin, methodName, inputParameters);
+
+                (var result, var outputParams, var error) = PluginHelper.InvokeMethod(pluginInstance.Plugin, methodName, mi, inputParameters);
+
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    return new { Error = error };
+                }
+                else
+                {
+                    return new { Result = result, OutputParams = outputParams };
+                }
+            }
+            catch (Exception ex)
+            {
+                var exRef = ExceptionLogger.LogException(ex);
+
+                return new { Error = $"Application error occurred. Ref: {exRef}" };
+            }
         }
 
 

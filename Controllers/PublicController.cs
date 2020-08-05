@@ -23,7 +23,7 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/jsdal/ping")]
         public string Ping()
         {
-            StatsDB.QueueRecordExecutionEnd("Test", "PublicController", "Ping", (ulong)new Random().Next(20,43), 1);
+            StatsDB.QueueRecordExecutionEnd("jsdal-server", "PublicController", "Ping", (ulong)new Random().Next(20, 43), 1);
             return "1.0"; // TODO: Version?
         }
 
@@ -583,7 +583,7 @@ namespace jsdal_server_core.Controllers
 
         //         if (!System.IO.File.Exists(path))
         //         {
-      
+
         //             //   return new HttpResponseMessage(HttpStatusCode.PreconditionFailed) { Content = new StringContent("The requested file is not valid or has not been generated yet") };
         //             return StatusCode(StatusCodes.Status412PreconditionFailed, "The requested file is not valid or has not been generated yet");
         //         }

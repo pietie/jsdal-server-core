@@ -90,7 +90,8 @@ namespace jsdal_server_core
                         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
                         .WriteTo.File("log/detail-.txt",
-                                rollingInterval: RollingInterval.Day,
+                                rollingInterval: RollingInterval.Day, 
+                                retainedFileCountLimit: 7,
                                 shared: true,
                                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3} {Message:lj}{NewLine}{Exception}"
                                 )
@@ -122,7 +123,7 @@ namespace jsdal_server_core
                 {
                     loggerConfig.WriteTo.Console();
                 }
-        
+
                 Log.Logger = loggerConfig.CreateLogger();
 
                 var pathToContentRoot = Directory.GetCurrentDirectory();
@@ -134,11 +135,17 @@ namespace jsdal_server_core
                 }
                 else
                 {
-                    OverrideStdout();
+                    // now relying on serilog
+                    // OverrideStdout();
                 }
 
 
                 Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
+
+                // I forget what the different msg types look like
+                Log.Warning("This is what a warning looks like");
+                Log.Error("This is what an error looks like");
+                Log.Fatal("This is what a fatal error looks like");
 
                 Log.Information("Loading users");
                 UserManagement.LoadUsersFromFile();

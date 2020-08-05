@@ -47,29 +47,31 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpGet("/api/performance/stats/totalcounts")]
-        public ApiResponse GetStatsTotalCounts()
+        public ApiResponse GetStatsTotalCounts([FromQuery] int? top)
         {
             try
             {
+                if (!top.HasValue || top.Value < 0) top = 20;
+
                 int tick = Environment.TickCount;
-                var payload = ApiResponse.Payload(from t in StatsDB.GetTotalCountsCollection()
-                                                  select new
-                                                  {
-                                                      //   Endpoint = Settings.SettingsInstance.Instance
-                                                      //                 .ProjectList
-                                                      //                 .SelectMany(p => p.Applications.SelectMany(a => a.Endpoints))
-                                                      //                 .FirstOrDefault(ep => ep.Id.Equals(t.EndpointId, StringComparison.OrdinalIgnoreCase))?.Pedigree ?? null,
-                                                      Endpoint = GetEndpointDescription(t.EndpointId),
-                                                      t.RoutineFullName,
-                                                      t.ExecutionCount,
-                                                      TotalDurationSec = (decimal)t.TotalDuration / 1000.0M,
-                                                      t.TotalRows
-                                                  }
-                );
+
+                var payload = (from t in StatsDB.GetTotalCountsTopN(top.Value)
+                               select new
+                               {
+                                   Endpoint = GetEndpointDescription(t.EndpointId),
+                                   t.RoutineFullName,
+                                   t.ExecutionCount,
+                                   TotalDurationSec = (decimal)t.TotalDuration / 1000.0M,
+                                   t.TotalRows
+                               }).ToList();
 
                 tick = Environment.TickCount - tick;
 
-                return payload;
+                return ApiResponse.Payload(new
+                {
+                    Payload = payload,
+                    FetchTimeInMs = tick
+                });
             }
             catch (Exception ex)
             {
@@ -77,25 +79,12 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        [HttpGet("/api/performance/stats/entriescount")]
+        [HttpGet("/api/performance/stats/totalcounts/numofentries")]
         public IActionResult GetStatsEntryCount()
         {
             try
             {
                 return Ok(StatsDB.GetTotalUniqueExecutionsCount());
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.ToString());
-            }
-        }
-
-        [HttpGet("/api/performance/stats/test")]
-        public IActionResult Test()
-        {
-            try
-            {
-                return Ok($"Test: {Environment.TickCount}");
             }
             catch (Exception ex)
             {

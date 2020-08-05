@@ -9,8 +9,6 @@ namespace jsdal_server_core.PluginManagement
 {
     public static class ServerMethodManager
     {
-        //!private static List<ServerMethodPluginRegistration> Registrations { get; set; }
-
         private static Dictionary<string/*Assembly Instance Reg*/, List<ServerMethodPluginRegistration>> GlobalRegistrations = new Dictionary<string, List<ServerMethodPluginRegistration>>();
 
         public static string TEMPLATE_ServerMethodContainer { get; private set; }
@@ -21,9 +19,6 @@ namespace jsdal_server_core.PluginManagement
         {
             try
             {
-
-                //!  Registrations = new List<ServerMethodPluginRegistration>();
-
                 ServerMethodManager.TEMPLATE_ServerMethodContainer = File.ReadAllText("./resources/ServerMethodContainer.txt");
                 ServerMethodManager.TEMPLATE_ServerMethodFunctionTemplate = File.ReadAllText("./resources/ServerMethodTemplate.txt");
                 ServerMethodManager.TEMPLATE_ServerMethodTypescriptDefinitionsContainer = File.ReadAllText("./resources/ServerMethodsTSDContainer.d.ts");

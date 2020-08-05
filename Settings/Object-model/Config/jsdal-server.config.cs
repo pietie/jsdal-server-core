@@ -13,11 +13,11 @@ namespace jsdal_server_core.Settings
         [JsonProperty("Settings")]
         public CommonSettings Settings { get; private set; }
         public List<Project> ProjectList { get; private set; }
-      //?  [JsonProperty("InlinePluginModules")] public List<InlinePluginModule> InlinePluginModules { get; set; }
+        //?  [JsonProperty("InlinePluginModules")] public List<InlinePluginModule> InlinePluginModules { get; set; }
         public JsDalServerConfig()
         {
             this.ProjectList = new List<Project>();
-       //     this.InlinePluginModules = new List<InlinePluginModule>();
+            //     this.InlinePluginModules = new List<InlinePluginModule>();
         }
 
         private bool Exists(string projectName)
@@ -35,13 +35,33 @@ namespace jsdal_server_core.Settings
             ret.Settings = new CommonSettings();
             ret.Settings.WebServer = new WebServerSettings()
             {
-                 EnableSSL = false,
-                 EnableBasicHttp = true,
-                 HttpServerHostname = "localhost",
-                 HttpServerPort = 9086                
+                EnableSSL = false,
+                EnableBasicHttp = true,
+                HttpServerHostname = "localhost",
+                HttpServerPort = 9086
             };
 
             return ret;
+        }
+
+        public Endpoint FindEndpoint(string endpointPedigree)
+        {
+            if (string.IsNullOrWhiteSpace(endpointPedigree)) return null;
+
+            var parts = endpointPedigree.Split('/');
+
+            if (parts.Length != 3) return null;
+
+            var project = this.ProjectList.FirstOrDefault(proj => proj.Name.Equals(parts[0], StringComparison.OrdinalIgnoreCase));
+
+            if (project == null) return null;
+
+            var app = project.Applications.FirstOrDefault(app => app.Name.Equals(parts[1], StringComparison.OrdinalIgnoreCase));
+
+            if (app == null) return null;
+
+            return app.Endpoints.FirstOrDefault(ep => ep.Name.Equals(parts[2], StringComparison.OrdinalIgnoreCase));
+
         }
 
         public Project GetProject(string name)

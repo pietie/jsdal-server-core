@@ -64,14 +64,17 @@ namespace jsdal_server_core.Performance
             try
             {
                 IsRunning = true;
-                var lastFlush = DateTime.Now;
+                var flushTimeoutInSeconds = 25;
+                var checkpointTimeoutInSeconds = 3 * 60;
+
+                var nextFlush = DateTime.Now.AddSeconds(flushTimeoutInSeconds);
+                var nextCheckpoint = DateTime.Now.AddSeconds(checkpointTimeoutInSeconds);
 
                 while (IsRunning)
                 {
                     // timeout or count trigger check 
-                    if (DateTime.Now.Subtract(lastFlush).TotalSeconds >= 60 || _executionQueue.Count >= 100)
+                    if (DateTime.Now >= nextFlush || _executionQueue.Count >= 100)
                     {
-
                         while (!_executionQueue.IsEmpty)
                         {
                             if (_executionQueue.TryDequeue(out var statsRoutineExecution))
@@ -79,10 +82,16 @@ namespace jsdal_server_core.Performance
                                 InsertUpdate(statsRoutineExecution);
                             }
                         }
-                        // TODO: Don't checkpoint this often
+
+                        nextFlush = DateTime.Now.AddSeconds(flushTimeoutInSeconds);
+                    }
+
+                    // checkpoint 
+                    if (DateTime.Now >= nextCheckpoint)
+                    {
                         _database.Checkpoint();
 
-                        lastFlush = DateTime.Now;
+                        nextCheckpoint = DateTime.Now.AddSeconds(checkpointTimeoutInSeconds);
                     }
 
                     Thread.Sleep(60);
@@ -236,11 +245,18 @@ namespace jsdal_server_core.Performance
         //     }
         // }
 
-        public static List<StatsRoutineExecution> GetTotalCountsCollection()
+        public static List<StatsRoutineExecution> GetTotalCountsTopN(int topN)
         {
             var totalCounts = _database.GetCollection<StatsRoutineExecution>("TotalCount");
 
-            return totalCounts.FindAll().ToList();
+            if (topN == 0)
+            {
+                return totalCounts.FindAll().ToList();
+            }
+            else
+            {
+                return totalCounts.FindAll().Take(Math.Min(topN, totalCounts.Count())).ToList();
+            }
         }
 
         public static long GetTotalUniqueExecutionsCount()

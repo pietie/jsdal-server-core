@@ -11,6 +11,7 @@ namespace jsdal_server_core
 
     public class ExceptionLogger
     {
+        // TODO: Move exception log to LiteDB
         private static string ExceptionFilePath = "./data/exceptions.lst";
         private static readonly int MAX_ENTRIES_PER_ENDPOINT = 1000;
         private static Dictionary<string/*EndpointKey*/, List<ExceptionWrapper>> exceptionDict = new Dictionary<string, List<ExceptionWrapper>>();
@@ -174,14 +175,18 @@ namespace jsdal_server_core
                 if (ExceptionLogger.exceptionDict[listKey].Count >= ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT)
                 {
                     // cull from the front
-                    ExceptionLogger.exceptionDict[listKey].RemoveRange(0, ExceptionLogger.exceptionDict.Count - ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT + 1);
+                    int count = (ExceptionLogger.exceptionDict.Count - ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT) + 1;
+                    if (count > 0)
+                    {
+                        ExceptionLogger.exceptionDict[listKey].RemoveRange(0, count);
+                    }
                 }
 
                 var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle, appVersion);
 
                 ExceptionWrapper parent = null;
 
-                // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)                
+                // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)
 
                 // look at last (n) exceptions for an exact match
                 if (parent == null)

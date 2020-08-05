@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using jsdal_plugin;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.ObjectModel;
+using jsdal_server_core.Settings.ObjectModel;
 
 namespace jsdal_server_core.PluginManagement
 {
@@ -26,13 +27,24 @@ namespace jsdal_server_core.PluginManagement
         {
             try
             {
-                _registrations.Add(BackgroundThreadPluginRegistration.Create(pluginInfo, _hubContext.Clients));
+                _registrations.Add(BackgroundThreadPluginRegistration.Create(pluginInfo, _hubContext));
             }
             catch (Exception ex)
             {
                 SessionLog.Error($"Failed to instantiate plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName}. See exception that follows.");
                 SessionLog.Exception(ex);
             }
+        }
+
+        public BackgroundThreadPluginInstance FindPluginInstance(Endpoint endpoint, Guid pluginGuid)
+        {
+            if (_registrations == null) return null;
+
+            var reg = _registrations.FirstOrDefault(r => r.PluginGuid.Equals(pluginGuid.ToString(), StringComparison.OrdinalIgnoreCase));
+
+            if (reg == null) return null;
+
+            return reg.FindPluginInstance(endpoint);
         }
     }
 }
