@@ -15,10 +15,8 @@ namespace jsdal_server_core.Hubs
         public static readonly string GROUP_NAME = "MainDashboard.Stats";
         public static readonly string GROUP_NAME_CLR_COUNTERS = "MainDashboard.ClrCounters";
 
-        public HomeDashboardHub(DotNetCoreCounterListener dotNetCoreCounterListener)
+        public HomeDashboardHub()
         {
-            //_dotnetCoreCounterListener ??= new DotNetCoreCounterListener(System.Diagnostics.Process.GetCurrentProcess().Id);
-            //_dotnetCoreCounterListener.Start();
         }
 
         public MainStats Init()
@@ -31,7 +29,7 @@ namespace jsdal_server_core.Hubs
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME_CLR_COUNTERS);
 
-            return DotNetCoreCounterListener.Instance.CounterValues.ToDictionary((kv)=>kv.Key, kv=>kv.Value);
+            return DotNetCoreCounterListener.Instance.CounterValues.ToDictionary((kv) => kv.Key, kv => kv.Value);
         }
 
         public void UnsubscribeFromDotnetCorePerfCounters()

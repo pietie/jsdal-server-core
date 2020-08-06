@@ -139,7 +139,6 @@ namespace jsdal_server_core
                     // OverrideStdout();
                 }
 
-
                 Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
                 // I forget what the different msg types look like

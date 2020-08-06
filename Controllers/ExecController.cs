@@ -422,7 +422,6 @@ namespace jsdal_server_core.Controllers
             if (execOptions.inputParameters == null) execOptions.inputParameters = new Dictionary<string, string>();
 
 
-
             (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, requestHeaders,
                 referer, remoteIpAddress,
                 appTitle, appVersion, out var responseHeaders);
@@ -577,23 +576,6 @@ namespace jsdal_server_core.Controllers
 
                 if (execOptions.type == ExecType.Query)
                 {
-
-                    // TMP!!!
-                    // {
-
-                    //     if (execOptions.routine == "AttachmentServe")
-                    //     {
-                    //         var ds = executionResult.DataSet;
-
-                    //         var data = ds.Tables[0].Rows[0]["Data"];
-
-                    //         responseHeaders.Add("Content-Type", "image/jpeg");
-
-
-                    //         return (data, routineExecutionMetric, mayAccess);
-                    //     }
-                    // }
-
                     var dataSet = executionResult.DataSet;
                     var dataContainers = dataSet.ToJsonDS();
 

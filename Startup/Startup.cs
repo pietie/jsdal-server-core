@@ -66,8 +66,8 @@ namespace jsdal_server_core
 
 
             // });
-
-            services.AddSingleton(typeof(PluginLoader));
+            services.AddSingleton<PluginLoader>();
+            //services.AddSingleton(typeof(PluginLoader));
             services.AddSingleton(typeof(BackgroundThreadPluginManager));
             services.AddSingleton(typeof(MainStatsMonitorThread));
             services.AddSingleton(typeof(WorkerMonitor));
@@ -87,16 +87,7 @@ namespace jsdal_server_core
                         .AllowAnyHeader()
                         .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
                         .Build()));
-            //             var policy = new Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicy();
-
-            //             policy.Headers.Add("*");
-            //             policy.Methods.Add("*");
-            //             policy.Origins.Add("*");
-            //             policy.SupportsCredentials = true;
-
-            // policy.PreflightMaxAge = TimeSpan.FromSeconds(600);
-            //             services.AddCors(x => x.AddPolicy("CorsPolicy", policy));
-
+            
             services.AddAuthentication(o =>
             {
                 o.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -189,8 +180,6 @@ namespace jsdal_server_core
                         EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
                         ValidationAlgorithm = ValidationAlgorithm.HMACSHA512
                     });
-
-
         }
 
         public class ApiSingleValueOutputWrapperConverter : JsonConverter
@@ -267,13 +256,7 @@ namespace jsdal_server_core
             });
 
 
-
-            //       loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            //     loggerFactory.AddDebug();
-
-
-
-
+ 
 
             // app.Use(async (httpContext, next) =>
             // {
