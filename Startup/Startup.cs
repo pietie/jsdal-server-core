@@ -66,10 +66,11 @@ namespace jsdal_server_core
 
 
             // });
+
             services.AddSingleton<PluginLoader>();
             //services.AddSingleton(typeof(PluginLoader));
             services.AddSingleton(typeof(BackgroundThreadPluginManager));
-            services.AddSingleton(typeof(MainStatsMonitorThread));
+            services.AddSingleton(typeof(CommonNotificationThread));
             services.AddSingleton(typeof(WorkerMonitor));
             services.AddSingleton(typeof(RealtimeMonitor));
             services.AddSingleton(typeof(BackgroundTaskMonitor));
@@ -87,7 +88,7 @@ namespace jsdal_server_core
                         .AllowAnyHeader()
                         .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
                         .Build()));
-            
+
             services.AddAuthentication(o =>
             {
                 o.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -222,8 +223,9 @@ namespace jsdal_server_core
             {
                 var pmInst = app.ApplicationServices.GetService<PluginLoader>();
 
-                app.ApplicationServices.GetService<MainStatsMonitorThread>();
+                CommonNotificationThread.Instance = app.ApplicationServices.GetService<CommonNotificationThread>();
 
+                BackgroundThreadPluginManager.Instance = app.ApplicationServices.GetService<BackgroundThreadPluginManager>();
                 WorkerMonitor.Instance = app.ApplicationServices.GetService<WorkerMonitor>();
                 RealtimeMonitor.Instance = app.ApplicationServices.GetService<RealtimeMonitor>();
                 BackgroundTaskMonitor.Instance = app.ApplicationServices.GetService<BackgroundTaskMonitor>();
@@ -256,8 +258,6 @@ namespace jsdal_server_core
             });
 
 
- 
-
             // app.Use(async (httpContext, next) =>
             // {
             //     //if (httpContext.Request.Path.Value.Contains("api/") && httpContext.Request.Method == "OPTIONS")
@@ -278,6 +278,19 @@ namespace jsdal_server_core
 
             app.UseWebSockets(webSocketOptions);
             app.UseCors("CorsPolicy");
+
+
+            // SPA (angular) route fallback
+            app.Use(async (context, next) =>
+            {
+                await next();
+
+                if (context.Response.StatusCode == 404 && !Path.HasExtension(context.Request.Path.Value))
+                {
+                    context.Request.Path = "/index.html"; 
+                    await next();
+                }
+            });            
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
@@ -363,8 +376,6 @@ namespace jsdal_server_core
             app.UseWebSockets();
             app.UseCookiePolicy();
 
-
-
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -405,6 +416,7 @@ namespace jsdal_server_core
                                 name: "default",
                                 template: "{controller=Home}/{action=Index}/{id?}");
                         });
+
         }
     }
 }

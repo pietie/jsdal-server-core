@@ -141,7 +141,7 @@ namespace jsdal_server_core.Performance
             IsRunning = false;
             if (_winThread != null)
             {
-                if (!_winThread.Join(TimeSpan.FromSeconds(3)))
+                if (!_winThread.Join(TimeSpan.FromSeconds(5)))
                 {
                     Log.Error("StatsDB failed to shutdown in time");
                 }

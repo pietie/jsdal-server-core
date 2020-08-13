@@ -460,7 +460,7 @@ namespace jsdal_server_core.Controllers
             string appVersion,
             out Dictionary<string, string> responseHeaders)
         {
-            var debugInfo = "";
+            string debugInfo = null;
 
             Project project = null;
             Application app = null;
@@ -469,7 +469,7 @@ namespace jsdal_server_core.Controllers
 
             List<ExecutionPlugin> pluginList = null;
 
-            // record client info? IP etc? Record other interestsing info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
+            // record client info? IP etc? Record other interesting info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             RoutineExecution routineExecutionMetric = null;
 
             responseHeaders = new Dictionary<string, string>();
@@ -483,7 +483,7 @@ namespace jsdal_server_core.Controllers
 
                 routineExecutionMetric = ExecTracker.Begin(endpoint, execOptions.schema, execOptions.routine);
 
-                debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
+              //  debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
                 string jsDALApiKey = null;
 
@@ -591,7 +591,7 @@ namespace jsdal_server_core.Controllers
                 }
                 else if (execOptions.type == ExecType.NonQuery)
                 {
-
+                    // nothing to do 
                 }
                 else if (execOptions.type == ExecType.Scalar)
                 {
@@ -630,16 +630,16 @@ namespace jsdal_server_core.Controllers
                     // TODO: Fix!
                     dbConn = endpoint.GetSqlConnection();
 
-                    if (debugInfo == null) debugInfo = "";
+                    // if (debugInfo == null) debugInfo = "";
 
-                    if (dbConn != null)
-                    {
-                        debugInfo = $"{ endpoint.Pedigree } - { dbConn.InitialCatalog } - { debugInfo }";
-                    }
-                    else
-                    {
-                        debugInfo = $"{ endpoint.Pedigree } - (no connection) - { debugInfo }";
-                    }
+                    // if (dbConn != null)
+                    // {
+                    //     debugInfo = $"{ endpoint.Pedigree } - { dbConn.InitialCatalog } - { debugInfo }";
+                    // }
+                    // else
+                    // {
+                    //     debugInfo = $"{ endpoint.Pedigree } - (no connection) - { debugInfo }";
+                    // }
 
                 }
 

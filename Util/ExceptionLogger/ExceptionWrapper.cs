@@ -40,6 +40,7 @@ namespace jsdal_server_core
         ///
 
         public string message;
+        public string additionalInfo;
 
         public ExceptionWrapper GetRelated(string id)
         {
@@ -79,8 +80,6 @@ namespace jsdal_server_core
                     this.sqlErrorType = (SqlErrorType)re.Number;
                 }
 
-
-
                 // TODO: There could be multiple re.Errors present..do something with that info? Seems those exception messages get concatted to main one anyway
                 //!msg = $"Procedure ##{re.Procedure}##, Line {re.LineNumber}, Message: {re.Message}, Error {re.Number}, Level {re.Class}, State {re.State}";
 
@@ -96,6 +95,7 @@ namespace jsdal_server_core
 
             this.id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             this.message = msg;
+            this.additionalInfo = additionalInfo;
             this.stackTrace = ex.StackTrace;
 
             if (ex.InnerException != null)
@@ -104,9 +104,9 @@ namespace jsdal_server_core
             }
         }
         public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null, string appVersion = null) : this(ex, additionalInfo, appTitle, appVersion)
-        { // TODO: do something interesting with additionalInfo
-
+        {
             this.execOptions = eo;
+            this.additionalInfo = additionalInfo;
         }
 
         public bool HasAppTitle(string[] appTitleLookup)

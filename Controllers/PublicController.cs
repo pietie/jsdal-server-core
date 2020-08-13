@@ -14,6 +14,7 @@ using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Newtonsoft.Json;
 using Serilog;
 using jsdal_server_core.Performance;
+using System.Threading.Tasks;
 
 namespace jsdal_server_core.Controllers
 {
@@ -84,10 +85,12 @@ namespace jsdal_server_core.Controllers
 
 
         [HttpPost("/api/jsdal/subscription/watch")]
-        public IActionResult WatchSubscription([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string file)
+        public async Task<IActionResult> WatchSubscription([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string file)
         {
             try
             {
+                Hubs.MainStats.IncreaseSubWatchers();
+
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
 
                 if (!ControllerHelper.GetProjectAndAppAndEndpoint(project, app, endpoint, out var proj, out var application, out var ep, out var resp))
@@ -98,6 +101,7 @@ namespace jsdal_server_core.Controllers
                 var jsFile = application.GetJsFile(file);
 
                 if (jsFile == null) return NotFound();
+
 
                 dynamic workerState = null;
 
@@ -146,7 +150,7 @@ namespace jsdal_server_core.Controllers
 
                 bool hasJsChanges = false;
                 bool hasSMChanges = false;
-                int watchForSeconds = 20;
+                int watchForSeconds = 12;
                 int tickCountEnd = Environment.TickCount + (watchForSeconds * 1000);
 
                 while (!hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
@@ -156,12 +160,12 @@ namespace jsdal_server_core.Controllers
                         workerState = new { Running = worker.IsRunning, Status = worker.Status };
                         break;
                     }
+
                     hasJsChanges = jsFile.ETag != currentJsEtag;
 
                     //hasSMChanges = jsFile.ETag != jsEtag;
-                    System.Threading.Thread.Sleep(30);
+                    await Task.Delay(200);
                 }
-
 
                 return Ok(new { Worker = workerState, HasJsChanges = hasJsChanges, HasSMChanges = hasSMChanges });
             }
@@ -169,6 +173,10 @@ namespace jsdal_server_core.Controllers
             {
                 SessionLog.Exception(ex);
                 return BadRequest(ex.Message);
+            }
+            finally
+            {
+                Hubs.MainStats.DecreaseSubWatchers();
             }
         }
 

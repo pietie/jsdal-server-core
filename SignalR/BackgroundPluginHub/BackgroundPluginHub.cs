@@ -14,10 +14,10 @@ namespace jsdal_server_core.Hubs
     {
         public static readonly string ADMIN_GROUP_NAME = "BackgroundPluginHub.Admin";
         public static readonly string BROWSER_CONSOLE_GROUP_NAME = "Browser.Console";
-        private readonly BackgroundThreadPluginManager _bgThreadManager;
-        public BackgroundPluginHub(BackgroundThreadPluginManager btpm)
+        //private readonly BackgroundThreadPluginManager _bgThreadManager;
+        public BackgroundPluginHub()
         {
-            this._bgThreadManager = btpm;
+            //this._bgThreadManager = BackgroundThreadPluginManager.Instance;
         }
         public Task JoinBrowserDebugGroup()
         {
@@ -48,7 +48,7 @@ namespace jsdal_server_core.Hubs
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, ADMIN_GROUP_NAME);
             
-            var ret = _bgThreadManager.Registrations
+            var ret = BackgroundThreadPluginManager.Instance.Registrations
                                     .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
                                     .Select(a => new
                                     {
@@ -72,7 +72,7 @@ namespace jsdal_server_core.Hubs
             {
                 var ep = Settings.SettingsInstance.Instance.FindEndpoint(endpoint);
 
-                var pluginInstance = _bgThreadManager.FindPluginInstance(ep, pluginGuid);
+                var pluginInstance = BackgroundThreadPluginManager.Instance.FindPluginInstance(ep, pluginGuid);
 
                 if (pluginInstance == null) throw new Exception($"Plugin {pluginGuid} not found on endpoint {ep.Pedigree}");
 

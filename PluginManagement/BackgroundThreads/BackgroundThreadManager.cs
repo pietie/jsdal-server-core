@@ -23,6 +23,8 @@ namespace jsdal_server_core.PluginManagement
 
         public ReadOnlyCollection<BackgroundThreadPluginRegistration> Registrations { get; private set; }
 
+        public static BackgroundThreadPluginManager Instance { get; set; }
+
         public void Register(PluginInfo pluginInfo)
         {
             try

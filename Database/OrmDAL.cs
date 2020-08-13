@@ -165,7 +165,6 @@ namespace jsdal_server_core
                 var routineCache = endpoint.cache;
                 var cachedRoutine = routineCache.FirstOrDefault(r => r.Equals(schemaName, routineName));
 
-
                 outputParameterDictionary = new Dictionary<string, dynamic>();
 
                 if (cachedRoutine == null)
@@ -315,7 +314,7 @@ namespace jsdal_server_core
                                 }
                                 else
                                 {
-                                    parmValue = ConvertParameterValue(sqlType, val.ToString(), udtType);
+                                    parmValue = ConvertParameterValue(expectedParmName, sqlType, val.ToString(), udtType);
                                 }
 
                                 newSqlParm.Value = parmValue;
@@ -372,7 +371,6 @@ namespace jsdal_server_core
                         ds = new DataSet();
 
                         cmd.CommandTimeout = commandTimeOutInSeconds;
-
 
                         var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
 
@@ -441,7 +439,6 @@ namespace jsdal_server_core
                         throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
                     }
 
-
                     if (cachedRoutine?.Parameters != null)
                     {
                         var outputParmList = (from p in cachedRoutine.Parameters
@@ -462,14 +459,10 @@ namespace jsdal_server_core
                         }
                     }
 
-
-
                     //!executionTrackingEndFunction();
 
                     return new ExecutionResult() { DataSet = ds, ScalarValue = scalarVal };
-
                 }
-
             }
             finally
             {
@@ -526,10 +519,13 @@ namespace jsdal_server_core
 
         }
 
-        private static object ConvertParameterValue(SqlDbType sqlType, string value, string udtType)
+        private static readonly System.Data.SqlDbType[] SqlStringTypes = new System.Data.SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText,
+                                                                                                             SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar };
+
+        private static object ConvertParameterValue(string paramName, SqlDbType sqlType, string value, string udtType)
         {
             // if the expected value is a string return as is
-            if ((new System.Data.SqlDbType[] { SqlDbType.Char, SqlDbType.NChar, SqlDbType.NText, SqlDbType.NVarChar, SqlDbType.Text, SqlDbType.VarChar }).Contains(sqlType))
+            if (SqlStringTypes.Contains(sqlType))
             {
                 return value;
             }
@@ -544,22 +540,18 @@ namespace jsdal_server_core
                 case SqlDbType.UniqueIdentifier:
                     return new Guid((string)value);
                 case SqlDbType.DateTime:
-                    //string text = "2013-07-03T02:16:03.000+01:00";
-                    // we expect ISO 8601 format (with time offset included)
-
-                    // if (DateTime.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", null, System.Globalization.DateTimeStyles.None, out DateTime dt))
-                    // {
-                    //     return dt;
-                    // }
+                    var expectedFormat = "yyyy-MM-dd'T'HH:mm:ss.FFFK";
 
                     // DateTimeOffset expect the Date & Time to be in LOCAL time
-                    if (DateTimeOffset.TryParseExact(value, "yyyy-MM-dd'T'HH:mm:ss.FFFK", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dto))
+                    if (DateTimeOffset.TryParseExact(value, expectedFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dto))
                     {
                         return dto.DateTime;
                     }
+                    else
+                    {
+                        throw new JsdalServerParameterValueException(paramName, $"Invalid DateTime value. Expected format is: {expectedFormat} e.g. {DateTime.Now.ToString(expectedFormat)}");
+                    }
 
-                    return null; // TODO: consider just returning the original value and hope for the best?
-                                 //return value; 
                 case SqlDbType.Bit:
                     return ConvertToSqlBit(value);
                 case SqlDbType.VarBinary:
@@ -574,6 +566,7 @@ namespace jsdal_server_core
                     {
                         // TODO: Refractor into separate function
                         // TODO: Add support for geometry
+                        // TODO: Throw if unable to convert? (e.g. see DateTime section)
                         if (udtType.Equals("geography", StringComparison.OrdinalIgnoreCase))
                         {
                             // for geography we only support { lat: .., lng: ...} for now - in future we might support WKT strings

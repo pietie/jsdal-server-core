@@ -90,7 +90,7 @@ namespace jsdal_server_core
                         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
                         .WriteTo.File("log/detail-.txt",
-                                rollingInterval: RollingInterval.Day, 
+                                rollingInterval: RollingInterval.Day,
                                 retainedFileCountLimit: 7,
                                 shared: true,
                                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3} {Message:lj}{NewLine}{Exception}"
@@ -264,8 +264,6 @@ namespace jsdal_server_core
             return WebHost
                   .CreateDefaultBuilder(args)
                   .UseSerilog()
-                  //return new WebHostBuilder()
-                  //.UseConfiguration(appConfig)
                   .UseContentRoot(pathToContentRoot)
                   .UseWebRoot(Path.Combine(pathToContentRoot, "wwwroot"))
                   .UseSetting(WebHostDefaults.SuppressStatusMessagesKey, "true")

@@ -29,10 +29,17 @@ namespace jsdal_server_core
         protected override void OnStopping()
         {
             _logger.LogInformation("OnStopping method called.");
-            base.OnStopping();
+
             WorkSpawner.Shutdown();
             Performance.StatsDB.Shutdown();
+
+            if (Hubs.CommonNotificationThread.Instance != null)
+            {
+                Hubs.CommonNotificationThread.Instance.Shutdown();
+            }
+
+            base.OnStopping();
         }
-         
+
     }
 }

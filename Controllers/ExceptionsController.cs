@@ -72,7 +72,8 @@ namespace jsdal_server_core.Controllers
                     //?ret.sqlErrorType,
                     ret.stackTrace,
                     ret.state,
-                    ret.type
+                    ret.type,
+                    ret.additionalInfo
 
                 });
             }

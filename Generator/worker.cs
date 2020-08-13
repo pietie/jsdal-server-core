@@ -218,7 +218,7 @@ namespace jsdal_server_core
                         {
                             Hubs.WorkerMonitor.Instance.NotifyObservers();
                         }
-
+                        
                         Thread.Sleep(SettingsInstance.Instance.Settings.DbSource_CheckForChangesInMilliseconds);
                     }
                     catch (Exception ex)
