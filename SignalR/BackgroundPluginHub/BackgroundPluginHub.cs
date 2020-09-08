@@ -7,6 +7,7 @@ using jsdal_server_core.Controllers;
 using jsdal_server_core.Performance;
 using jsdal_server_core.PluginManagement;
 using Microsoft.AspNetCore.SignalR;
+using Serilog;
 
 namespace jsdal_server_core.Hubs
 {
@@ -14,10 +15,9 @@ namespace jsdal_server_core.Hubs
     {
         public static readonly string ADMIN_GROUP_NAME = "BackgroundPluginHub.Admin";
         public static readonly string BROWSER_CONSOLE_GROUP_NAME = "Browser.Console";
-        //private readonly BackgroundThreadPluginManager _bgThreadManager;
+
         public BackgroundPluginHub()
         {
-            //this._bgThreadManager = BackgroundThreadPluginManager.Instance;
         }
         public Task JoinBrowserDebugGroup()
         {
@@ -47,7 +47,15 @@ namespace jsdal_server_core.Hubs
         public dynamic JoinAdminGroup() // TODO: Do we need to secure endpoints like these?
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, ADMIN_GROUP_NAME);
+
+        // tmp for debugging
+        //  {
+        //     Log.Information($"JoinAdminGroup - Called. Reg count = {BackgroundThreadPluginManager.Instance.Registrations.Count()}");
             
+        //     var asm = string.Join('|', BackgroundThreadPluginManager.Instance.Registrations.Select(r=>r.Assembly.FullName).ToArray());
+        //     Log.Information($"JoinAdminGroup - Loaded assemblies: {asm}");
+        // }
+             
             var ret = BackgroundThreadPluginManager.Instance.Registrations
                                     .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
                                     .Select(a => new

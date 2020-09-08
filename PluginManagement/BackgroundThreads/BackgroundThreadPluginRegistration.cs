@@ -47,8 +47,19 @@ namespace jsdal_server_core.PluginManagement
                                     .SelectMany(proj => proj.Applications)
                                     .Where(app => app.IsPluginIncluded(pluginInfo.Guid.ToString()));
 
-            var endpointCollection = apps.SelectMany(app => app.Endpoints)
-                                        .Where(ep => ep.Name == "DEV"); //TEMP limit to dev only
+            var endpointCollection = apps.SelectMany(app => app.Endpoints);
+
+            // create a default instance just to read the Default Value collection
+            var defaultInstance = (BackgroundThreadPlugin)pluginInfo.Assembly.CreateInstance(pluginInfo.TypeInfo.FullName);
+
+            var defaultConfig = defaultInstance.GetDefaultConfig();
+
+            if (defaultConfig.ContainsKey("IsEnabled"))
+            {
+                var defIsEnabled = defaultConfig["IsEnabled"];
+                // TODO: Convert to better typed class (e.g. true/false)
+                // TODO: Match up with Endpoint config. EP Config needs to be persisted somewhere
+            }
 
             // TODO: For each BG Plugin catalog the 'server methods' available. (do this once per assembly, not per EP as they are the same for all EPs) 
 
@@ -150,6 +161,8 @@ namespace jsdal_server_core.PluginManagement
                                 null/*configSource*/ });
 
                         reg.AddEnpointInstance(endpoint, instanceWrapper);
+
+                        SessionLog.Info($"BG plugin '{pluginInfo.Name}' instantiated successfully on endpoint {endpoint.Pedigree}");
                     }
                     else
                     {
@@ -176,6 +189,18 @@ namespace jsdal_server_core.PluginManagement
             if (_endpointInstances == null || !_endpointInstances.ContainsKey(endpoint)) return null;
 
             return _endpointInstances[endpoint];
+        }
+
+        public void Shutdown()
+        {
+            if (this._endpointInstances == null) return;
+            
+            Parallel.ForEach(this._endpointInstances.Values, (instance)=>{
+                instance.Plugin.Stop();
+            });
+            
+
+            this._endpointInstances.Clear();
         }
     }
 

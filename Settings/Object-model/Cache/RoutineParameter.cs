@@ -146,6 +146,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                             {
                                 var customTypeName = customType.Keys.First();
                                 var typeName = $"$CustomType_{customTypeName}";
+
                                 if (customTypeLookupWithTypeScriptDef.ContainsKey(typeName))
                                 {
                                     return typeName;
@@ -164,7 +165,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                                 }
 
                                 var customTSD = string.Join(", ", from kv in properties select $"{kv.Key}: {kv.Value}");
-                                customTypeLookupWithTypeScriptDef.Add(typeName, $"{{{ customTSD }}}[]");
+                                customTypeLookupWithTypeScriptDef.Add(typeName, $"{{{ customTSD }}}[]");//TODO: Custom types are not necessarily arrays?
 
                                 return typeName;
                             }

@@ -198,7 +198,6 @@ namespace jsdal_server_core
                             {
                                 this.Status = "Failed to open connection to database: " + oex.Message;
                                 this.log.Exception(oex, connectionStringRef);
-                                SessionLog.Exception(oex, connectionStringRef);
                                 connectionOpenErrorCnt++;
 
                                 int waitMS = Math.Min(3000 + (connectionOpenErrorCnt * 3000), 300000/*Max 5mins between tries*/);
@@ -224,7 +223,6 @@ namespace jsdal_server_core
                     catch (Exception ex)
                     {
                         this.log.Exception(ex);
-                        SessionLog.Exception(new Exception($"{this.Endpoint.Pedigree} exception: ", ex));
 
                         exceptionThrottler.Add(DateTime.Now, ex);
 
@@ -268,7 +266,6 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 this.log.Exception(ex);
-                SessionLog.Exception(ex);
             }
             finally
             {
@@ -286,7 +283,6 @@ namespace jsdal_server_core
             {
                 last0Cnt = null;
 
-                SessionLog.Info($"{ Endpoint.Pedigree }\t{ changesCount} change(s) found using row date { this.MaxRowDate}");
                 this.log.Info($"{ changesCount} change(s) found using row date { this.MaxRowDate}");
                 this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount} change(s) found using rowdate { this.MaxRowDate}";
 
@@ -673,7 +669,6 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 this.log.Exception(ex);
-                SessionLog.Exception(ex);
             }
         }
 
@@ -692,7 +687,6 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 this.log.Exception(ex);
-                SessionLog.Exception(ex);
             }
         }
 
@@ -708,7 +702,6 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 this.log.Exception(ex);
-                SessionLog.Exception(ex);
             }
         }
 

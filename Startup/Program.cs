@@ -86,10 +86,11 @@ namespace jsdal_server_core
         {
             var loggerConfig = new LoggerConfiguration()
                         .MinimumLevel.Debug()
-                        .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+                        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
                         .WriteTo.File("log/detail-.txt",
+                                //?restrictedToMinimumLevel: LogEventLevel.Warning,
                                 rollingInterval: RollingInterval.Day,
                                 retainedFileCountLimit: 7,
                                 shared: true,
@@ -153,6 +154,7 @@ namespace jsdal_server_core
                 ExceptionLogger.Init();
 
                 Log.Information("Loading settings");
+
                 if (SettingsInstance.LoadSettingsFromFile())
                 {
                     //ServerMethodManager.RebuildCacheForAllApps();
@@ -189,7 +191,14 @@ namespace jsdal_server_core
                         {
                             Log.Information("Shutting down workers...");
                             WorkSpawner.Shutdown();
+                            Log.Information("Shutting down counter monitor...");
+                            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Stop();
+                            Log.Information("Shutting down stats counter...");
                             Performance.StatsDB.Shutdown();
+                            Log.Information("Shutting down common notifications...");
+                            Hubs.CommonNotificationThread.Instance?.Shutdown();
+                            Log.Information("Shutting down background thread plugins...");
+                            BackgroundThreadPluginManager.Instance?.Shutdown();
                             break;
                         }
 
@@ -199,9 +208,12 @@ namespace jsdal_server_core
             catch (Exception ex)
             {
                 Log.Fatal(ex, "Application terminated unexpectedly");
+                SessionLog.Exception(ex);
+
                 WorkSpawner.Shutdown();
                 Performance.StatsDB.Shutdown();
-                SessionLog.Exception(ex);
+                Hubs.CommonNotificationThread.Instance?.Shutdown();
+                BackgroundThreadPluginManager.Instance?.Shutdown();
             }
             finally
             {

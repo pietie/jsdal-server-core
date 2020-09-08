@@ -6,6 +6,7 @@ using jsdal_plugin;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.ObjectModel;
 using jsdal_server_core.Settings.ObjectModel;
+using System.Threading.Tasks;
 
 namespace jsdal_server_core.PluginManagement
 {
@@ -47,6 +48,16 @@ namespace jsdal_server_core.PluginManagement
             if (reg == null) return null;
 
             return reg.FindPluginInstance(endpoint);
+        }
+
+        public void Shutdown()
+        {
+            if (_registrations == null) return;
+
+            Parallel.ForEach(_registrations, reg =>
+            {
+                reg.Shutdown();
+            });
         }
     }
 }

@@ -141,7 +141,7 @@ namespace jsdal_server_core.SignalR.HomeDashboard
                 _counterMonitor = null;
             }
 
-            _counterValues.Clear();
+            _counterValues?.Clear();
         }
 
         private IReadOnlyCollection<Provider> GetProviders()

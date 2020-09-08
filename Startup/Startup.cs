@@ -287,10 +287,10 @@ namespace jsdal_server_core
 
                 if (context.Response.StatusCode == 404 && !Path.HasExtension(context.Request.Path.Value))
                 {
-                    context.Request.Path = "/index.html"; 
+                    context.Request.Path = "/index.html";
                     await next();
                 }
-            });            
+            });
 
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
@@ -309,8 +309,6 @@ namespace jsdal_server_core
                 Log.Error($" Failed to find base plugin assembly at {jsDALBasePluginPath}");
                 SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
             }
-
-
 
             var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
             //            generalDiagnosticOption: ReportDiagnostic.Suppress 
@@ -347,17 +345,21 @@ namespace jsdal_server_core
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
-            app.UseSerilogRequestLogging();
-
-            // app.UseSignalR(routes =>
+            // TODO: This outputs full request detail into log. Perhaps consider outputting this to a different detailed log
+            //app.UseSerilogRequestLogging();
+            // app.UseSerilogRequestLogging(options =>
             // {
-            //     routes.MapHub<Hubs.HomeDashboardHub>("/main-stats");
-            //     routes.MapHub<Hubs.WorkerDashboardHub>("/worker-hub");
-            //     routes.MapHub<Hubs.Performance.RealtimeHub>("/performance-realtime-hub");
-            //     routes.MapHub<Hubs.HeartBeat.HeartBeatHub>("/heartbeat");
-            //     routes.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
-            //     routes.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
-            //     routes.MapHub<Hubs.ExecHub>("/exec-hub");
+            //     // Customize the message template
+            //     //options.MessageTemplate = "Handled {RequestPath}";
+
+            //     options.GetLevel = (httpContext, elapsed, ex) => Serilog.Events.LogEventLevel.Warning;
+
+            //     // Attach additional properties to the request completion event
+            //     options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+            //     {
+            //         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+            //         diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+            //     };
             // });
 
             app.UseRouting();
