@@ -30,11 +30,7 @@ namespace jsdal_server_core
         {
             _logger.LogInformation("OnStopping method called.");
 
-            WorkSpawner.Shutdown();
-            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Stop();
-            Performance.StatsDB.Shutdown();
-            Hubs.CommonNotificationThread.Instance?.Shutdown();
-            PluginManagement.BackgroundThreadPluginManager.Instance?.Shutdown();
+            Program.ShutdownAllBackgroundThreads();
 
             base.OnStopping();
         }

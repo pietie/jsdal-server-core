@@ -34,13 +34,14 @@ namespace jsdal_server_core.Controllers
 
         public class ExecOptions
         {
-            public string project;
-            public string application;
-            public string endpoint;
+            public string project { get; set; }
+            public string application { get; set; }
+            public string endpoint { get; set; }
 
-            public string schema;
-            public string routine;
-            public ExecType type;
+            public string schema { get; set; }
+            public string routine { get; set; }
+            public ExecType type { get; set; }
+            
             [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
 
@@ -71,7 +72,8 @@ namespace jsdal_server_core.Controllers
             Query = 0,
             NonQuery = 1,
             Scalar = 2,
-            ServerMethod = 10
+            ServerMethod = 10,
+            BackgroundThread = 20
         }
 
         [AllowAnonymous]
@@ -483,7 +485,7 @@ namespace jsdal_server_core.Controllers
 
                 routineExecutionMetric = ExecTracker.Begin(endpoint, execOptions.schema, execOptions.routine);
 
-              //  debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
+                //  debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
                 string jsDALApiKey = null;
 

@@ -62,7 +62,7 @@ namespace jsdal_server_core.Controllers
                     ret.created,
                     ret.errorCode,
                     ret.execOptions,
-                    ret.id,
+                    id = ret.sId,
                     ret.innerException,
                     ret.level,
                     ret.line,
@@ -98,7 +98,7 @@ namespace jsdal_server_core.Controllers
                 var ret = (from exception in ex.related
                            select new
                            {
-                               exception.id,
+                               id = exception.sId,
                                exception.created,
                                message = exception.message.Left(200, true), // limit exception message length to something reasonable
                                exception.procedure,
@@ -128,7 +128,6 @@ namespace jsdal_server_core.Controllers
                 string[] endpointLookup = null;
                 string[] appLookup = null;
 
-
                 if (string.IsNullOrEmpty(endpoint) || endpoint.Equals("all", StringComparison.OrdinalIgnoreCase)) endpoint = null;
                 if (string.IsNullOrEmpty(app) || app.Equals("all", StringComparison.OrdinalIgnoreCase)) app = null;
                 if (string.IsNullOrEmpty(routine)) routine = null;
@@ -141,7 +140,6 @@ namespace jsdal_server_core.Controllers
                     {
                         endpointLookup = null;
                     }
-
                 }
 
                 if (app != null)
@@ -160,7 +158,7 @@ namespace jsdal_server_core.Controllers
                           orderby exception.created.Ticks descending
                           select new
                           {
-                              exception.id,
+                              id = exception.sId,
                               exception.created,
                               message = exception.message.Left(200, true), // limit exception message length to something reasonable
                               exception.procedure,
@@ -211,6 +209,8 @@ namespace jsdal_server_core.Controllers
         {
             return ApiResponse.Payload(ExceptionLogger.AppTitles);
         }
+
+
 
     }
 }

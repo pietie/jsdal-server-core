@@ -83,7 +83,8 @@ namespace jsdal_server_core.PluginManagement
                                 application = endpoint.Application.Name,
                                 endpoint = endpoint.Name,
                                 schema = "BG PLUGIN",
-                                routine = pluginInfo.Name
+                                routine = pluginInfo.Name,
+                                type = Controllers.ExecController.ExecType.BackgroundThread
 
                             }, additionalInfo, $"BG PLUGIN - {pluginInfo.Name}", endpoint.Pedigree);
                         });
@@ -194,11 +195,12 @@ namespace jsdal_server_core.PluginManagement
         public void Shutdown()
         {
             if (this._endpointInstances == null) return;
-            
-            Parallel.ForEach(this._endpointInstances.Values, (instance)=>{
+
+            Parallel.ForEach(this._endpointInstances.Values, (instance) =>
+            {
                 instance.Plugin.Stop();
             });
-            
+
 
             this._endpointInstances.Clear();
         }

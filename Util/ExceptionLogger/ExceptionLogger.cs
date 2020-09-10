@@ -9,7 +9,7 @@ using shortid;
 namespace jsdal_server_core
 {
 
-    public class ExceptionLogger
+    public class ExceptionLoggerFileBased
     {
         // TODO: Move exception log to LiteDB
         private static string ExceptionFilePath = "./data/exceptions.lst";
@@ -52,7 +52,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                ExceptionLogger.LogException(ex);
+                ExceptionLoggerFileBased.LogException(ex);
             }
         }
 
@@ -76,7 +76,7 @@ namespace jsdal_server_core
             }
             catch (Exception ex)
             {
-                ExceptionLogger.LogException(ex);
+                ExceptionLoggerFileBased.LogException(ex);
                 return false;
             }
 
@@ -94,12 +94,12 @@ namespace jsdal_server_core
 
         public static ExceptionWrapper GetException(string id)
         {
-            return ExceptionLogger.exceptionDict.Values.SelectMany(l => l).FirstOrDefault(e => e.id == id);
+            return ExceptionLoggerFileBased.exceptionDict.Values.SelectMany(l => l).FirstOrDefault(e => e.sId == id);
         }
 
         public static ExceptionWrapper DeepFindRelated(string id)
         {
-            foreach (var topLevelException in ExceptionLogger.exceptionDict.Values.SelectMany(l => l))
+            foreach (var topLevelException in ExceptionLoggerFileBased.exceptionDict.Values.SelectMany(l => l))
             {
                 var ew = topLevelException.GetRelated(id);
 
@@ -112,11 +112,11 @@ namespace jsdal_server_core
         public static IEnumerable<ExceptionWrapper> GetAll(string[] endpointLookup)
         {
             // return ALL
-            if (endpointLookup == null || endpointLookup.Length == 0) return ExceptionLogger.exceptionDict.Values.SelectMany(l => l);
+            if (endpointLookup == null || endpointLookup.Length == 0) return ExceptionLoggerFileBased.exceptionDict.Values.SelectMany(l => l);
             else
             {
                 // look for lists that match the specified endpoint(s) filter
-                var matchingKeys = ExceptionLogger.exceptionDict.Keys
+                var matchingKeys = ExceptionLoggerFileBased.exceptionDict.Keys
                         .Where(k => endpointLookup.FirstOrDefault(ep => ep.Equals(k, StringComparison.OrdinalIgnoreCase)) != null);
 
 
@@ -125,7 +125,7 @@ namespace jsdal_server_core
                     return new List<ExceptionWrapper>();
                 }
 
-                var matchingLists = ExceptionLogger.exceptionDict.Where(kv => matchingKeys.Contains(kv.Key)).Select(kv => kv.Value).SelectMany(l => l);
+                var matchingLists = ExceptionLoggerFileBased.exceptionDict.Where(kv => matchingKeys.Contains(kv.Key)).Select(kv => kv.Value).SelectMany(l => l);
                 return matchingLists;
             }
         }
@@ -133,7 +133,7 @@ namespace jsdal_server_core
 
         public static void ClearAll()
         {
-            ExceptionLogger.exceptionDict.Clear();
+            ExceptionLoggerFileBased.exceptionDict.Clear();
             SaveToFile();
         }
 
@@ -141,8 +141,8 @@ namespace jsdal_server_core
         {
             get
             {
-                if (ExceptionLogger.exceptionDict == null) return 0;
-                return ExceptionLogger.exceptionDict.Values.SelectMany(l => l).Count();
+                if (ExceptionLoggerFileBased.exceptionDict == null) return 0;
+                return ExceptionLoggerFileBased.exceptionDict.Values.SelectMany(l => l).Count();
             }
         }
 
@@ -172,13 +172,13 @@ namespace jsdal_server_core
 
             lock (exceptionDict[listKey])
             {
-                if (ExceptionLogger.exceptionDict[listKey].Count >= ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT)
+                if (ExceptionLoggerFileBased.exceptionDict[listKey].Count >= ExceptionLoggerFileBased.MAX_ENTRIES_PER_ENDPOINT)
                 {
                     // cull from the front
-                    int count = (ExceptionLogger.exceptionDict.Count - ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT) + 1;
+                    int count = (ExceptionLoggerFileBased.exceptionDict.Count - ExceptionLoggerFileBased.MAX_ENTRIES_PER_ENDPOINT) + 1;
                     if (count > 0)
                     {
-                        ExceptionLogger.exceptionDict[listKey].RemoveRange(0, count);
+                        ExceptionLoggerFileBased.exceptionDict[listKey].RemoveRange(0, count);
                     }
                 }
 
@@ -213,7 +213,7 @@ namespace jsdal_server_core
 
                 }
 
-                // group recent timeouts (to the same server) together under common parent as a bunch of timeouts tend to occur shortly after each
+                // group recent timeouts (to the same server) together under common parent as a bunch of timeouts tend to occur shortly after each other
                 if (parent == null && ew.sqlErrorType.HasValue && ew.sqlErrorType.Value == SqlErrorType.Timeout)
                 {
                     DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
@@ -231,7 +231,7 @@ namespace jsdal_server_core
                 // TODO: Really save on each exception logged? Perhaps off-load the work to a BG thread ..lazy save
                 SaveToFile();
 
-                return ew.id;
+                return ew.sId;
             }
 
         }

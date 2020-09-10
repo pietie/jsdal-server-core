@@ -189,16 +189,7 @@ namespace jsdal_server_core
 
                         if (keyInfo.Key == ConsoleKey.X && (keyInfo.Modifiers & ConsoleModifiers.Control) == ConsoleModifiers.Control)
                         {
-                            Log.Information("Shutting down workers...");
-                            WorkSpawner.Shutdown();
-                            Log.Information("Shutting down counter monitor...");
-                            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Stop();
-                            Log.Information("Shutting down stats counter...");
-                            Performance.StatsDB.Shutdown();
-                            Log.Information("Shutting down common notifications...");
-                            Hubs.CommonNotificationThread.Instance?.Shutdown();
-                            Log.Information("Shutting down background thread plugins...");
-                            BackgroundThreadPluginManager.Instance?.Shutdown();
+                            ShutdownAllBackgroundThreads();
                             break;
                         }
 
@@ -210,15 +201,28 @@ namespace jsdal_server_core
                 Log.Fatal(ex, "Application terminated unexpectedly");
                 SessionLog.Exception(ex);
 
-                WorkSpawner.Shutdown();
-                Performance.StatsDB.Shutdown();
-                Hubs.CommonNotificationThread.Instance?.Shutdown();
-                BackgroundThreadPluginManager.Instance?.Shutdown();
+                ShutdownAllBackgroundThreads();
             }
             finally
             {
                 Log.CloseAndFlush();
             }
+        }
+
+        public static void ShutdownAllBackgroundThreads()
+        {
+            Log.Information("Shutting down workers...");
+            WorkSpawner.Shutdown();
+            Log.Information("Shutting down counter monitor...");
+            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Stop();
+            Log.Information("Shutting down stats counter...");
+            Performance.StatsDB.Shutdown();
+            Log.Information("Shutting down common notifications...");
+            Hubs.CommonNotificationThread.Instance?.Shutdown();
+            Log.Information("Shutting down exception logger...");
+            ExceptionLogger.Shutdown();
+            Log.Information("Shutting down background thread plugins...");
+            BackgroundThreadPluginManager.Instance?.Shutdown();
         }
 
         public static void OverrideStdout()

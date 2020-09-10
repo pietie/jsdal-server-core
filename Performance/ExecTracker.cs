@@ -96,6 +96,15 @@ namespace jsdal_server_core.Performance
 
                     Thread.Sleep(60);
                 }
+
+                // flush any remaining items out
+                while (!_executionQueue.IsEmpty)
+                {
+                    if (_executionQueue.TryDequeue(out var statsRoutineExecution))
+                    {
+                        InsertUpdate(statsRoutineExecution);
+                    }
+                }
             }
             catch (Exception ex)
             {

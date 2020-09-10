@@ -23,40 +23,43 @@ namespace jsdal_server_core
     [Serializable]
     public class ExceptionWrapper
     {
-        public DateTime created;
-        public string id;
-        public string appTitle;
-        public string appVersion;
+        public string EndpointKey { get; set; }
+        public int Id { get; set; } // auto set by LiteDB
+
+        public DateTime created { get; set; }
+        public string sId { get; set; }
+        public string appTitle { get; set; }
+        public string appVersion { get; set; }
 
         // SQL-specific  stuff
-        public string procedure;
-        public string server;
-        public int? line;
-        public int? errorCode;
-        public byte? level;
-        public byte? state;
+        public string procedure { get; set; }
+        public string server { get; set; }
+        public int? line { get; set; }
+        public int? errorCode { get; set; }
+        public byte? level { get; set; }
+        public byte? state { get; set; }
 
-        public SqlErrorType? sqlErrorType;
+        public SqlErrorType? sqlErrorType { get; set; }
         ///
 
-        public string message;
-        public string additionalInfo;
+        public string message { get; set; }
+        public string additionalInfo { get; set; }
 
-        public ExceptionWrapper GetRelated(string id)
+        public string stackTrace { get; set; }
+
+        public ExceptionWrapper innerException { get; set; }
+
+        public Controllers.ExecController.ExecOptions execOptions { get; set; }
+
+        public string type { get; set; } // Exception Object class TypeName
+
+        public List<ExceptionWrapper> related { get; set; }
+
+        public ExceptionWrapper GetRelated(string sId)
         {
             if (this.related == null) return null;
-            return related.FirstOrDefault(e => e.id == id);
+            return related.FirstOrDefault(e => e.sId == sId);
         }
-
-        public string stackTrace;
-
-        public ExceptionWrapper innerException;
-
-        public Controllers.ExecController.ExecOptions execOptions;
-
-        public string type; // Exception Object class TypeName
-
-        public List<ExceptionWrapper> related;
 
         public ExceptionWrapper()
         {
@@ -92,8 +95,7 @@ namespace jsdal_server_core
                 this.state = re.State;
             }
 
-
-            this.id = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
+            this.sId = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
             this.message = msg;
             this.additionalInfo = additionalInfo;
             this.stackTrace = ex.StackTrace;
@@ -103,7 +105,8 @@ namespace jsdal_server_core
                 this.innerException = new ExceptionWrapper(ex.InnerException);
             }
         }
-        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null, string appVersion = null) : this(ex, additionalInfo, appTitle, appVersion)
+        public ExceptionWrapper(Exception ex, Controllers.ExecController.ExecOptions eo, string additionalInfo = null, string appTitle = null, string appVersion = null)
+                    : this(ex, additionalInfo, appTitle, appVersion)
         {
             this.execOptions = eo;
             this.additionalInfo = additionalInfo;
@@ -117,13 +120,18 @@ namespace jsdal_server_core
             return appTitleLookup.FirstOrDefault(t => t.Equals(this.appTitle, StringComparison.OrdinalIgnoreCase)) != null;
         }
 
-        public void AddRelated(ExceptionWrapper ew)
+        public bool AddRelated(ExceptionWrapper ew)
         {
             if (related == null) related = new List<ExceptionWrapper>();
+
+            // cap related items to 50 max
+            if (related.Count >= 50) return false;
 
             lock (related)
             {
                 related.Add(ew);
+
+                return true;
             }
 
         }
