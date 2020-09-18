@@ -134,6 +134,10 @@ namespace jsdal_server_core
             public DataSet DataSet { get; set; }
             public object ScalarValue { get; set; }
             public string userError { get; set; }
+
+            // optional stats
+            public long? BytesReceived { get; set; }
+            public long? NetworkServerTimeInMS { get; set; }
         }
 
         public static ExecutionResult ExecRoutineQuery(
@@ -197,12 +201,22 @@ namespace jsdal_server_core
                 var cs = endpoint.GetSqlConnection();
                 con = new SqlConnection(cs.ConnectionStringDecrypted);
 
+                if (endpoint.CaptureConnectionStats)
+                {
+                    con.StatisticsEnabled = true;
+                    con.ResetStatistics();
+                }
+                else
+                {
+                    con.StatisticsEnabled = false;
+                }
+
                 con.Open();
 
                 s3.End();
 
-
                 var s4 = execRoutineQueryMetric.BeginChildStage("Process plugins");
+
                 // PLUGINS
                 ProcessPlugins(plugins, con);
 
@@ -337,21 +351,6 @@ namespace jsdal_server_core
                                 {
                                     // SQL Parameter does not get added to cmd.Parameters and SQL will throw
                                 }
-
-                                // else
-                                // {
-                                //     newSqlParm.Value = DBNull.Value;
-                                // }
-
-                                //     if (p.HasDefault) // fall back to default parameter value if one exists
-                                //     {
-                                //         // If no explicit value was specified and the parameter has it's own default...
-                                //         // Then DO NOT set newSqlParm.Value so that the DB Engine applies the default defined in SQL
-                                //         newSqlParm.Value = null;
-                                //     }
-                                //     else {
-                                //         newSqlParm.Value = DBNull.Value;
-                                //     }
                             }
 
                         }); // foreach Parameter 
@@ -439,6 +438,27 @@ namespace jsdal_server_core
                         throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
                     }
 
+                    long? bytesReceived = null;
+                    long? networkServerTimeMS = null;
+
+                    if (endpoint.CaptureConnectionStats)
+                    {
+                        var conStats = con.RetrieveStatistics();
+
+                        if (conStats != null)
+                        {
+                            if (conStats.Contains("BytesReceived"))
+                            {
+                                bytesReceived = (long)conStats["BytesReceived"];
+                            }
+
+                            if (conStats.Contains("NetworkServerTime"))
+                            {
+                                networkServerTimeMS = (long)conStats["NetworkServerTime"];
+                            }
+                        }
+                    }
+
                     if (cachedRoutine?.Parameters != null)
                     {
                         var outputParmList = (from p in cachedRoutine.Parameters
@@ -461,7 +481,7 @@ namespace jsdal_server_core
 
                     //!executionTrackingEndFunction();
 
-                    return new ExecutionResult() { DataSet = ds, ScalarValue = scalarVal };
+                    return new ExecutionResult() { DataSet = ds, ScalarValue = scalarVal, NetworkServerTimeInMS = networkServerTimeMS, BytesReceived = bytesReceived };
                 }
             }
             finally

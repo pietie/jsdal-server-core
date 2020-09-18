@@ -19,6 +19,8 @@ namespace jsdal_server_core
         private static LiteDatabase _database;
         private static ConcurrentQueue<ExceptionWrapper> _exceptionQueue;
 
+        private static Dictionary<string, List<DateTime>> _throttleTracker;
+
         private static Thread _winThread;
         private static bool IsRunning;
 
@@ -30,6 +32,7 @@ namespace jsdal_server_core
         {
             try
             {
+                _throttleTracker = new Dictionary<string, List<DateTime>>();
                 _exceptionQueue = new ConcurrentQueue<ExceptionWrapper>();
                 _database = new LiteDB.LiteDatabase("data/exceptions.db");
 
@@ -150,10 +153,10 @@ namespace jsdal_server_core
                     var idsToDelete = exceptionCollection
                                 .Find(e => e.EndpointKey.Equals(ew.EndpointKey))
                                 .Take(countToRemove)
-                                .Select(e=>e.Id)
+                                .Select(e => e.Id)
                                 ;
 
-                    exceptionCollection.DeleteMany(x=>idsToDelete.Contains(x.Id));
+                    exceptionCollection.DeleteMany(x => idsToDelete.Contains(x.Id));
                 }
             }
 
@@ -226,6 +229,35 @@ namespace jsdal_server_core
             _database.Commit();
         }
 
+        public static string LogExceptionThrottled(Exception ex, string throttleKey, int maxExcpetionsPerMin, string additionalInfo = null, string appTitle = null, string appVersion = null)
+        {
+            lock (_throttleTracker)
+            {
+                if (!_throttleTracker.ContainsKey(throttleKey))
+                {
+                    _throttleTracker.Add(throttleKey, new List<DateTime>());
+                }
+                var now = DateTime.Now;
+
+                _throttleTracker[throttleKey].Add(now);
+
+                // remove old items from the sample
+                while (_throttleTracker[throttleKey][0] < now.AddSeconds(-60))
+                {
+                    _throttleTracker[throttleKey].RemoveAt(0);
+                }
+
+
+                if (_throttleTracker[throttleKey].Count >= maxExcpetionsPerMin)
+                {
+                    return null;
+                }
+
+            }
+
+            return QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
+        }
+
         public static string LogException(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             return QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
@@ -249,7 +281,7 @@ namespace jsdal_server_core
 
             _exceptionQueue.Enqueue(ew);
 
-            return null;
+            return ew.sId;
         }
 
         public static void Shutdown()

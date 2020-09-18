@@ -31,6 +31,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         [JsonIgnore] public Application Application { get; private set; }
 
+        public bool CaptureConnectionStats = true; // TODO: Default false? Provide 
+
 
         public Endpoint()
         {

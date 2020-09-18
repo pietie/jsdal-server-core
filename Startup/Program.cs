@@ -15,6 +15,7 @@ using System.Globalization;
 using jsdal_server_core.PluginManagement;
 using Serilog;
 using Serilog.Events;
+using jsdal_server_core.Performance.DataCollector;
 
 namespace jsdal_server_core
 {
@@ -84,6 +85,7 @@ namespace jsdal_server_core
 
         public static void Main(string[] args)
         {
+
             var loggerConfig = new LoggerConfiguration()
                         .MinimumLevel.Debug()
                         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -160,6 +162,9 @@ namespace jsdal_server_core
                     //ServerMethodManager.RebuildCacheForAllApps();
                 }
 
+                Log.Information("Initialising data collector");
+                DataCollectorThread.Instance.Init();
+
                 _startDate = DateTime.Now;
 
                 Log.Information("Configuring global culture");
@@ -223,6 +228,10 @@ namespace jsdal_server_core
             ExceptionLogger.Shutdown();
             Log.Information("Shutting down background thread plugins...");
             BackgroundThreadPluginManager.Instance?.Shutdown();
+
+            Log.Information("Shutting down data collector...");
+
+            DataCollectorThread.Instance.Shutdown();
         }
 
         public static void OverrideStdout()

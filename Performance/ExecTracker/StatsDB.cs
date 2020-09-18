@@ -8,27 +8,6 @@ using Serilog;
 
 namespace jsdal_server_core.Performance
 {
-
-    public class ExecTracker
-    {
-
-
-        // TODO: Come up with a much smarter structure to use
-        //public static List<RoutineExecution> ExecutionList = new List<RoutineExecution>();
-        public static RoutineExecution Begin(Endpoint endpoint, string schema, string routine)
-        {
-            //StatsDB.RecordExecutionStart(endpointId, schema, routine);
-
-            var ret = new RoutineExecution(endpoint, schema, routine);
-
-            //ExecutionList.Add(ret);//? not used
-            //PerformanceAggregator.Add(ret);
-            RealtimeTracker.Add(ret);
-
-            return ret;
-        }
-    }
-
     public class StatsDB
     {
         private static ConcurrentQueue<StatsRoutineExecution> _executionQueue;
@@ -279,7 +258,7 @@ namespace jsdal_server_core.Performance
         public int Id { get; set; } // auto set by LiteDB
         public string RoutineId { get; set; }
         public int ExecutionCount { get; set; }
-        public ulong? TotalDuration { get; set; }
+        public ulong? TotalDuration { get; set; } // in milliseconds
 
         public ulong? TotalRows { get; set; }
 
@@ -287,4 +266,6 @@ namespace jsdal_server_core.Performance
 
         public string RoutineFullName { get; set; }
     }
+
+
 }

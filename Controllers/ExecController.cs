@@ -19,6 +19,7 @@ using System.Drawing.Imaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 using System.Text.RegularExpressions;
+using jsdal_server_core.Performance.DataCollector;
 
 namespace jsdal_server_core.Controllers
 {
@@ -41,7 +42,7 @@ namespace jsdal_server_core.Controllers
             public string schema { get; set; }
             public string routine { get; set; }
             public ExecType type { get; set; }
-            
+
             [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
 
@@ -526,28 +527,50 @@ namespace jsdal_server_core.Controllers
 
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
+                string dataCollectorEntryShortId = DataCollectorThread.Enqueue(endpoint, execOptions);
+
                 int rowsAffected;
 
                 ///////////////////
                 // Database call
                 ///////////////////
-                var executionResult = OrmDAL.ExecRoutineQuery(
-                    execOptions.type,
-                    execOptions.schema,
-                    execOptions.routine,
-                    endpoint,
-                    execOptions.inputParameters,
-                    requestHeaders,
-                    remoteIpAddress,
-                    pluginList,
-                    commandTimeOutInSeconds,
-                    out outputParameters,
-                    execRoutineQueryMetric,
-                    ref responseHeaders,
-                    out rowsAffected
-                );
 
-                execRoutineQueryMetric.End();
+                OrmDAL.ExecutionResult executionResult = null;
+
+                try
+                {
+                    executionResult = OrmDAL.ExecRoutineQuery(
+                       execOptions.type,
+                       execOptions.schema,
+                       execOptions.routine,
+                       endpoint,
+                       execOptions.inputParameters,
+                       requestHeaders,
+                       remoteIpAddress,
+                       pluginList,
+                       commandTimeOutInSeconds,
+                       out outputParameters,
+                       execRoutineQueryMetric,
+                       ref responseHeaders,
+                       out rowsAffected
+                   );
+
+                    execRoutineQueryMetric.End();
+
+                    ulong? rows = null;
+
+                    if (rowsAffected >= 0) rows = (ulong)rowsAffected;
+
+                    DataCollectorThread.End(dataCollectorEntryShortId, rowsAffected: rows,
+                                                                     durationInMS: execRoutineQueryMetric.DurationInMS,
+                                                                     bytesReceived: executionResult.BytesReceived,
+                                                                     networkServerTimeMS: executionResult.NetworkServerTimeInMS);
+                }
+                catch (Exception execEx)
+                {
+                    DataCollectorThread.End(dataCollectorEntryShortId, ex: execEx);
+                    throw; // rethrow
+                }
 
                 var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
 
