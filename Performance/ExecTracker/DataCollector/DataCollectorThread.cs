@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using jsdal_server_core.Performance.DataCollector.Reports;
 using jsdal_server_core.Settings.ObjectModel;
 using jsdal_server_core.Util;
 using LiteDB;
@@ -342,7 +343,57 @@ namespace jsdal_server_core.Performance.DataCollector
                     .Take(10)
                     .ToList();
         }
+
+        public dynamic GetTopNResource(int topN, DateTime fromDate, DateTime toDate, string[] endpoints, TopNResourceType type)
+        {
+            var collection = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+
+            long bracketStart = long.Parse(fromDate.ToString("yyyyMMddHHmm"));
+            long bracketEnd = long.Parse(toDate.ToString("yyyyMMddHHmm"));
+
+            var baseQuery = collection
+                    .Query()
+                    .Where(x => x.Bracket >= bracketStart
+                              && x.Bracket <= bracketEnd
+                              && endpoints.Contains(x.Endpoint))
+                    .ToEnumerable()
+                    ;
+
+            switch (type)
+            {
+                case TopNResourceType.Executions:
+                    return TopN.TotalExecutions(baseQuery, topN);
+                case TopNResourceType.Duration:
+                    return TopN.AvgDuration(baseQuery, topN);
+                case TopNResourceType.NetworkServerTime:
+                    return TopN.AvgNetworkServerTime(baseQuery, topN);
+                case TopNResourceType.BytesReceived:
+                    return TopN.AvgKBReceived(baseQuery, topN);
+                case TopNResourceType.ExceptionCnt:
+                    return TopN.TotalExceptionCnt(baseQuery, topN);
+                case TopNResourceType.TimeoutCnt:
+                    return TopN.TotalTimeouts(baseQuery, topN);
+
+                case TopNResourceType.TotalsVitals:
+                    return TotalOverPeriod.TotalVitals(baseQuery, fromDate, toDate);
+                default:
+                    throw new Exception($"Type {type} not supported");
+            }
+        }
     }
 
+    public enum TopNResourceType
+    {
+        Executions = 1,
+        Duration = 2,
+        NetworkServerTime = 3,
+        BytesReceived = 4,
+        ExceptionCnt = 20,
+        TimeoutCnt = 30,
+
+
+        TotalsVitals = 500
+
+    }
 
 }

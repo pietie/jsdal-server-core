@@ -78,6 +78,8 @@ namespace jsdal_server_core
                         .SelectMany(pa => pa.Plugins)
                         .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.Guid.ToString()));
 
+            var uniqueSchemas = new List<string>();
+            //var routineFactorySB = new StringBuilder();
 
 
             // TODO: use System.Threading.Tasks.Parallel.ForEach()
@@ -107,15 +109,46 @@ namespace jsdal_server_core
                     var includeParams = false; // 27/03/2019, PL: DAL api changed so parms are no longer necessary in .js file
 
                     if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)
-                              || r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
-                              || r.Type.Equals("TVF", StringComparison.OrdinalIgnoreCase)
-                              )
+                                                      || r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
+                                                      || r.Type.Equals("TVF", StringComparison.OrdinalIgnoreCase)
+                                                      )
                     {
 
-                        var line = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA>>", schemaName).Replace("<<ROUTINE>>", routineName);
+                        //string factoryRef = null;
+
+                        if (!uniqueSchemas.Contains(r.Schema))
+                        {
+                            uniqueSchemas.Add(r.Schema);
+                        }
+
+                        var schemaIx = uniqueSchemas.IndexOf(r.Schema);
+
+                        // if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase))
+                        // {
+                        //     // if ((uniqueSchemas[r.Schema] & 1) != 1)
+                        //     // {
+                        //     //     uniqueSchemas[r.Schema] |= 1/*Use 1 for PROCs*/;
+                        //     //     //routineFactorySB.AppendLine($"\tvar S{schemaIx} = function(r,o) {{ return new ss(SC[{schemaIx}],r,o); }}");
+                        //     // }
+
+                        //     factoryRef = $"S{schemaIx}";
+                        // }
+                        // else
+                        // {
+                        //     //  if ((uniqueSchemas[r.Schema] & 2) != 2)
+                        //     // {
+                        //     //     uniqueSchemas[r.Schema] |= 2/*Use 2 for UDFss*/;
+                        //     //     //routineFactorySB.AppendLine($"\tvar U{schemaIx} = function(r,o) {{ return new uu(SC[{schemaIx}],r,o); }}");
+                        //     // }
+
+                        //     factoryRef = $"U{schemaIx}";
+                        // }
+
+                        var line = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", routineName);
 
                         if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) line = line.Replace("<<CLASS>>", "S");
                         else line = line.Replace("<<CLASS>>", "U");
+ 
 
                         string jsParameters = null;
 
@@ -171,6 +204,7 @@ namespace jsdal_server_core
                             }
 
                         }// if (r.Parameters != null)
+
                         if (!includeParams) { jsParameters = null; }
 
                         if (!string.IsNullOrEmpty(jsParameters))
@@ -344,9 +378,9 @@ namespace jsdal_server_core
             finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                 .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
                 .Replace("<<SERVER_NAME>>", Environment.MachineName)
+                .Replace("<<UNIQUE_SCHEMAS>>", string.Join(',', uniqueSchemas.Select(k=>$"'{k}'") ))
                 .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
                 .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
-                .Replace("<<DB_SOURCE_GUID>>", endpoint.Id); // TODO: fix placeholder name...or change to something more appropriate?
             ;
 
             var finalTypeScriptSB = new StringBuilder();

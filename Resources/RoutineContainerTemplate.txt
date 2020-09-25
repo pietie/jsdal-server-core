@@ -2,19 +2,11 @@
 /// <<DATE>>
 var DAL;
 (function (dal) {
-	
-    var S = function (schema, routine, options) {
-        var r = new ss(schema, routine, options);
-        r.dbSource = "<<DB_SOURCE_GUID>>";
-        return r;
-    }
-    
-    var U = function(schema, routine, options)
-    {
-        var r = new uu(schema, routine, options);
-        r.dbSource = "<<DB_SOURCE_GUID>>";
-        return r;
-    }
+
+    var SC = [<<UNIQUE_SCHEMAS>>];
+
+	var S = function(n,r,o) { return new ss(SC[n],r,o);  }
+	var U = function(n,r,o) { return new uu(SC[n],r,o);  }
 
     dal.init = function (s, u) { ss = s; uu = u; }
 

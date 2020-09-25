@@ -1,1 +1,1 @@
-﻿<<FUNC_NAME>>: function(o) { return <<CLASS>>("<<SCHEMA>>", "<<ROUTINE>>", o); }
+﻿<<FUNC_NAME>>: function(o) { return <<CLASS>>(<<SCHEMA_IX>>, "<<ROUTINE>>", o); }
