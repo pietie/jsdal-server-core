@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -5,6 +6,47 @@ namespace jsdal_server_core.Performance.DataCollector.Reports
 {
     public static class TopN
     {
+        public static dynamic AllStatsList(IEnumerable<DataCollectorDataAgg> baseQuery, int topN)
+        {
+            var totals = (from e in baseQuery
+                          group e by $"{e.Schema}.{e.Routine}" into g
+                          select new
+                          {
+                              Routine = g.Key,
+                              TotalExecutions = g.Sum(x => (decimal)x.Executions),
+                              SumDurationInMS = g.Sum(x => (decimal)x.DurationInMS.Sum),
+                              SumNetworkServerTimeInMS = g.Sum(x => (decimal)x.NetworkServerTimeInMS.Sum),
+                              SumKBReceived = g.Sum(x => (decimal)x.BytesReceived.Sum / 1024M),
+                              TotalExceptions = g.Sum(x => x.ExceptionCnt),
+                              TotalTimeouts = g.Sum(x => x.TimeoutCnt)
+                          });
+
+            var query = (from e in totals
+                             //where e.TotalExecutions > 0
+                         select new
+                         {
+                             e.Routine,
+                             e.TotalExecutions,
+
+                             TotalDurationInMins = Math.Round(e.SumDurationInMS / 60000M, 2),
+                             AvgDurationInMS = e.TotalExecutions == 0 ? 0 : (int)((e.SumDurationInMS / e.TotalExecutions) + 0.5M),
+
+                             TotalNetworkServerTimeInMins = Math.Round(e.SumNetworkServerTimeInMS / 60000M,2),
+                             AvgSumNetworkServerTimeInMS = e.TotalExecutions == 0 ? 0 : (int)((e.SumNetworkServerTimeInMS / e.TotalExecutions) + 0.5M),
+
+                             TotalMBReceived = Math.Round(e.SumKBReceived / 1024M,2),
+                             AvgKBReceived = (int)((e.SumKBReceived / e.TotalExecutions) + 0.5M),
+
+                             e.TotalExceptions,
+                             e.TotalTimeouts
+                         })
+            .OrderByDescending(x => x.TotalExecutions)
+            .Take(topN)
+            ;
+
+            return query.ToList();
+        }
+
         public static dynamic TotalExecutions(IEnumerable<DataCollectorDataAgg> baseQuery, int topN)
         {
             var query = (from e in baseQuery

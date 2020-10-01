@@ -24,22 +24,13 @@ namespace jsdal_server_core.Controllers
 
         }
 
-        [HttpGet("/api/data-collector/test-data")]
-        public ActionResult TestData()
-        {
-            return Ok(DataCollectorThread.Instance.GetSampleData());
-
-        }
-
         [HttpGet("/api/data-collector/topN")]
-        public ActionResult TopTenResources([FromQuery(Name = "n")] int topN,
+        public ActionResult TopNResources([FromQuery(Name = "n")] int topN,
             [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "from")] DateTime? fromDate,
             [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
             [FromQuery] string[] endpoints,
             [FromQuery] TopNResourceType type)
         {
-            // TODO: Top 10 : Executions, Duration, Rows, Bytes
-
             if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
             if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
 
@@ -47,7 +38,31 @@ namespace jsdal_server_core.Controllers
             return Ok(DataCollectorThread.Instance.GetTopNResource(topN, fromDate.Value, toDate.Value, endpoints, type));
         }
 
-        
+         [HttpGet("/api/data-collector/topN-list")]
+        public ActionResult TopNAllStatsList([FromQuery(Name = "n")] int topN,
+            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "from")] DateTime? fromDate,
+            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
+            [FromQuery] string[] endpoints)
+        {
+            if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
+            if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
+
+            return Ok(DataCollectorThread.Instance.AllStatsList(topN, fromDate.Value, toDate.Value, endpoints));
+        }
+
+        [HttpGet("/api/data-collector/routine-totals")]
+        public ActionResult RoutineTotals([FromQuery(Name = "schema")] string schema, [FromQuery(Name = "routine")] string routine,
+            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "from")] DateTime? fromDate,
+            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
+            [FromQuery] string[] endpoints)
+        {
+            if (string.IsNullOrWhiteSpace(schema)) return BadRequest("The parameter 'schema' is mandatory");
+            if (string.IsNullOrWhiteSpace(routine)) return BadRequest("The parameter 'routine' is mandatory");
+            if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
+            if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
+
+            return Ok(DataCollectorThread.Instance.GetRoutineAllStats(schema, routine, fromDate.Value, toDate.Value, endpoints));
+        }
 
         [HttpGet("/api/data-collector/endpoints")]
         public ApiResponse GetAllEndpoints()

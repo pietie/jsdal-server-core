@@ -326,25 +326,14 @@ namespace jsdal_server_core.Performance.DataCollector
             {
                 Executions = collection1.FindAll().ToList(),
                 Agg = collection2.FindAll().TakeLast(20).ToList(),
-                Audit = collection3.FindAll().ToList()
+                Audit = collection3.FindAll().TakeLast(10).ToList()
             };
 
             return x;
         }
 
-        public dynamic GetSampleData()
-        {
-            var collection = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
 
-            return collection
-                    .FindAll()
-                    .Select(x => new { x.Bracket, AvgDurationInMS = ((double)(x.DurationInMS.Sum ?? 0d) / (double)x.Executions), Routine = $"{x.Schema}.{x.Routine}" })
-                    .OrderByDescending(x => x.AvgDurationInMS)
-                    .Take(10)
-                    .ToList();
-        }
-
-        public dynamic GetTopNResource(int topN, DateTime fromDate, DateTime toDate, string[] endpoints, TopNResourceType type)
+        private IEnumerable<DataCollectorDataAgg> BuildBaseQuery(DateTime fromDate, DateTime toDate, string[] endpoints)
         {
             var collection = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
 
@@ -358,6 +347,18 @@ namespace jsdal_server_core.Performance.DataCollector
                               && endpoints.Contains(x.Endpoint))
                     .ToEnumerable()
                     ;
+            return baseQuery;
+        }
+
+        public dynamic AllStatsList(int topN, DateTime fromDate, DateTime toDate, string[] endpoints)
+        {
+            var baseQuery = BuildBaseQuery(fromDate, toDate, endpoints);
+            return TopN.AllStatsList(baseQuery, topN);
+        }
+
+        public dynamic GetTopNResource(int topN, DateTime fromDate, DateTime toDate, string[] endpoints, TopNResourceType type)
+        {
+            var baseQuery = BuildBaseQuery(fromDate, toDate, endpoints);
 
             switch (type)
             {
@@ -376,9 +377,17 @@ namespace jsdal_server_core.Performance.DataCollector
 
                 case TopNResourceType.TotalsVitals:
                     return TotalOverPeriod.TotalVitals(baseQuery, fromDate, toDate);
+
                 default:
                     throw new Exception($"Type {type} not supported");
             }
+        }
+
+        public dynamic GetRoutineAllStats(string schema, string routine, DateTime fromDate, DateTime toDate, string[] endpoints)
+        {
+            var baseQuery = BuildBaseQuery(fromDate, toDate, endpoints);
+
+            return TotalOverPeriod.TotalVitals(baseQuery, fromDate, toDate, schema, routine);
         }
     }
 
