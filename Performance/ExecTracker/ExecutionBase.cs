@@ -71,7 +71,7 @@ namespace jsdal_server_core.Performance
 
             var epochDiff = epochEnd - epochStart;
 
-            Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
+            //Hubs.Performance.RealtimeMonitor.Instance.NotifyObservers();
         }
 
         public void Exception(Exception e)

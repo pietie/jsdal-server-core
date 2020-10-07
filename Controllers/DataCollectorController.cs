@@ -38,11 +38,11 @@ namespace jsdal_server_core.Controllers
             return Ok(DataCollectorThread.Instance.GetTopNResource(topN, fromDate.Value, toDate.Value, endpoints, type));
         }
 
-         [HttpGet("/api/data-collector/topN-list")]
+        [HttpGet("/api/data-collector/topN-list")]
         public ActionResult TopNAllStatsList([FromQuery(Name = "n")] int topN,
-            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "from")] DateTime? fromDate,
-            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
-            [FromQuery] string[] endpoints)
+           [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "from")] DateTime? fromDate,
+           [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
+           [FromQuery] string[] endpoints)
         {
             if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
             if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
@@ -92,6 +92,29 @@ namespace jsdal_server_core.Controllers
             return Ok(DataCollectorThread.Instance.ClearExecutions());
 
         }
+
+        [HttpPost("/api/data-collector/purge")]
+        public ActionResult PurgeOld([FromQuery] int daysOld)
+        {
+            int deleteCnt = DataCollectorThread.Instance.Purge(daysOld);
+            return Ok(deleteCnt);
+        }
+
+
+        [HttpGet("/api/data-collector/stats/agg")]
+        public ActionResult AggregateStats()
+        {
+            try
+            {
+                return Ok(DataCollectorThread.Instance.GetAggregateStats());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+
+        }
+
 
     }
 

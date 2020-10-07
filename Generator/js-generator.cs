@@ -34,8 +34,13 @@ namespace jsdal_server_core
             return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_");
         }
 
-        public static void GenerateJsFile(Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
+        public static void GenerateJsFile(string source, Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
         {
+            int tick = Environment.TickCount;
+            var correlationGuid = Guid.NewGuid();
+
+            SessionLog.Info($"{endpoint.Pedigree.PadRight(25,' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
+
             //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
             string jsNamespace = null;//endpoint.JsNamespace;
             if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
@@ -425,6 +430,8 @@ namespace jsdal_server_core
             File.WriteAllText(filePath, finalOutput);
             File.WriteAllText(minfiedFilePath, minifiedSource);
             File.WriteAllText(tsTypingsFilePath, typescriptDefinitionsOutput);
+
+            SessionLog.Info($"{correlationGuid} completed in {Environment.TickCount - tick}ms");
         }
 
         // returns the column name in quotes if not a valid javascript property name

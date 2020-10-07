@@ -9,14 +9,14 @@ namespace jsdal_server_core.Hubs
         public RealtimeInfo(RoutineExecution re)
         {
             this.createdEpoch = DateTime.Now.ToEpochMS();
-            this.routineExecution = re;
+            this.RoutineExecution = re;
         }
 
-        private RoutineExecution routineExecution;
+        public RoutineExecution RoutineExecution { get; set; }
 
         public DateTime? RoutineExectionEndedUtc()
         {
-            return this.routineExecution?.EndedUtc;
+            return this.RoutineExecution?.EndedUtc;
         }
 
         [JsonProperty("id")]
@@ -24,7 +24,7 @@ namespace jsdal_server_core.Hubs
         {
             get
             {
-                return this.routineExecution.ExecutionId;
+                return this.RoutineExecution.ExecutionId;
             }
         }
 
@@ -33,20 +33,20 @@ namespace jsdal_server_core.Hubs
         {
             get
             {
-                if (this.routineExecution == null) return null;
-                return $"[{this.routineExecution.Schema}].[{this.routineExecution.Name}]";
+                if (this.RoutineExecution == null) return null;
+                return $"[{this.RoutineExecution.Schema}].[{this.RoutineExecution.Name}]";
             }
         }
 
         [JsonProperty("ce")]
         public long createdEpoch { get; private set; }
         [JsonProperty("ee")]
-        public long? endedEpoch { get { return this.routineExecution.EndedUtc.ToEpochMS(); } }
+        public long? endedEpoch { get { return this.RoutineExecution.EndedUtc.ToEpochMS(); } }
         [JsonProperty("ex")]
-        public string exception  { get { return this.routineExecution.ExceptionError?.Message; } }
+        public string exception  { get { return this.RoutineExecution.ExceptionError?.Message; } }
 
         [JsonProperty("r")]
-        public int? rowsAffected { get { return this.routineExecution?.RowsAffected; } }
+        public int? rowsAffected { get { return this.RoutineExecution?.RowsAffected; } }
     }
 
 }

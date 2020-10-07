@@ -292,44 +292,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 }
 
                 this.CachedRoutineList.Add(newCachedRoutine);
-                /**************
-                                if (newCachedRoutine.IsDeleted)
-                                {
-                                    // remove existing cached version as it will just be added again below
-                                    if (existing != null)
-                                    {
-                                        this.CachedRoutineList.Remove(existing);
-
-                                        ///?????if (!existing.IsDeleted)
-                                        {
-                                            changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} DROPPED");
-                                        }
-                                    }
-
-                                }
-                                else if (existing != null)
-                                {
-                                    // remove existing cached version as it will just be added again below
-                                    this.CachedRoutineList.Remove(existing);
-
-                                    //changeDesc = "";
-
-                                    //var existingParmHash = string.Join(';', existing.Parameters.Select(p=>p.Hash()).ToArray());
-
-                                    //if (string.IsNullOrWhiteSpace(changeDesc))
-                                    {
-                                        changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} UPDATED");
-                                    }
-
-
-                                }
-                                else
-                                {
-                                    changeDescriptor = ChangeDescriptor.Create(lastUpdateByHostName, $"{newCachedRoutine.FullName} ADDED");
-                                }
-
-                                this.CachedRoutineList.Add(newCachedRoutine);
-                                ****/
             }
         }
 

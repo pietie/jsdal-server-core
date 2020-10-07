@@ -472,7 +472,6 @@ namespace jsdal_server_core.Controllers
 
             List<ExecutionPlugin> pluginList = null;
 
-            // record client info? IP etc? Record other interesting info like Connection and DbSource used -- maybe only for the realtime connections? ... or metrics should be against connection at least?
             RoutineExecution routineExecutionMetric = null;
 
             responseHeaders = new Dictionary<string, string>();
@@ -484,7 +483,9 @@ namespace jsdal_server_core.Controllers
                     return (resp, null, null);
                 }
 
-                routineExecutionMetric = ExecTracker.Begin(endpoint, execOptions.schema, execOptions.routine);
+                routineExecutionMetric = new RoutineExecution(endpoint, execOptions.schema, execOptions.routine);
+
+                RealtimeTrackerThread.Instance.Enqueue(routineExecutionMetric);
 
                 //  debugInfo += $"[{execOptions.schema}].[{execOptions.routine}]";
 
@@ -638,6 +639,9 @@ namespace jsdal_server_core.Controllers
 
                 prepareResultsMetric.End();
                 routineExecutionMetric.End(rowsAffected);
+
+                // enqueue a second time as we now have an End date and rowsAffected
+                RealtimeTrackerThread.Instance.Enqueue(routineExecutionMetric);
 
                 return (ret, routineExecutionMetric, mayAccess);
             }

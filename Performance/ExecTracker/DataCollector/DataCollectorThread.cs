@@ -308,6 +308,35 @@ namespace jsdal_server_core.Performance.DataCollector
             return n;
         }
 
+        public dynamic GetAggregateStats()
+        {
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+
+            var minBracket = executionAggregates.Min(x => x.Bracket);
+            DateTime? minBracketDate = null;
+
+            if (DateTime.TryParseExact(minBracket.ToString(), "yyyyMMddHHmm", null, System.Globalization.DateTimeStyles.None, out var dt))
+            {
+                minBracketDate = dt;
+            }
+
+            return new
+            {
+                TotalCount = executionAggregates.Count(),
+                minBracketDate = minBracketDate
+            };
+        }
+
+        public int Purge(int daysOld)
+        {
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+
+            long uptoDate = long.Parse(DateTime.Today.AddDays(-daysOld).ToString("yyyyMMddHHmm"));
+            
+
+            return executionAggregates.DeleteMany(x=>x.Bracket <= uptoDate);
+        }
+
         public void Audit(string msg)
         {
             var auditCollection = _database.GetCollection<AuditEntry>($"Audit");

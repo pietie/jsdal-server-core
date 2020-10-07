@@ -64,7 +64,7 @@ namespace jsdal_server_core
 
                 DateTime? lastFailedToLogToStoreDate = null;
 
-                while (IsRunning)
+                while (IsRunning && !Program.IsShuttingDown)
                 {
                     // timeout or count trigger check 
                     if (DateTime.Now >= nextFlush || _exceptionQueue.Count >= 100)

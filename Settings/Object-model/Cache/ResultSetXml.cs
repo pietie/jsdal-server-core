@@ -50,7 +50,7 @@ namespace jsdal_server_core.Settings.ObjectModel
     public class ResultSetFieldMetadata
     {
         public string ColumnName { get; set; }
-        public string DataType { get; set; }
+        public string DataType { get; set; } // C# Type
         public string DbDataType { get; set; }
         public int ColumnSize { get; set; }
         public int NumericalPrecision { get; set; }

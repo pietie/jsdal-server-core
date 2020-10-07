@@ -8,6 +8,8 @@ using Serilog;
 
 namespace jsdal_server_core.Performance
 {
+
+    // TODO: Deprecated in favour of the DataCollector
     public class StatsDB
     {
         private static ConcurrentQueue<StatsRoutineExecution> _executionQueue;
@@ -27,8 +29,10 @@ namespace jsdal_server_core.Performance
                 // reset stats on startup
                 _database.DropCollection("TotalCount");
 
+                SessionLog.Info("Starting up StatsDB thread");
                 _winThread = new Thread(new ThreadStart(ProcessMessagesLoop));
                 _winThread.Start();
+
             }
             catch (Exception ex)
             {
@@ -43,13 +47,16 @@ namespace jsdal_server_core.Performance
             try
             {
                 IsRunning = true;
+
                 var flushTimeoutInSeconds = 25;
                 var checkpointTimeoutInSeconds = 3 * 60;
 
                 var nextFlush = DateTime.Now.AddSeconds(flushTimeoutInSeconds);
                 var nextCheckpoint = DateTime.Now.AddSeconds(checkpointTimeoutInSeconds);
 
-                while (IsRunning)
+                System.Threading.Thread.CurrentThread.Name = "Stats DB";
+
+                while (IsRunning && !Program.IsShuttingDown)
                 {
                     // timeout or count trigger check 
                     if (DateTime.Now >= nextFlush || _executionQueue.Count >= 100)
@@ -127,6 +134,7 @@ namespace jsdal_server_core.Performance
         public static void Shutdown()
         {
             IsRunning = false;
+
             if (_winThread != null)
             {
                 if (!_winThread.Join(TimeSpan.FromSeconds(10)))
@@ -143,37 +151,6 @@ namespace jsdal_server_core.Performance
             }
         }
 
-        // public static void RecordExecutionStart(string endpoint, string schema, string routine)
-        // {
-        //     try
-        //     {
-        //         var s = database.BeginTrans();
-
-        //         var routineId = $"{endpoint}.{schema}.{routine}".ToLower();
-        //         var totalCounts = database.GetCollection<StatsRoutineExecution>("TotalCount");
-
-        //         totalCounts.EnsureIndex("RoutineId", unique: true);
-
-        //         var existing = totalCounts.FindOne(r => r.RoutineId.Equals(routineId));
-
-        //         if (existing != null)
-        //         {
-        //             existing.ExecutionCount += 1;
-        //             totalCounts.Update(existing);
-        //         }
-        //         else
-        //         {
-        //             totalCounts.Insert(new StatsRoutineExecution() { RoutineId = routineId, ExecutionCount = 1 });
-        //         }
-
-        //         database.Commit();
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         //ignore excpetion for now...in future log to sessionlog perhaps (but not too frequently)
-        //     }
-        // }
-
         public static void QueueRecordExecutionEnd(string endpointId, string schema, string routine, ulong? durationInMilliseconds, int rowsAffected)
         {
             if (!durationInMilliseconds.HasValue) return;
@@ -188,50 +165,6 @@ namespace jsdal_server_core.Performance
                 EndpointId = endpointId
             });
         }
-        // public static void RecordExecutionEnd(Endpoint endpoint, string schema, string routine, ulong? durationInMilliseconds, int rowsAffected)
-        // {
-        //     if (!durationInMilliseconds.HasValue) return;
-
-        //     try
-        //     {
-        //         var s = database.BeginTrans();
-
-        //         var routineId = $"{endpoint.Id}/{schema.ToLower()}.{routine.ToLower()}";
-        //         var totalCounts = database.GetCollection<StatsRoutineExecution>("TotalCount");
-
-        //         totalCounts.EnsureIndex("RoutineId", unique: true);
-
-
-        //         var existing = totalCounts.FindOne(r => r.RoutineId.Equals(routineId));
-
-        //         if (existing != null)
-        //         {
-        //             existing.ExecutionCount += 1;
-        //             existing.TotalDuration += durationInMilliseconds.Value;
-        //             existing.TotalRows += (ulong)rowsAffected;
-
-        //             totalCounts.Update(existing);
-        //         }
-        //         else
-        //         {
-        //             totalCounts.Insert(new StatsRoutineExecution()
-        //             {
-        //                 RoutineId = routineId,
-        //                 ExecutionCount = 1,
-        //                 TotalDuration = durationInMilliseconds.Value,
-        //                 TotalRows = (ulong)rowsAffected,
-        //                 RoutineFullName = $"{schema}.{routine}",
-        //                 EndpointId = endpoint.Id
-        //             });
-        //         }
-
-        //         database.Commit();
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         //ignore excpetion for now...in future log to sessionlog perhaps (but not too frequently)
-        //     }
-        // }
 
         public static List<StatsRoutineExecution> GetTotalCountsTopN(int topN)
         {

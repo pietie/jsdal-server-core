@@ -44,11 +44,6 @@ namespace jsdal_server_core
         public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
-            //  var configurationBuilder = new ConfigurationBuilder();
-
-            //  configurationBuilder.AddJsonFile("./appsettings.json", false, true);
-
-            //  var c = configurationBuilder.Build();
 
             HostingEnvironment = env;
 
@@ -56,7 +51,6 @@ namespace jsdal_server_core
             Log.Information($"BarcodeService.URL: {Configuration["AppSettings:BarcodeService.URL"]?.TrimEnd('/')}" ?? "(Not set!)");
         }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             // TODO: make configurable
@@ -68,7 +62,6 @@ namespace jsdal_server_core
             // });
 
             services.AddSingleton<PluginLoader>();
-            //services.AddSingleton(typeof(PluginLoader));
             services.AddSingleton(typeof(BackgroundThreadPluginManager));
             services.AddSingleton(typeof(CommonNotificationThread));
             services.AddSingleton(typeof(WorkerMonitor));
@@ -306,7 +299,7 @@ namespace jsdal_server_core
             }
             else
             {
-                Log.Error($" Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                Log.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
                 SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
             }
 
@@ -347,20 +340,24 @@ namespace jsdal_server_core
 
             // TODO: This outputs full request detail into log. Perhaps consider outputting this to a different detailed log
             //app.UseSerilogRequestLogging();
-            // app.UseSerilogRequestLogging(options =>
-            // {
-            //     // Customize the message template
-            //     //options.MessageTemplate = "Handled {RequestPath}";
+            app.UseSerilogRequestLogging(options =>
+            {
+                options.GetType().GetFields(System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+                // Customize the message template
+                //HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms
+                options.MessageTemplate = "Req/Res: {ReqLen,7} {ResLen,7} {StatusCode} {Elapsed,7:0}ms {RequestMethod,4} {RequestPath}";
 
-            //     options.GetLevel = (httpContext, elapsed, ex) => Serilog.Events.LogEventLevel.Warning;
+                //options.GetLevel = (httpContext, elapsed, ex) => Serilog.Events.LogEventLevel.Warning;
 
-            //     // Attach additional properties to the request completion event
-            //     options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
-            //     {
-            //         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
-            //         diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
-            //     };
-            // });
+
+                // Attach additional properties to the request completion event
+                options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+                {
+                    diagnosticContext.Set("ResLen", httpContext.Response.ContentLength ?? 0);
+                    diagnosticContext.Set("ReqLen", httpContext.Request.ContentLength ?? 0);
+
+                };
+            });
 
             app.UseRouting();
             app.UseEndpoints(endpoints =>

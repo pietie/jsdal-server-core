@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace jsdal_server_core
 {
@@ -8,16 +9,92 @@ namespace jsdal_server_core
         private static readonly int MAX_ENTRIES = 2000;
         private static MemoryLog _log = new MemoryLog(MAX_ENTRIES);
 
-        public static void Info(string info, params object[] args) { _log.Info(info, args); }
-        public static void Error(string info, params object[] args) { _log.Error(info, args); }
-        public static void Warning(string info, params object[] args) { _log.Warning(info, args); }
-        public static void Exception(Exception ex, params object[] args) { 
-            _log.Exception(ex, args); 
-            
+        private static FileStream _fs = null;
+
+        static SessionLog()
+        {
+            try
+            {
+                var path = $"./log/session-log";
+
+                if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+
+                var filename = $"{DateTime.Now:yyyy-MM-dd HHmm}.txt";
+                _fs = File.Open(Path.Combine(path, filename), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.LogException(ex);
+            }
         }
 
-        public static void Exception(Exception ex, Controllers.ExecController.ExecOptions execOptions, params object[] args) { 
-            _log.Exception(ex,execOptions,  args); 
+        public static void Shutdown()
+        {
+            if (_fs != null)
+            {
+                _fs.Flush();
+                _fs.Close();
+                _fs = null;
+            }
+        }
+
+        public static void Info(string info, params object[] args)
+        {
+            _log.Info(info, args);
+            LogToStream("INF", info, args);
+        }
+
+        public static void Error(string info, params object[] args)
+        {
+            _log.Error(info, args);
+            LogToStream("ERR", info, args);
+        }
+
+        public static void Warning(string info, params object[] args)
+        {
+            _log.Warning(info, args);
+            LogToStream("WRN", info, args);
+        }
+
+        public static void Exception(Exception ex, params object[] args)
+        {
+            _log.Exception(ex, args);
+            LogToStream("FTL", ex.ToString(), args);
+
+        }
+
+        private static void LogToStream(string type, string line, object[] args)
+        {
+            try
+            {
+                if (_fs != null && _fs.CanWrite)
+                {
+                    var formatted = line;
+
+                    if (args != null && args.Length > 0)
+                    {
+                        formatted = string.Format(line, args);
+                    }
+
+                    var final = $"[{DateTime.Now:HH:mm:ss}] {type} {formatted}\r\n";
+                    var data = System.Text.Encoding.UTF8.GetBytes(final);
+
+                    lock (_fs)
+                    {
+                        _fs.Write(data, 0, data.Length);
+                        _fs.Flush();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.LogExceptionThrottled(ex, "SessionLog", 5);
+            }
+        }
+
+        public static void Exception(Exception ex, Controllers.ExecController.ExecOptions execOptions, params object[] args)
+        {
+            _log.Exception(ex, execOptions, args);
         }
 
         public static List<LogEntry> Entries { get { return _log.Entries; } }
@@ -86,7 +163,7 @@ namespace jsdal_server_core
             AddEntry(LogEntryType.Exception, line);
         }
 
-       
+
 
 
         // 03/11/2015, PL: Created.
@@ -100,7 +177,7 @@ namespace jsdal_server_core
 
         public string Message { get; set; }
 
-  
+
         public LogEntryType Type { get; set; }
 
         private DateTime? LastAppend { get; set; }

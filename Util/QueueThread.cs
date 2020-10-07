@@ -27,7 +27,7 @@ namespace jsdal_server_core.Util
             _winThread.Start();
         }
 
-        protected virtual void ProcessQueueEntries(List<T> entry)
+        protected virtual void ProcessQueueEntries(List<T> entryCollection)
         {
             throw new NotImplementedException();
         }
@@ -49,7 +49,7 @@ namespace jsdal_server_core.Util
 
                 var nextFlush = DateTime.Now.AddSeconds(_flushTimeoutInSeconds);
 
-                while (IsRunning)
+                while (IsRunning && !Program.IsShuttingDown)
                 {
                     // timeout or count trigger check 
                     if (DateTime.Now >= nextFlush || _queue.Count >= _flushCountThreshold)

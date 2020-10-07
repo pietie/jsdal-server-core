@@ -16,6 +16,7 @@ using jsdal_server_core.PluginManagement;
 using Serilog;
 using Serilog.Events;
 using jsdal_server_core.Performance.DataCollector;
+using jsdal_server_core.Performance;
 
 namespace jsdal_server_core
 {
@@ -31,66 +32,18 @@ namespace jsdal_server_core
         static StreamWriter consoleWriter;
         static FileStream fs;
 
-        static void ABC()
-        {
-            throw new Exception("Let's go deepr!");
-        }
-        static void CauseInners()
-        {
-            try
-            {
-                ABC();
-            }
-            catch (Exception ex)
-            {
-                Exception inner = new Exception("Oh no!", ex);
-
-                throw new OutOfMemoryException("Cant remember", inner);
-            }
-
-        }
-
-        static void CauseTestExceptions()
-        {
-
-            try
-            {
-                int x = 0;
-                var n = 1 / x;
-            }
-            catch (Exception aa)
-            {
-                ExceptionLogger.LogException(aa);
-            }
-
-            try
-            {
-                throw new ArgumentException("Arg problem", "a");
-            }
-            catch (Exception aa)
-            {
-                ExceptionLogger.LogException(aa);
-            }
-
-            try
-            {
-                CauseInners();
-            }
-            catch (Exception aa)
-            {
-                ExceptionLogger.LogException(aa);
-            }
-
-        }
+        public static bool IsShuttingDown { get; private set; }
 
         public static void Main(string[] args)
         {
+            IsShuttingDown = false;
 
             var loggerConfig = new LoggerConfiguration()
                         .MinimumLevel.Debug()
                         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
+
                         .WriteTo.File("log/detail-.txt",
                                 //?restrictedToMinimumLevel: LogEventLevel.Warning,
                                 rollingInterval: RollingInterval.Day,
@@ -142,6 +95,15 @@ namespace jsdal_server_core
                     // OverrideStdout();
                 }
 
+                AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+                {
+                    var isTerminating = e.IsTerminating;
+
+                    Log.Fatal("Unhandled exception", e.ExceptionObject);
+                    ExceptionLogger.LogException(e.ExceptionObject as Exception);
+
+                };
+
                 Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
                 // I forget what the different msg types look like
@@ -161,6 +123,10 @@ namespace jsdal_server_core
                 {
                     //ServerMethodManager.RebuildCacheForAllApps();
                 }
+
+                Log.Information("Initialising real-time tracker");
+                RealtimeTrackerThread.Instance.Init();
+
 
                 Log.Information("Initialising data collector");
                 DataCollectorThread.Instance.Init();
@@ -194,6 +160,7 @@ namespace jsdal_server_core
 
                         if (keyInfo.Key == ConsoleKey.X && (keyInfo.Modifiers & ConsoleModifiers.Control) == ConsoleModifiers.Control)
                         {
+                            //host.StopAsync();
                             ShutdownAllBackgroundThreads();
                             break;
                         }
@@ -216,6 +183,8 @@ namespace jsdal_server_core
 
         public static void ShutdownAllBackgroundThreads()
         {
+            IsShuttingDown = true;
+
             Log.Information("Shutting down workers...");
             WorkSpawner.Shutdown();
             Log.Information("Shutting down counter monitor...");
@@ -229,9 +198,15 @@ namespace jsdal_server_core
             Log.Information("Shutting down background thread plugins...");
             BackgroundThreadPluginManager.Instance?.Shutdown();
 
-            Log.Information("Shutting down data collector...");
 
+            Log.Information("Shutting down real-time tracker...");
+            RealtimeTrackerThread.Instance.Shutdown();
+            Log.Information("Shutting down data collector...");
             DataCollectorThread.Instance.Shutdown();
+
+            Log.Information("Shutting session log...");
+            SessionLog.Shutdown();
+
         }
 
         public static void OverrideStdout()

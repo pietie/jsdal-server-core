@@ -26,7 +26,7 @@ namespace jsdal_server_core.Hubs.Performance
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME);
 
-            return RealtimeTracker.GetOrderedList();
+            return RealtimeTrackerThread.Instance.GetOrderedList();
         }
 
         public int GetInitProgress()

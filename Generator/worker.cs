@@ -67,7 +67,7 @@ namespace jsdal_server_core
         {
             this.ID = ShortId.Generate(useNumbers: false, useSpecial: false, length: 6);
             this.Endpoint = endpoint;
-            this.log = new MemoryLog();
+            this.log = new MemoryLog(100);
         }
 
         public void StopAsync()
@@ -135,7 +135,6 @@ namespace jsdal_server_core
                 }
 
                 int connectionOpenErrorCnt = 0;
-
 
                 if (this.Endpoint?.MetadataConnection?.ConnectionStringDecrypted == null)
                 {
@@ -217,7 +216,7 @@ namespace jsdal_server_core
                         {
                             Hubs.WorkerMonitor.Instance.NotifyObservers();
                         }
-                        
+
                         Thread.Sleep(SettingsInstance.Instance.Settings.DbSource_CheckForChangesInMilliseconds);
                     }
                     catch (Exception ex)
@@ -283,8 +282,9 @@ namespace jsdal_server_core
             {
                 last0Cnt = null;
 
-                this.log.Info($"{ changesCount} change(s) found using row date { this.MaxRowDate}");
-                this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount} change(s) found using rowdate { this.MaxRowDate}";
+                // commented out changes line, happens too frequently with just 1 change
+                //this.log.Info($"{ changesCount } change(s) found using row date { this.MaxRowDate }"); 
+                this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount } change(s) found using rowdate { this.MaxRowDate}";
 
                 GetAndProcessRoutineChanges(con, connectionString, changesCount, out var changesList);
 
@@ -458,7 +458,6 @@ namespace jsdal_server_core
 
                                     if (error == null)
                                     {
-
                                         newCachedRoutine.ResultSetMetadata = new Dictionary<string, List<ResultSetFieldMetadata>>()
                                         {
                                             ["Table0"] = resultSetMetdata
@@ -500,7 +499,7 @@ namespace jsdal_server_core
                     }
 
                 } // while reader.Read
-            }
+            }// using reader
         }
 
         private void GenerateFmtOnlyResultsets(string connectionString, CachedRoutine newCachedRoutine)
@@ -609,6 +608,7 @@ namespace jsdal_server_core
 
                 return val.Parameters;
             }
+
         }
 
         private (List<ResultSetFieldMetadata>, string) ExtractResultSetMetadata(string resultSetXml)
@@ -657,7 +657,7 @@ namespace jsdal_server_core
                 // TODO: changesList contains absolute of changes..does not necessarily apply to all files!!!!
                 endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    JsFileGenerator.GenerateJsFile(endpoint, jsFile, fullChangeSet);
+                    JsFileGenerator.GenerateJsFile("001", endpoint, jsFile, fullChangeSet);
 
 
                     this.IsOutputFilesDirty = false;
@@ -678,7 +678,7 @@ namespace jsdal_server_core
             {
                 endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    JsFileGenerator.GenerateJsFile(endpoint, jsFile, rulesChanged: true);
+                    JsFileGenerator.GenerateJsFile("002", endpoint, jsFile, rulesChanged: true);
 
                     this.IsOutputFilesDirty = false;
                     endpoint.LastUpdateDate = DateTime.Now;
@@ -694,7 +694,7 @@ namespace jsdal_server_core
         {
             try
             {
-                JsFileGenerator.GenerateJsFile(endpoint, jsFile, rulesChanged: true);
+                JsFileGenerator.GenerateJsFile("003", endpoint, jsFile, rulesChanged: true);
 
                 this.IsOutputFilesDirty = false;
                 endpoint.LastUpdateDate = DateTime.Now;

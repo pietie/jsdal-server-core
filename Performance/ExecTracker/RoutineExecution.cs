@@ -7,23 +7,29 @@ namespace jsdal_server_core.Performance
     {
         private static long ExecutionSequence;
         private long _executionId;
+
         public long ExecutionId { get { return _executionId; } }
+
+        public string ShortId { get; private set; }
         public string Schema { get; set; }
-        public Endpoint Endpoint { get; set; }
+        //public Endpoint Endpoint { get; set; }
+        public string EndpointPedigree { get; set; }
         public ExecutionRoutineType ExecutionRoutineType { get; set; }
 
-        public int RowsAffected { get; private set; }
+        public int? RowsAffected { get; private set; }
 
         public RoutineExecution(Endpoint endpoint, string schema, string routine) : base(routine)
         {
             this._executionId = System.Threading.Interlocked.Increment(ref RoutineExecution.ExecutionSequence);
             this.Schema = schema;
-            this.Endpoint = endpoint;
-        }
+            this.EndpointPedigree = endpoint.Pedigree;
 
+            this.ShortId = shortid.ShortId.Generate(true, false, 6);
+        }
         public void End(int rowsAffected)
         {
             base.End();
+
             this.RowsAffected = rowsAffected;
 
             if (rowsAffected < 0)
@@ -31,9 +37,7 @@ namespace jsdal_server_core.Performance
                 rowsAffected = 0;
             }
 
-            StatsDB.QueueRecordExecutionEnd(this.Endpoint.Id, this.Schema, this.Name, base.DurationInMS, rowsAffected);
-
-            PerformanceAggregator.Add(this);
+            //StatsDB.QueueRecordExecutionEnd(this.Endpoint.Id, this.Schema, this.Name, base.DurationInMS, rowsAffected);
         }
     }
 

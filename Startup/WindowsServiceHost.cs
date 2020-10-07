@@ -8,9 +8,11 @@ namespace jsdal_server_core
     internal class CustomWebHostService : WebHostService
     {
         private ILogger _logger;
+        private IWebHost _host;
 
         public CustomWebHostService(IWebHost host) : base(host)
         {
+            _host = host;
             _logger = host.Services.GetRequiredService<ILogger<CustomWebHostService>>();
         }
 
@@ -29,6 +31,11 @@ namespace jsdal_server_core
         protected override void OnStopping()
         {
             _logger.LogInformation("OnStopping method called.");
+
+            // if (_host != null)
+            // {
+            //     _host.StopAsync(System.TimeSpan.FromSeconds(10));
+            // }
 
             Program.ShutdownAllBackgroundThreads();
 

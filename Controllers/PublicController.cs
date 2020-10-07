@@ -24,7 +24,7 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/jsdal/ping")]
         public string Ping()
         {
-            StatsDB.QueueRecordExecutionEnd("jsdal-server", "PublicController", "Ping", (ulong)new Random().Next(20, 43), 1);
+            //StatsDB.QueueRecordExecutionEnd("jsdal-server", "PublicController", "Ping", (ulong)new Random().Next(20, 43), 1);
             return "1.0"; // TODO: Version?
         }
 
