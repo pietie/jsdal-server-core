@@ -47,6 +47,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public string ErrorDescription { get; set; }
     }
 
+    [Serializable]
     public class ResultSetFieldMetadata
     {
         public string ColumnName { get; set; }

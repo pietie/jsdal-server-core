@@ -8,6 +8,7 @@ using System.IO;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
+    [Serializable]
     public class JsFile
     {
         public static JsFile _dbLevel = new JsFile("DbLevel");

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 namespace jsdal_server_core.Settings.ObjectModel
 {
 
+    [Serializable]
     public class RoutineParameterV2
     {
         [XmlAttribute]
@@ -319,6 +320,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
     }
 
+    [Serializable]
     public class RoutineParameterCustomType
     {
         public int Ordinal { get; set; }

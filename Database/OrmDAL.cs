@@ -166,7 +166,7 @@ namespace jsdal_server_core
             {
                 var s1 = execRoutineQueryMetric.BeginChildStage("Lookup cached routine");
 
-                var routineCache = endpoint.cache;
+                var routineCache = endpoint.CachedRoutines;
                 var cachedRoutine = routineCache.FirstOrDefault(r => r.Equals(schemaName, routineName));
 
                 outputParameterDictionary = new Dictionary<string, dynamic>();

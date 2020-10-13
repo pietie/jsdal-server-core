@@ -21,6 +21,8 @@ namespace jsdal_server_core
 
         private static Dictionary<string, List<DateTime>> _throttleTracker;
 
+        private static object _throttleTrackerLock = new object();
+
         private static Thread _winThread;
         private static bool IsRunning;
 
@@ -83,6 +85,8 @@ namespace jsdal_server_core
                                     if (!lastFailedToLogToStoreDate.HasValue || DateTime.Now.Subtract(lastFailedToLogToStoreDate.Value).TotalSeconds >= 25)
                                     {
                                         Log.Error(ee, $"Failed to log exception to DB store. EP={ew.EndpointKey}; sID={ew.sId};");
+                                        Log.Error($"Original: {ew.message}; stack=\r\n{ew.stackTrace}");
+
                                         lastFailedToLogToStoreDate = DateTime.Now;
                                     }
                                 }
@@ -118,6 +122,7 @@ namespace jsdal_server_core
                             if (!lastFailedToLogToStoreDate.HasValue || DateTime.Now.Subtract(lastFailedToLogToStoreDate.Value).TotalSeconds >= 25)
                             {
                                 Log.Error(ee, $"Failed to log exception to DB store. EP={ew.EndpointKey}; sID={ew.sId};");
+                                Log.Error($"Original: {ew.message}; stack=\r\n{ew.stackTrace}");
                                 lastFailedToLogToStoreDate = DateTime.Now;
                             }
                         }
@@ -173,9 +178,9 @@ namespace jsdal_server_core
                                 .Limit(5)
                                 .ToEnumerable()
                                 .Where(e => e.EndpointKey == ew.EndpointKey)
-                                .Where(e => e.server == null && ew.server == null || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
-                                .Where(e => e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
-                                .Where(e => e.innerException == null && ew.innerException == null || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
+                                .Where(e => (e.server == null && ew.server == null) || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
+                                .Where(e => (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase)))
+                                .Where(e => (e.innerException == null && ew.innerException == null) || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
                                 .FirstOrDefault();
             }
 
@@ -187,7 +192,7 @@ namespace jsdal_server_core
                 parent = exceptionCollection.Find(e => e.EndpointKey == ew.EndpointKey
                                      && (e.created >= thresholdDate)
                                      && (e.server != null && e.server.Equals(ew.server, StringComparison.OrdinalIgnoreCase))
-                                     && (e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
+                                     && (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
                 )
                 .OrderByDescending(e => e.Id)
                 .FirstOrDefault();
@@ -231,12 +236,13 @@ namespace jsdal_server_core
 
         public static string LogExceptionThrottled(Exception ex, string throttleKey, int maxExcpetionsPerMin, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            lock (_throttleTracker)
+            lock (_throttleTrackerLock)
             {
                 if (!_throttleTracker.ContainsKey(throttleKey))
                 {
                     _throttleTracker.Add(throttleKey, new List<DateTime>());
                 }
+
                 var now = DateTime.Now;
 
                 _throttleTracker[throttleKey].Add(now);

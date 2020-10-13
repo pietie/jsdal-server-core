@@ -239,7 +239,6 @@ namespace jsdal_server_core
                 }
             }
 
-
             applicationLifetime.ApplicationStopped.Register(() =>
             {
                 Log.Information("Application stopped");
@@ -345,7 +344,7 @@ namespace jsdal_server_core
                 options.GetType().GetFields(System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
                 // Customize the message template
                 //HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms
-                options.MessageTemplate = "Req/Res: {ReqLen,7} {ResLen,7} {StatusCode} {Elapsed,7:0}ms {RequestMethod,4} {RequestPath}";
+                options.MessageTemplate = "Req/Res: {ReqLen,7} {ResLen,7} {StatusCode} {Elapsed,7:0} ms {RequestMethod,4} {RequestPath}";
 
                 //options.GetLevel = (httpContext, elapsed, ex) => Serilog.Events.LogEventLevel.Warning;
 

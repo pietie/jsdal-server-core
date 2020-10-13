@@ -32,406 +32,530 @@ namespace jsdal_server_core
         {
             if (JsFileGenerator.StartsWithNum(s)) s = "_" + s;
             return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_");
+
+        }
+
+        public static void GenerateJsFileV2(string source, Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
+        {
+            // use paralell foreach
+            // use new pre-calculated fields on CachedRoutine(for TS types etc)
+            // foreach Routine --> (1) generate JS (2) generated TSD
+            // concat all the things
+            // better metrics?
+
+            var generateMetric = new Performance.ExecutionBase("GenerateJsFileV2");
+            var noChanges = false;
+
+            try
+            {
+                var routineContainerTemplate = WorkSpawner.TEMPLATE_RoutineContainer;
+                var routineTemplate = WorkSpawner.TEMPLATE_Routine;
+                var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
+
+                endpoint.ApplyRules(jsFile);
+
+                var includedRoutines = (from row in endpoint.CachedRoutines
+                                        where !row.IsDeleted && (row.RuleInstructions[jsFile]?.Included ?? false == true)
+                                        orderby row.FullName
+                                        select row).ToList();
+
+                List<KeyValuePair<string, ChangeDescriptor>> changesInFile = null;
+
+
+                if (fullChangeSet != null)
+                {
+                    changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0).ToList();
+
+                    // TODO: Consider if this is a good idea?
+                    //       If we can reasonably say that there are no changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
+                    if (changesInFile.Count == 0)
+                    {
+                        noChanges = true;
+                        return;
+                    }
+                }
+
+                var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+                var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+
+                var serverMethodPlugins = PluginLoader.Instance.PluginAssemblies
+                            .SelectMany(pa => pa.Plugins)
+                            .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.Guid.ToString()));
+
+                var uniqueSchemas = new List<string>();
+
+                //System.Threading.Tasks.Parallel.ForEach(includedRoutines, (r, i) =>
+                includedRoutines.ForEach(r =>
+                {
+                    try
+                    {
+
+
+                    }
+                    catch (Exception ex)
+                    {
+                        SessionLog.Exception(ex);
+                        // TODO: quit whole process
+                    }
+                });
+
+            }
+            finally
+            {
+                generateMetric.End();
+                //generateMetric.DurationInMS
+                if (!noChanges)
+                {
+                    ///SessionLog.InfoToFileOnly($"{endpoint.Pedigree.PadRight(25, ' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
+                }
+            }
         }
 
         public static void GenerateJsFile(string source, Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
         {
-            int tick = Environment.TickCount;
+            int overAlltick = Environment.TickCount;
             var correlationGuid = Guid.NewGuid();
+            int time1 = 0, time2 = 0, time3 = 0, time4 = 0, time5 = 0, time6 = 0;
+            var noChanges = false;
 
-            SessionLog.Info($"{endpoint.Pedigree.PadRight(25,' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
-
-            //!  var logEntry = Log.Info("Generating output file: {0}", jsFile.Filename);
-            string jsNamespace = null;//endpoint.JsNamespace;
-            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
-
-            var typeScriptParameterAndResultTypesSB = new StringBuilder();
-
-            var routineContainerTemplate = WorkSpawner.TEMPLATE_RoutineContainer;
-            var routineTemplate = WorkSpawner.TEMPLATE_Routine;
-            var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
-
-            // maps Custom SQL types to TypeScript definitions
-            var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
-
-            endpoint.ApplyRules(jsFile);
-
-            var includedRoutines = (from row in endpoint.cache
-                                    where !row.IsDeleted && (row.RuleInstructions[jsFile]?.Included ?? false == true)
-                                    orderby row.FullName
-                                    select row).ToList();
-
-            List<KeyValuePair<string, ChangeDescriptor>> changesInFile = null;
-
-            if (fullChangeSet != null)
+            try
             {
-                changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0).ToList();
+                // TODO: Figure out what to do with JsNamespace CASING. Sometimes case changes in connection string and that breaks all existing code
+                string jsNamespace = null;//endpoint.JsNamespace;
+                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
-                // TODO: Consider if this is a good idea?
-                //       If we can reasonably say that there are no changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
-                if (changesInFile.Count == 0)
+                var jsSafeNamespace = MakeNameJsSafe(jsNamespace);
+
+                var typeScriptParameterAndResultTypesSB = new StringBuilder();
+
+                var routineContainerTemplate = WorkSpawner.TEMPLATE_RoutineContainer;
+                var routineTemplate = WorkSpawner.TEMPLATE_Routine;
+                var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
+
+                // maps Custom SQL types to TypeScript definitions
+                var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
+
+                endpoint.ApplyRules(jsFile);
+
+                var includedRoutines = (from row in endpoint.CachedRoutines
+                                        where !row.IsDeleted && (row.RuleInstructions[jsFile]?.Included ?? false == true)
+                                        orderby row.FullName
+                                        select row).ToList();
+
+                List<KeyValuePair<string, ChangeDescriptor>> changesInFile = null;
+
+
+                if (fullChangeSet != null)
                 {
-                    return;
+                    changesInFile = fullChangeSet.Where(change => includedRoutines.Count(inc => inc.FullName.Equals(change.Key, StringComparison.OrdinalIgnoreCase)) > 0).ToList();
+
+                    // TODO: Consider if this is a good idea?
+                    //       If we can reasonably say that there are no changes to routines that this JsFile cares about, why regenerate this file and why give it a new Version
+                    if (changesInFile.Count == 0)
+                    {
+                        noChanges = true;
+                        return;
+                    }
                 }
-            }
 
-            var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
-            var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+                SessionLog.InfoToFileOne($"{endpoint.Pedigree.PadRight(25, ' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
 
-
-            var serverMethodPlugins = PluginLoader.Instance.PluginAssemblies
-                        .SelectMany(pa => pa.Plugins)
-                        .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.Guid.ToString()));
-
-            var uniqueSchemas = new List<string>();
-            //var routineFactorySB = new StringBuilder();
+                var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+                var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
 
 
-            // TODO: use System.Threading.Tasks.Parallel.ForEach()
-            includedRoutines.ForEach(r =>
-            {
-                try
+                var serverMethodPlugins = PluginLoader.Instance.PluginAssemblies
+                            .SelectMany(pa => pa.Plugins)
+                            .Where(p => p.Type == PluginType.ServerMethod && endpoint.Application.IsPluginIncluded(p.Guid.ToString()));
+
+                var uniqueSchemas = new List<string>();
+
+
+                // TODO: use System.Threading.Tasks.Parallel.ForEach()
+                includedRoutines.ForEach(r =>
+                //System.Threading.Tasks.Parallel.ForEach(includedRoutines, (r, i)=> 
+
+
                 {
-                    var schemaName = r.Schema;
-                    var routineName = r.Routine;
-
-                    // javascript does not allow types to start with a number so just prepend with an underscore
-                    // declaring jsFunctionName as routine name before alteration and alter if necessary, keep Original routineName for execution
-                    var jsFunctionName = JsFileGenerator.MakeNameJsSafe(routineName);
-                    var jsSchemaName = JsFileGenerator.MakeNameJsSafe(schemaName);
-
-                    if (!schemaLookup.ContainsKey(jsSchemaName))
+                    try
                     {
-                        schemaLookup.Add(jsSchemaName, new List<string>());
-                    }
+                        int tick = Environment.TickCount;
 
-                    if (!tsSchemaLookup.ContainsKey(jsSchemaName))
-                    {
-                        tsSchemaLookup.Add(jsSchemaName, new List<string>());
-                    }
+                        var schemaName = r.Schema;
+                        var routineName = r.Routine;
 
-                    // needs to be true so that DAL.js can identify parameters from the [options] parm passed in
-                    var includeParams = false; // 27/03/2019, PL: DAL api changed so parms are no longer necessary in .js file
+                        // javascript does not allow types to start with a number so just prepend with an underscore
+                        // declaring jsFunctionName as routine name before alteration and alter if necessary, keep Original routineName for execution
+                        var jsFunctionName = JsFileGenerator.MakeNameJsSafe(routineName);
+                        var jsSchemaName = JsFileGenerator.MakeNameJsSafe(schemaName);
 
-                    if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)
-                                                      || r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
-                                                      || r.Type.Equals("TVF", StringComparison.OrdinalIgnoreCase)
-                                                      )
-                    {
-
-                        //string factoryRef = null;
-
-                        if (!uniqueSchemas.Contains(r.Schema))
+                        if (!schemaLookup.ContainsKey(jsSchemaName))
                         {
-                            uniqueSchemas.Add(r.Schema);
+                            schemaLookup.Add(jsSchemaName, new List<string>());
                         }
 
-                        var schemaIx = uniqueSchemas.IndexOf(r.Schema);
-
-                        // if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase))
-                        // {
-                        //     // if ((uniqueSchemas[r.Schema] & 1) != 1)
-                        //     // {
-                        //     //     uniqueSchemas[r.Schema] |= 1/*Use 1 for PROCs*/;
-                        //     //     //routineFactorySB.AppendLine($"\tvar S{schemaIx} = function(r,o) {{ return new ss(SC[{schemaIx}],r,o); }}");
-                        //     // }
-
-                        //     factoryRef = $"S{schemaIx}";
-                        // }
-                        // else
-                        // {
-                        //     //  if ((uniqueSchemas[r.Schema] & 2) != 2)
-                        //     // {
-                        //     //     uniqueSchemas[r.Schema] |= 2/*Use 2 for UDFss*/;
-                        //     //     //routineFactorySB.AppendLine($"\tvar U{schemaIx} = function(r,o) {{ return new uu(SC[{schemaIx}],r,o); }}");
-                        //     // }
-
-                        //     factoryRef = $"U{schemaIx}";
-                        // }
-
-                        var line = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", routineName);
-
-                        if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) line = line.Replace("<<CLASS>>", "S");
-                        else line = line.Replace("<<CLASS>>", "U");
- 
-
-                        string jsParameters = null;
-
-                        string tsParameterTypeDefName = null;
-                        string typeScriptOutputParameterTypeName = null;
-
-
-                        if (r.Parameters != null)
+                        if (!tsSchemaLookup.ContainsKey(jsSchemaName))
                         {
-                            tsParameterTypeDefName = $"{ MakeNameJsSafe(jsNamespace)}_{ schemaName}_{ jsFunctionName}Parameters";
+                            tsSchemaLookup.Add(jsSchemaName, new List<string>());
+                        }
+
+                        // needs to be true so that DAL.js can identify parameters from the [options] parm passed in
+                        var includeParams = false; // 27/03/2019, PL: DAL api changed so parms are no longer necessary in .js file
+
+                        time1 += Environment.TickCount - tick;
 
 
-                            var sprocParameters = from p in r.Parameters
-                                                  where !string.IsNullOrEmpty(p.Name)
-                                                  select new
-                                                  {
-                                                      Name = StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@'),
-                                                      p.IsResult,
-                                                      p.SqlDataType,
-                                                      p.IsOutput,
-                                                      HasDefault = p.HasDefault,
-                                                      JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType, p.CustomType),
-                                                      TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef)
-                                                  };
+                        if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)
+                                                          || r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase)
+                                                          || r.Type.Equals("TVF", StringComparison.OrdinalIgnoreCase)
+                                                          )
+                        {
 
+                            tick = Environment.TickCount;
 
-                            jsParameters = string.Join(",", sprocParameters.Select(p => $"\"{p.Name}\"").ToArray());
+                            //string factoryRef = null;
 
-
-                            var tsParameters = from p in sprocParameters
-                                               select string.Format("{0}{2}: {1}", StartsWithNum(p.Name) ? ("$" + p.Name) : p.Name, p.TypescriptDataType, p.HasDefault ? "?" : "");
-
-                            var typeScriptParameterDef = string.Format("\t\ttype {0} = {{ {1} }}", tsParameterTypeDefName, string.Join(", ", tsParameters));
-
-                            typeScriptParameterAndResultTypesSB.AppendLine(typeScriptParameterDef);
-
-
-                            var outputParms = (from p in r.Parameters
-                                               where !string.IsNullOrEmpty(p.Name) && !p.IsResult
-                                                 && p.IsOutput
-                                               select string.Format("{0}?: {1}", StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
-                                                , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
-
-
-
-                            if (outputParms.Count > 0)
+                            if (!uniqueSchemas.Contains(r.Schema))
                             {
-                                typeScriptOutputParameterTypeName = string.Format("{0}_{1}_{2}OutputParms", MakeNameJsSafe(jsNamespace), schemaName, jsFunctionName);
-                                var typeScriptOutputParameterTypeDef = string.Format("\t\ttype {0} = {{ {1} }}", typeScriptOutputParameterTypeName, string.Join(", ", outputParms));
-
-
-                                typeScriptParameterAndResultTypesSB.AppendLine(typeScriptOutputParameterTypeDef);
+                                uniqueSchemas.Add(r.Schema);
                             }
 
-                        }// if (r.Parameters != null)
+                            var schemaIx = uniqueSchemas.IndexOf(r.Schema);
 
-                        if (!includeParams) { jsParameters = null; }
+                            // if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase))
+                            // {
+                            //     // if ((uniqueSchemas[r.Schema] & 1) != 1)
+                            //     // {
+                            //     //     uniqueSchemas[r.Schema] |= 1/*Use 1 for PROCs*/;
+                            //     //     //routineFactorySB.AppendLine($"\tvar S{schemaIx} = function(r,o) {{ return new ss(SC[{schemaIx}],r,o); }}");
+                            //     // }
 
-                        if (!string.IsNullOrEmpty(jsParameters))
-                        {
-                            line = line.Replace("<<PARM_DEFINITION>>", jsParameters);
-                        }
-                        else
-                        {
-                            line = line.Replace("<<PARM_DEFINITION>>", "");
-                        }
+                            //     factoryRef = $"S{schemaIx}";
+                            // }
+                            // else
+                            // {
+                            //     //  if ((uniqueSchemas[r.Schema] & 2) != 2)
+                            //     // {
+                            //     //     uniqueSchemas[r.Schema] |= 2/*Use 2 for UDFss*/;
+                            //     //     //routineFactorySB.AppendLine($"\tvar U{schemaIx} = function(r,o) {{ return new uu(SC[{schemaIx}],r,o); }}");
+                            //     // }
 
-                        var resultTypes = new List<string>();
+                            //     factoryRef = $"U{schemaIx}";
+                            // }
 
+                            var line = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", routineName);
 
-                        if (r.ResultSetMetadata != null)
-                        {
-                            int resultIx = 0;
-
-                            foreach (var kv in r.ResultSetMetadata)
-                            {
-                                var columnCounter = new SortedList<string, int>();
-
-                                var tsResultTypeDefName = string.Format("{0}_{1}_{2}Result{3}", MakeNameJsSafe(jsNamespace), schemaName, jsFunctionName, resultIx++);
-
-                                var lst = new List<string>();
-
-                                int nonNameColIx = 0;
-
-                                //kv.Value = Table[0...N]
-                                foreach (var col in kv.Value)
-                                {
-                                    var colName = col.ColumnName.ToString();
-                                    var dbDataType = col.DbDataType.ToString();
-
-                                    if (string.IsNullOrWhiteSpace(colName))
-                                    {
-                                        colName = string.Format("Unknown{0:000}", ++nonNameColIx);
-                                    }
-
-                                    var originalColName = colName;
-
-                                    // handle duplicate column names
-                                    if (columnCounter.ContainsKey(colName))
-                                    {
-                                        //!this.Log.Warning("Duplicate column name encountered for column '{0}' on routine {1}", colName, r.FullName);
-
-                                        var n = columnCounter[colName];
-                                        colName += ++n; // increase by one to give a new unique name
-                                        columnCounter[originalColName] = n;
-                                    }
-                                    else
-                                    {
-                                        columnCounter.Add(colName, 1);
-                                    }
-
-                                    colName = QuoteColumnNameIfNecessary(colName);
+                            if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) line = line.Replace("<<CLASS>>", "S");
+                            else line = line.Replace("<<CLASS>>", "U");
 
 
-                                    // a bit backwards but gets the job done
-                                    var typeScriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(dbDataType, null, ref customTypeLookupWithTypeScriptDef);
+                            string jsParameters = null;
 
-                                    lst.Add(string.Format("{0}: {1}", colName, typeScriptDataType));
+                            string tsParameterTypeDefName = null;
+                            string typeScriptOutputParameterTypeName = null;
 
-                                }
+                            time2 += Environment.TickCount - tick;
 
-                                var typeScriptResultDef = string.Format("\t\tclass {0} {{ {1} }}", tsResultTypeDefName, string.Join("; ", lst));
 
-                                resultTypes.Add(tsResultTypeDefName);
-
-                                typeScriptParameterAndResultTypesSB.AppendLine(typeScriptResultDef);
-
-                            }
-                        } // if (r.ResultSetMetadata != null)
-
-                        var tsArguments = "";
-
-                        if (!string.IsNullOrEmpty(tsParameterTypeDefName))
-                        {
-                            tsArguments = string.Format("_.{0}", tsParameterTypeDefName);
-                        }
-                        else
-                        {
-                            tsArguments = "{ }";
-                        }
-
-                        if (r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase))
-                        {
                             if (r.Parameters != null)
                             {
-                                var resultParm = r.Parameters.First(p => p.IsResult);
+                                tick = Environment.TickCount;
 
-                                var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): IUDFExecGeneric<{2}, {1}>", jsFunctionName, tsArguments
-                                , RoutineParameterV2.GetTypescriptTypeFromSql(resultParm.SqlDataType, resultParm.CustomType, ref customTypeLookupWithTypeScriptDef));
+                                tsParameterTypeDefName = $"{ jsSafeNamespace }_{ schemaName}_{ jsFunctionName}Parameters";
 
-                                tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
+
+                                var sprocParameters = from p in r.Parameters
+                                                      where !string.IsNullOrEmpty(p.Name)
+                                                      select new
+                                                      {
+                                                          Name = StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@'),
+                                                          p.IsResult,
+                                                          p.SqlDataType,
+                                                          p.IsOutput,
+                                                          HasDefault = p.HasDefault,
+                                                          JavascriptDataType = RoutineParameterV2.GetDataTypeForJavaScriptComment(p.SqlDataType, p.CustomType),
+                                                          TypescriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef)
+                                                      };
+
+
+                                jsParameters = string.Join(",", sprocParameters.Select(p => $"\"{p.Name}\"").ToArray());
+
+
+                                var tsParameters = from p in sprocParameters
+                                                   select string.Format("{0}{2}: {1}", StartsWithNum(p.Name) ? ("$" + p.Name) : p.Name, p.TypescriptDataType, p.HasDefault ? "?" : "");
+
+                                var typeScriptParameterDef = string.Format("\t\ttype {0} = {{ {1} }}", tsParameterTypeDefName, string.Join(", ", tsParameters));
+
+                                typeScriptParameterAndResultTypesSB.AppendLine(typeScriptParameterDef);
+
+
+                                var outputParms = (from p in r.Parameters
+                                                   where !string.IsNullOrEmpty(p.Name) && !p.IsResult
+                                                     && p.IsOutput
+                                                   select string.Format("{0}?: {1}", StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
+                                                    , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
+
+
+
+                                if (outputParms.Count > 0)
+                                {
+                                    typeScriptOutputParameterTypeName = string.Format("{0}_{1}_{2}OutputParms", jsSafeNamespace, schemaName, jsFunctionName);
+                                    var typeScriptOutputParameterTypeDef = string.Format("\t\ttype {0} = {{ {1} }}", typeScriptOutputParameterTypeName, string.Join(", ", outputParms));
+
+
+                                    typeScriptParameterAndResultTypesSB.AppendLine(typeScriptOutputParameterTypeDef);
+                                }
+
+                                time3 += Environment.TickCount - tick;
+                            }// if (r.Parameters != null)
+
+                            if (!includeParams) { jsParameters = null; }
+
+                            if (!string.IsNullOrEmpty(jsParameters))
+                            {
+                                line = line.Replace("<<PARM_DEFINITION>>", jsParameters);
                             }
                             else
                             {
-                                SessionLog.Warning($"Cannot generate UDF method stub because the parameters collection is empty. Does the object still exist? Endpoint = {endpoint.Name} ({endpoint.Id}), Routine={r.FullName}");
+                                line = line.Replace("<<PARM_DEFINITION>>", "");
                             }
 
+                            var resultTypes = new List<string>();
+
+                            if (r.ResultSetMetadata != null)
+                            {
+                                tick = Environment.TickCount;
+
+                                int resultIx = 0;
+
+                                foreach (var kv in r.ResultSetMetadata)
+                                {
+                                    var columnCounter = new SortedList<string, int>();
+
+                                    // e.g. Icev0_Accpac_ItemMakeMappingGetListResult0
+                                    var tsResultTypeDefName = string.Format("{0}_{1}_{2}Result{3}", jsSafeNamespace, schemaName, jsFunctionName, resultIx++);
+
+                                    var tsColumnDefs = new List<string>();
+
+                                    int nonNameColIx = 0;
+
+                                    //kv.Value = Table[0...N]
+                                    foreach (var col in kv.Value)
+                                    {
+                                        var colName = col.ColumnName.ToString();
+                                        var dbDataType = col.DbDataType.ToString();
+
+                                        if (string.IsNullOrWhiteSpace(colName))
+                                        {
+                                            colName = string.Format("Unknown{0:000}", ++nonNameColIx);
+                                        }
+
+                                        var originalColName = colName;
+
+                                        // handle duplicate column names
+                                        if (columnCounter.ContainsKey(colName))
+                                        {
+                                            //!this.Log.Warning("Duplicate column name encountered for column '{0}' on routine {1}", colName, r.FullName);
+
+                                            var n = columnCounter[colName];
+                                            colName += ++n; // increase by one to give a new unique name
+                                            columnCounter[originalColName] = n;
+                                        }
+                                        else
+                                        {
+                                            columnCounter.Add(colName, 1);
+                                        }
+
+                                        colName = QuoteColumnNameIfNecessary(colName);
+
+                                        // a bit backwards but gets the job done
+                                        var typeScriptDataType = RoutineParameterV2.GetTypescriptTypeFromSql(dbDataType, null, ref customTypeLookupWithTypeScriptDef);
+
+                                        // Col: TypeScript DataType
+                                        var ln = string.Format("{0}: {1}", colName, typeScriptDataType);
+                                        tsColumnDefs.Add(ln);
+
+                                    }
+
+                                    var typeScriptResultDef = string.Format("\t\tclass {0} {{ {1} }}", tsResultTypeDefName, string.Join("; ", tsColumnDefs));
+
+                                    resultTypes.Add(tsResultTypeDefName);
+
+                                    typeScriptParameterAndResultTypesSB.AppendLine(typeScriptResultDef);
+
+                                }
+
+                                time4 += Environment.TickCount - tick;
+                            } // if (r.ResultSetMetadata != null)
+
+                            tick = Environment.TickCount;
+
+                            var tsArguments = "";
+
+                            if (!string.IsNullOrEmpty(tsParameterTypeDefName))
+                            {
+                                tsArguments = string.Format("_.{0}", tsParameterTypeDefName);
+                            }
+                            else
+                            {
+                                tsArguments = "{ }";
+                            }
+
+                            if (r.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (r.Parameters != null)
+                                {
+                                    var resultParm = r.Parameters.First(p => p.IsResult);
+
+                                    var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): IUDFExecGeneric<{2}, {1}>", jsFunctionName, tsArguments
+                                    , RoutineParameterV2.GetTypescriptTypeFromSql(resultParm.SqlDataType, resultParm.CustomType, ref customTypeLookupWithTypeScriptDef));
+
+                                    tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
+                                }
+                                else
+                                {
+                                    SessionLog.Warning($"Cannot generate UDF method stub because the parameters collection is empty. Does the object still exist? Endpoint = {endpoint.Name} ({endpoint.Id}), Routine={r.FullName}");
+                                }
+
+                            }
+                            else
+                            {
+                                var outputParmType = "void";
+                                // check if there are output parameters present
+                                if (!string.IsNullOrWhiteSpace(typeScriptOutputParameterTypeName))
+                                {
+                                    outputParmType = "_." + typeScriptOutputParameterTypeName;
+                                }
+
+                                if (resultTypes.Count > 0)
+                                {
+                                    var cnt = resultTypes.Count;
+
+                                    // cap ISprocExecGeneric to max available. Intellisense will not be able to show the additional results sets although they will be present
+                                    if (cnt > Constants.MAX_NUMBER_OF_RESULTS)
+                                    {
+                                        //!this.Log.Warning("Result set metadata is capped at {0} result sets. Intellisense will not show more than that although they will be accessible at run-time.", Constants.MAX_NUMBER_OF_RESULTS);
+                                        cnt = Constants.MAX_NUMBER_OF_RESULTS;
+                                    }
+
+                                    var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): ISprocExecGeneric{3}<{4}, {2}, {1}>", jsFunctionName, tsArguments, string.Join(",", resultTypes.Take(Constants.MAX_NUMBER_OF_RESULTS).Select(rt => "_." + rt)), cnt, outputParmType);
+
+                                    tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
+                                }
+                                else
+                                { // NO RESULTSET
+                                    var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): ISprocExecGeneric0<{2}, {1}>", jsFunctionName, tsArguments, outputParmType);
+
+                                    tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
+                                }
+
+                            }
+
+                            schemaLookup[jsSchemaName].Add(line);
+
+                            time5 += Environment.TickCount - tick;
                         }
                         else
                         {
-                            var outputParmType = "void";
-                            // check if there are output parameters present
-                            if (!string.IsNullOrWhiteSpace(typeScriptOutputParameterTypeName))
-                            {
-                                outputParmType = "_." + typeScriptOutputParameterTypeName;
-                            }
-
-                            if (resultTypes.Count > 0)
-                            {
-                                var cnt = resultTypes.Count;
-
-                                // cap ISprocExecGeneric to max available. Intellisense will not be able to show the additional results sets although they will be present
-                                if (cnt > Constants.MAX_NUMBER_OF_RESULTS)
-                                {
-                                    //!this.Log.Warning("Result set metadata is capped at {0} result sets. Intellisense will not show more than that although they will be accessible at run-time.", Constants.MAX_NUMBER_OF_RESULTS);
-                                    cnt = Constants.MAX_NUMBER_OF_RESULTS;
-                                }
-
-                                var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): ISprocExecGeneric{3}<{4}, {2}, {1}>", jsFunctionName, tsArguments, string.Join(",", resultTypes.Take(Constants.MAX_NUMBER_OF_RESULTS).Select(rt => "_." + rt)), cnt, outputParmType);
-
-                                tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
-                            }
-                            else
-                            { // NO RESULTSET
-                                var tsMethodStub = string.Format("\t\t\tstatic {0}(parameters?: {1}): ISprocExecGeneric0<{2}, {1}>", jsFunctionName, tsArguments, outputParmType);
-
-                                tsSchemaLookup[jsSchemaName].Add(tsMethodStub);
-                            }
-
+                            throw new Exception("Unsupported routine type: " + r.Type ?? "(null)");
                         }
 
-                        schemaLookup[jsSchemaName].Add(line);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        throw new Exception("Unsupported routine type: " + r.Type ?? "(null)");
+                        SessionLog.Exception(ex);
+                        // TODO: quit whole process
                     }
 
-                }
-                catch (Exception ex)
+                }); // foreach (var r in routineList)
+
+                int tick = Environment.TickCount;
+
+                var schemaAndRoutineDefs = string.Join("\r\n", schemaLookup.Select(s => "\tx." + s.Key + " = {\r\n\t\t" + string.Join(",\r\n\t\t", s.Value.ToArray()) + "\r\n\t}\r\n").ToArray());
+                var tsSchemaAndRoutineDefs = string.Join("\r\n", tsSchemaLookup.Select(s => "\t\tclass " + s.Key + " {\r\n" + string.Join(";\r\n", s.Value.ToArray()) + "\r\n\t\t}\r\n").ToArray());
+
+                var finalSB = new StringBuilder(routineContainerTemplate);
+
+                jsFile.IncrementVersion();
+
+                // record changes against new version
+
+                if (changesInFile != null && changesInFile.Count > 0)
                 {
-                    SessionLog.Exception(ex);
-                    // TODO: quit whole process
+                    JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv => kv.Value).ToList());
                 }
 
-            }); // foreach (var r in routineList)
+                if (rulesChanged)
+                {
+                    JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, new List<ChangeDescriptor> { ChangeDescriptor.Create("System", "One or more rules changed.") });
+                }
 
-            var schemaAndRoutineDefs = string.Join("\r\n", schemaLookup.Select(s => "\tx." + s.Key + " = {\r\n\t\t" + string.Join(",\r\n\t\t", s.Value.ToArray()) + "\r\n\t}\r\n").ToArray());
-            var tsSchemaAndRoutineDefs = string.Join("\r\n", tsSchemaLookup.Select(s => "\t\tclass " + s.Key + " {\r\n" + string.Join(";\r\n", s.Value.ToArray()) + "\r\n\t\t}\r\n").ToArray());
+                finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
+                    .Replace("<<UNIQUE_SCHEMAS>>", string.Join(',', uniqueSchemas.Select(k => $"'{k}'")))
+                    .Replace("<<Catalog>>", jsSafeNamespace)
+                    .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
+                ;
 
-            var finalSB = new StringBuilder(routineContainerTemplate);
+                var finalTypeScriptSB = new StringBuilder();
 
-            jsFile.IncrementVersion();
+                finalTypeScriptSB = finalTypeScriptSB.Append(typescriptDefinitionsContainer);
 
-            // record changes against new version
+                // Custom/User types
+                if (customTypeLookupWithTypeScriptDef.Count > 0)
+                {
+                    var customTSD = from kv in customTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value};";
+                    typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD));
+                }
 
-            if (changesInFile != null && changesInFile.Count > 0)
-            {
-                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv => kv.Value).ToList());
+                var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();
+
+                finalTypeScriptSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
+                    .Replace("<<Catalog>>", jsSafeNamespace)
+                    .Replace("<<ResultAndParameterTypes>>", resultAndParameterTypes)
+                    .Replace("<<MethodsStubs>>", tsSchemaAndRoutineDefs)
+                ;
+
+                var typescriptDefinitionsOutput = finalTypeScriptSB.ToString();
+
+                var finalOutput = finalSB.ToString();
+
+                var filePath = endpoint.OutputFilePath(jsFile);
+                var minfiedFilePath = endpoint.MinifiedOutputFilePath(jsFile);
+                var tsTypingsFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
+
+                var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
+
+                if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
+
+                var jsFinalBytes = System.Text.Encoding.UTF8.GetBytes(finalOutput);
+                var jsFinalMinifiedBytes = System.Text.Encoding.UTF8.GetBytes(minifiedSource);
+
+                jsFile.ETag = Controllers.PublicController.ComputeETag(jsFinalBytes);
+                jsFile.ETagMinified = Controllers.PublicController.ComputeETag(jsFinalMinifiedBytes);
+
+                File.WriteAllText(filePath, finalOutput);
+                File.WriteAllText(minfiedFilePath, minifiedSource);
+                File.WriteAllText(tsTypingsFilePath, typescriptDefinitionsOutput);
+
+                time6 += Environment.TickCount - tick;
+
             }
-
-            if (rulesChanged)
+            catch (Exception ex)
             {
-                JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, new List<ChangeDescriptor> { ChangeDescriptor.Create("System", "One or more rules changed.") });
+                throw;
             }
-
-            finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
-                .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
-                .Replace("<<SERVER_NAME>>", Environment.MachineName)
-                .Replace("<<UNIQUE_SCHEMAS>>", string.Join(',', uniqueSchemas.Select(k=>$"'{k}'") ))
-                .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
-                .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
-            ;
-
-            var finalTypeScriptSB = new StringBuilder();
-
-            finalTypeScriptSB = finalTypeScriptSB.Append(typescriptDefinitionsContainer);
-
-            // Custom/User types
-            if (customTypeLookupWithTypeScriptDef.Count > 0)
+            finally
             {
-                var customTSD = from kv in customTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value};";
-                typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD));
+                if (!noChanges)
+                {
+                    var overallTime = Environment.TickCount - overAlltick;
+                    SessionLog.InfoToFileOne($"{correlationGuid} completed in {overallTime}ms\tt1={time1} t2={time2} t3={time3} t4={time4} t5={time5} t6={time6}");
+                }
             }
-
-            var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();
-
-            finalTypeScriptSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
-                .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
-                .Replace("<<SERVER_NAME>>", Environment.MachineName)
-                .Replace("<<Catalog>>", MakeNameJsSafe(jsNamespace))
-                .Replace("<<ResultAndParameterTypes>>", resultAndParameterTypes)
-                .Replace("<<MethodsStubs>>", tsSchemaAndRoutineDefs)
-            ;
-
-            var typescriptDefinitionsOutput = finalTypeScriptSB.ToString();
-
-            var finalOutput = finalSB.ToString();
-
-            var filePath = endpoint.OutputFilePath(jsFile);
-            var minfiedFilePath = endpoint.MinifiedOutputFilePath(jsFile);
-            var tsTypingsFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
-
-            var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
-
-            if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
-
-            var jsFinalBytes = System.Text.Encoding.UTF8.GetBytes(finalOutput);
-            var jsFinalMinifiedBytes = System.Text.Encoding.UTF8.GetBytes(minifiedSource);
-
-            jsFile.ETag = Controllers.PublicController.ComputeETag(jsFinalBytes);
-            jsFile.ETagMinified = Controllers.PublicController.ComputeETag(jsFinalMinifiedBytes);
-
-            File.WriteAllText(filePath, finalOutput);
-            File.WriteAllText(minfiedFilePath, minifiedSource);
-            File.WriteAllText(tsTypingsFilePath, typescriptDefinitionsOutput);
-
-            SessionLog.Info($"{correlationGuid} completed in {Environment.TickCount - tick}ms");
         }
 
         // returns the column name in quotes if not a valid javascript property name

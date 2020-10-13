@@ -338,7 +338,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             var distinct = new Dictionary<string, CachedRoutine>();
 
-            this.Endpoints.SelectMany(ep => ep.cache ?? new List<CachedRoutine>())
+            this.Endpoints.SelectMany(ep => ep.CachedRoutines ?? new List<CachedRoutine>())
                 .ToList()
                 .ForEach(routine =>
                     {

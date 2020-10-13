@@ -115,6 +115,54 @@ namespace jsdal_server_core.Controllers
 
         }
 
+        [HttpPost("/api/data-collector/start")]
+        public ActionResult RestartThread()
+        {
+            try
+            {
+                DataCollectorThread.Instance.Restart();
+                return Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+
+        }
+
+        [HttpPost("/api/data-collector/stop")]
+        public ActionResult StopThread()
+        {
+            try
+            {
+                DataCollectorThread.Instance.Shutdown();
+                return Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+
+        }
+
+        [HttpGet("/api/data-collector/thread-status")]
+        public ActionResult GetThreadStatus()
+        {
+            try
+            {
+                return Ok(new
+                {
+                    IsRunning = DataCollectorThread.Instance.IsRunning
+
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+
+        }
+
 
     }
 

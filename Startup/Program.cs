@@ -124,6 +124,9 @@ namespace jsdal_server_core
                     //ServerMethodManager.RebuildCacheForAllApps();
                 }
 
+                Log.Information("Initialising jsDAL health monitor");
+                jsDALHealthMonitorThread.Instance.Init();
+
                 Log.Information("Initialising real-time tracker");
                 RealtimeTrackerThread.Instance.Init();
 
@@ -185,6 +188,8 @@ namespace jsdal_server_core
         {
             IsShuttingDown = true;
 
+            SessionLog.Info("Shutting down");
+
             Log.Information("Shutting down workers...");
             WorkSpawner.Shutdown();
             Log.Information("Shutting down counter monitor...");
@@ -204,7 +209,10 @@ namespace jsdal_server_core
             Log.Information("Shutting down data collector...");
             DataCollectorThread.Instance.Shutdown();
 
-            Log.Information("Shutting session log...");
+            Log.Information("Shutting jsDAL health monitor...");
+            jsDALHealthMonitorThread.Instance.Shutdown();
+
+            Log.Information("Shutting down session log...");
             SessionLog.Shutdown();
 
         }
@@ -280,12 +288,12 @@ namespace jsdal_server_core
                       options.Authentication.Schemes = AuthenticationSchemes.None;
                       options.Authentication.AllowAnonymous = true;
                       options.MaxConnections = null;
-                      options.MaxRequestBodySize = 30000000;
+                      options.MaxRequestBodySize = 30000000; //~30MB
 
                       int interfaceCnt = 0;
 
                       if ((webServerSettings.EnableSSL ?? false)
-                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsServerHostname)
+                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsServerHostname)  
                       && webServerSettings.HttpsServerPort.HasValue
                       && !string.IsNullOrWhiteSpace(webServerSettings.HttpsCertHash))
                       {

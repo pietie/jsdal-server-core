@@ -7,8 +7,8 @@ namespace shortid
     public class ShortId
     {
         private static Random _random = new Random();
-        private const string Capitals = "ABCDEFGHIJKLMNOPQRSTUVWXY";
-        private const string Smalls = "abcdefghjlkmnopqrstuvwxyz";
+        private const string Capitals = "BCDFGHJKLMNPQRSTVWX";
+        private const string Smalls = "bcdfghjlkmnpqrstvwxz";
         private const string Numbers = "0123456789";
         private const string Specials = "-_";
         private static string _pool = $"{Smalls}{Capitals}";

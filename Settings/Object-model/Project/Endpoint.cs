@@ -27,6 +27,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public bool IsOrmInstalled;
 
+        public bool DisableMetadataCapturing;
+
         [JsonIgnore] private List<CachedRoutine> CachedRoutineList;
 
         [JsonIgnore] public Application Application { get; private set; }
@@ -42,8 +44,6 @@ namespace jsdal_server_core.Settings.ObjectModel
         public void UpdateParentReferences(Application app)
         {
             this.Application = app;
-
-
         }
 
         public string GetBgTaskKey()
@@ -319,8 +319,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 this.MetadataConnection.Endpoint = this;
                 this.MetadataConnection.Type = "metadata";
             }
-
-
         }
 
         public void LoadCache()
@@ -340,6 +338,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 this.CachedRoutineList = allCacheEntries;
             }
+
             catch (Exception ex)
             {
                 SessionLog.Exception(ex);
@@ -377,7 +376,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         [JsonIgnore]
-        public List<CachedRoutine> cache { get { return this.CachedRoutineList; } }
+        public List<CachedRoutine> CachedRoutines { get { return this.CachedRoutineList; } }
 
         public bool ClearCache()
         {

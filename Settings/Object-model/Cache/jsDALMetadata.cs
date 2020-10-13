@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
+    [Serializable]
     public class jsDALMetadata
     {
         public jsDAL jsDAL { get; set; }
@@ -18,6 +19,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
     }
 
+    [Serializable]
     public class jsDAL
     {
         public bool? fmtOnlyResultSet { get; set; }
@@ -26,10 +28,12 @@ namespace jsdal_server_core.Settings.ObjectModel
         public jsDALCache cache { get; set; }
         public jsDALSecurity security { get; set; }
     }
+    [Serializable]
     public class jsDALSecurity
     {
         public bool requiresCaptcha { get; set; }
     }
+    [Serializable]
     public class jsDALCache
     {
         public int hours { get; set; }

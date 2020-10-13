@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
+    [Serializable]
     public class RegexRule : BaseRule
     {
         public string Match;

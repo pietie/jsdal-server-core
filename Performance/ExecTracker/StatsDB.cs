@@ -23,15 +23,16 @@ namespace jsdal_server_core.Performance
         {
             try
             {
-                _executionQueue = new ConcurrentQueue<StatsRoutineExecution>();
-                _database = new LiteDB.LiteDatabase("data/stats.db");
+                // TODO: Deprecated in favour of the DataCollector
+                // _executionQueue = new ConcurrentQueue<StatsRoutineExecution>();
+                // _database = new LiteDB.LiteDatabase("data/stats.db");
 
-                // reset stats on startup
-                _database.DropCollection("TotalCount");
+                // // reset stats on startup
+                // _database.DropCollection("TotalCount");
 
-                SessionLog.Info("Starting up StatsDB thread");
-                _winThread = new Thread(new ThreadStart(ProcessMessagesLoop));
-                _winThread.Start();
+                // SessionLog.Info("Starting up StatsDB thread");
+                // _winThread = new Thread(new ThreadStart(ProcessMessagesLoop));
+                // _winThread.Start();
 
             }
             catch (Exception ex)

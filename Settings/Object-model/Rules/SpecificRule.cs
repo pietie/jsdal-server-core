@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
+    [Serializable]
     public class SpecificRule : BaseRule
     {
 

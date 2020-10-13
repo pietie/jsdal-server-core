@@ -12,11 +12,21 @@ namespace jsdal_server_core.Performance.DataCollector
     {
         System.Diagnostics.Stopwatch _aggStopwatch = new System.Diagnostics.Stopwatch();
         System.Diagnostics.Stopwatch _insUpdStopwatch = new System.Diagnostics.Stopwatch();
-        private static LiteDatabase _database;
+        private LiteDatabase _database;
+
+        private readonly string Collection_Agg_IntraHour = "ExecutionAggH";
+        // private readonly string Collection_Agg_Daily = "ExecutionAggD";
+        // private readonly string Collection_Agg_Weekly = "ExecutionAggW";
+        // private readonly string Collection_Agg_Monthly = "ExecutionAggM";
 
         private DataCollectorThread() : base()
         {
+        }
+
+        public override void Init()
+        {
             _database = new LiteDB.LiteDatabase("data/datacollector.db");
+            base.Init();
         }
 
         public static DataCollectorThread Instance { get; private set; }
@@ -89,7 +99,7 @@ namespace jsdal_server_core.Performance.DataCollector
         }
 
         private DateTime? _nextAggregate;
-        private int _aggregateBracketInMins = 5; // e.g. 15 means data is aggregated on hh:00, hh:15, hh:30 and hh:45 minutes
+        private int _aggregateBracketInMins = 15; // e.g. 15 means data is aggregated on hh:00, hh:15, hh:30 and hh:45 minutes
         private DateTime? _nextDbCheckpoint;
         private const int DbCheckpointInSeconds = 3 * 60;
         protected override void DoWork()
@@ -113,8 +123,10 @@ namespace jsdal_server_core.Performance.DataCollector
                     _nextAggregate = CalculateNextAggregateTime(now);
                 }
 
-                if (now > _nextAggregate.Value)
+                if (now.AddSeconds(-35)/*give stragglers a chance to catch up*/ > _nextAggregate.Value)
                 {
+                    var maxBracketDate = _nextAggregate.Value;
+
                     _nextAggregate = CalculateNextAggregateTime(now);
 
                     this.ProcessQueueUntilEmpty();
@@ -125,8 +137,10 @@ namespace jsdal_server_core.Performance.DataCollector
 
                     _aggStopwatch.Restart();
 
-                    // TODO: Handle old items where they never reached the end. Can we record the original CommandTimeout and base it off that + ~10% threshold. Then close off those items as a special kind of DataCollector timeout? We have to close them off for the *next* interval though otherwise we run the risk of conflicting with the prev group
-                    var itemsToAggregate = collection.Find(e => e.EndDate.HasValue && e.EndDate.Value < _nextAggregate.Value).ToList();
+                    // TODO: Handle old items where they never reached the end. Can we record the original CommandTimeout and base it off that + ~10% threshold. 
+                    //       Then close off those items as a special kind of DataCollector timeout? We have to close them off for the *next* interval though 
+                    //       otherwise we run the risk of conflicting with the prev group
+                    var itemsToAggregate = collection.Find(e => e.EndDate.HasValue && e.EndDate.Value < maxBracketDate).Take(50000).ToList(); // if we get behind limit to reasonable amount at at time
 
                     if (itemsToAggregate.Count > 0)
                     {
@@ -173,7 +187,7 @@ namespace jsdal_server_core.Performance.DataCollector
         private int Aggregate(List<DataCollectorDataEntry> dataList)
         {
             var executions = _database.GetCollection<DataCollectorDataEntry>($"Execution");
-            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
 
             executionAggregates.EnsureIndex("RoutineOncePerEndpointBracket", "{ ep: $.Endpoint, s: $.Schema, r: $.Routine, b: $.Bracket }", true);
 
@@ -230,7 +244,28 @@ namespace jsdal_server_core.Performance.DataCollector
             {
                 var createdTrans = _database.BeginTrans();
 
+                // Index("RoutineOncePerEndpointBracket", "{ ep: $.Endpoint, s: $.Schema, r: $.Routine, b: $.Bracket }", true);
+                // find duplicates and merge them
+                // foreach (var a in aggregatedStats)
+                // {
+                //     var expr = Query.And(
+                //                Query.And(
+                //                Query.And(
+                //                     Query.EQ("Endpoint", a.Endpoint),
+                //                     Query.EQ("Schema", a.Schema)),
+                //                     Query.EQ("Routine", a.Routine)),
+                //                     Query.EQ("Bracket", a.Bracket));
+
+                //     var find = executionAggregates.Find(expr);
+
+                //     var n = find.Count();
+                // }
+
+
+
+
                 executionAggregates.InsertBulk(aggregatedStats);
+
 
                 var idLookup = dataList.Select(d => d.Id).ToHashSet();
 
@@ -274,6 +309,8 @@ namespace jsdal_server_core.Performance.DataCollector
                 }
             }
 
+            // TODO: Consider having an EndDate cut off here. If EndDate is PAST the last Aggegrate date then then we have missed the bus. Either log an error (REJECTED ROW) or maybe adjust EndDate slightly so that it falls in NEXT slot?
+
             // build and update an "update" packet
             var entry = new DataCollectorDataEntry(shortId)
             {
@@ -310,31 +347,40 @@ namespace jsdal_server_core.Performance.DataCollector
 
         public dynamic GetAggregateStats()
         {
-            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>();
 
             var minBracket = executionAggregates.Min(x => x.Bracket);
+            var maxBracket = executionAggregates.Max(x => x.Bracket);
+
             DateTime? minBracketDate = null;
+            DateTime? maxBracketDate = null;
 
             if (DateTime.TryParseExact(minBracket.ToString(), "yyyyMMddHHmm", null, System.Globalization.DateTimeStyles.None, out var dt))
             {
                 minBracketDate = dt;
             }
 
+            if (DateTime.TryParseExact(maxBracket.ToString(), "yyyyMMddHHmm", null, System.Globalization.DateTimeStyles.None, out dt))
+            {
+                maxBracketDate = dt;
+            }
+
             return new
             {
                 TotalCount = executionAggregates.Count(),
-                minBracketDate = minBracketDate
+                minBracketDate = minBracketDate,
+                maxBracketDate = maxBracketDate
             };
         }
 
         public int Purge(int daysOld)
         {
-            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
 
             long uptoDate = long.Parse(DateTime.Today.AddDays(-daysOld).ToString("yyyyMMddHHmm"));
-            
 
-            return executionAggregates.DeleteMany(x=>x.Bracket <= uptoDate);
+
+            return executionAggregates.DeleteMany(x => x.Bracket <= uptoDate);
         }
 
         public void Audit(string msg)
@@ -348,14 +394,17 @@ namespace jsdal_server_core.Performance.DataCollector
         public dynamic GetAllDataTmp()
         {
             var collection1 = _database.GetCollection<DataCollectorDataEntry>($"Execution");
-            var collection2 = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+            var collection2 = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
             var collection3 = _database.GetCollection<AuditEntry>($"Audit");
 
             var x = new
             {
-                Executions = collection1.FindAll().ToList(),
+                Executions = collection1.FindAll().TakeLast(50).ToList(),
                 Agg = collection2.FindAll().TakeLast(20).ToList(),
-                Audit = collection3.FindAll().TakeLast(10).ToList()
+                Audit = collection3.FindAll().TakeLast(10).ToList(),
+                ExecutionCnt = collection1.Count(),
+                AggCnt = collection2.Count(),
+                AuditCnt = collection3.Count()
             };
 
             return x;
@@ -364,7 +413,7 @@ namespace jsdal_server_core.Performance.DataCollector
 
         private IEnumerable<DataCollectorDataAgg> BuildBaseQuery(DateTime fromDate, DateTime toDate, string[] endpoints)
         {
-            var collection = _database.GetCollection<DataCollectorDataAgg>($"ExecutionAgg");
+            var collection = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
 
             long bracketStart = long.Parse(fromDate.ToString("yyyyMMddHHmm"));
             long bracketEnd = long.Parse(toDate.ToString("yyyyMMddHHmm"));

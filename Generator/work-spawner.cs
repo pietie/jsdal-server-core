@@ -28,6 +28,7 @@ namespace jsdal_server_core
 
         public static Worker GetWorkerByEndpoint(Endpoint ep)
         {
+            if (WorkSpawner._workerList == null) return null;
             return WorkSpawner._workerList.FirstOrDefault(w => w.Endpoint == ep);
         }
 
@@ -179,7 +180,7 @@ namespace jsdal_server_core
         //         {
         //             var worker = new Worker(app);
 
-         
+
 
         //             WorkSpawner._workerList.Add(worker);
 
@@ -207,7 +208,7 @@ namespace jsdal_server_core
         //         // {
         //         //     var worker = new Worker(dbSource);
 
-        
+
 
         //         //     WorkSpawner._workerList.Add(worker);
 

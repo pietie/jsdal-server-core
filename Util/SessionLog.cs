@@ -38,6 +38,11 @@ namespace jsdal_server_core
             }
         }
 
+        public static void InfoToFileOne(string info, params object[] args)
+        {
+            LogToStream("INF", info, args);
+        }
+
         public static void Info(string info, params object[] args)
         {
             _log.Info(info, args);
@@ -82,7 +87,7 @@ namespace jsdal_server_core
                     lock (_fs)
                     {
                         _fs.Write(data, 0, data.Length);
-                        _fs.Flush();
+                        _fs.Flush(true);
                     }
                 }
             }

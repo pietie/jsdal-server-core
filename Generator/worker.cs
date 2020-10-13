@@ -32,8 +32,6 @@ namespace jsdal_server_core
 
         private Thread winThread;
 
-        //public Thread Thread { get { return winThread; }}
-
         public bool IsRunning
         {
             get;
@@ -61,7 +59,6 @@ namespace jsdal_server_core
         }
 
         private DateTime? last0Cnt;
-
 
         public Worker(Endpoint endpoint)
         {
@@ -127,7 +124,7 @@ namespace jsdal_server_core
 
                 DateTime lastSavedDate = DateTime.Now;
 
-                var cache = this.Endpoint.cache;
+                var cache = this.Endpoint.CachedRoutines;
 
                 if (cache != null && cache.Count > 0)
                 {
@@ -173,13 +170,20 @@ namespace jsdal_server_core
 
                     try
                     {
-                        if (!Endpoint.IsOrmInstalled)
+                        if (Endpoint.DisableMetadataCapturing)
+                        {
+                            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Metadata capturing disabled";
+                            this.IsRunning = false;
+                            continue;
+                        }
+                        else if (!Endpoint.IsOrmInstalled)
                         {
                             // try again in 3 seconds
                             this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Waiting for ORM to be installed";
                             Thread.Sleep(3000);
                             continue;
                         }
+
 
                         var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
                         connectionStringRef = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
@@ -472,6 +476,8 @@ namespace jsdal_server_core
 
                         }
                     } // !IsDeleted
+
+                    //newCachedRoutine.PrecalculateJsGenerationValues(this.Endpoint);
 
                     Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, lastUpdateByHostName, out var changesDesc);
 

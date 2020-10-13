@@ -10,7 +10,7 @@ namespace jsdal_server_core.Util
     {
         private ConcurrentQueue<T> _queue;
         private Thread _winThread;
-        protected bool IsRunning;
+        public bool IsRunning { get; protected set; }
 
         private int _flushTimeoutInSeconds;
         private int _flushCountThreshold;
@@ -20,7 +20,7 @@ namespace jsdal_server_core.Util
             this._flushTimeoutInSeconds = flushTimeoutInSeconds;
             this._flushCountThreshold = flushCountThreshold;
         }
-        public void Init()
+        public virtual void Init()
         {
             _queue = new ConcurrentQueue<T>();
             _winThread = new Thread(new ThreadStart(ProcessMessagesLoop));
@@ -38,6 +38,7 @@ namespace jsdal_server_core.Util
 
         public void Enqueue(T entry)
         {
+            if (!IsRunning) return;
             _queue.Enqueue(entry);
         }
 
@@ -124,6 +125,12 @@ namespace jsdal_server_core.Util
 
         }
 
+        public void Restart()
+        {
+            if (IsRunning) return;
+            this.Init();
+        }
+
         public void Shutdown()
         {
             IsRunning = false;
@@ -133,6 +140,7 @@ namespace jsdal_server_core.Util
                 {
                     Log.Error("ExceptionsDB failed to shutdown in time");
                 }
+                _queue.Clear();
                 _winThread = null;
             }
         }

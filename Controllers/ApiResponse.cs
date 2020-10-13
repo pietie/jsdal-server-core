@@ -44,8 +44,6 @@ namespace jsdal_server_core
 
         public static ApiResponse ExecException(Exception ex, Controllers.ExecController.ExecOptions execOptions, out string exceptionId, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            SessionLog.Exception(ex);
-
             exceptionId = ExceptionLogger.LogException(ex, execOptions, additionalInfo, appTitle, appVersion);
 
             var ret = new ApiResponse();
@@ -59,8 +57,6 @@ namespace jsdal_server_core
         }
         public static ApiResponse Exception(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            SessionLog.Exception(ex);
-
             var id = ExceptionLogger.LogException(ex, additionalInfo, appTitle, appVersion);
 
             var ret = new ApiResponse();

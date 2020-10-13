@@ -9,7 +9,13 @@ namespace jsdal_server_core
 {
     public static class MyExtensions
     {
-        public static V Val<T,V>(this Dictionary<T,V>  dict, T key)
+        public static int ByteSize(this string s)
+        {
+            if (s == null) return 0;
+            return s.Length * sizeof(char) + sizeof(int)/*Length parameter*/;
+        }
+
+        public static V Val<T, V>(this Dictionary<T, V> dict, T key)
         {
             if (!dict.ContainsKey(key)) return default;
 
@@ -36,8 +42,8 @@ namespace jsdal_server_core
         public static string Left(this string s, int left, bool addEllipse = false)
         {
             if (string.IsNullOrEmpty(s)) return s;
-            string ellipse = addEllipse? "..." : "";
-            return s.Length <= left? s : (s.Substring(0, left) + ellipse);
+            string ellipse = addEllipse ? "..." : "";
+            return s.Length <= left ? s : (s.Substring(0, left) + ellipse);
         }
 
     }

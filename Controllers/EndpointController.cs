@@ -50,7 +50,7 @@ namespace jsdal_server_core.Controllers
                     return NotFound($"The specified endpoint does not exist: {project}/{app}/{endpoint}");
                 }
 
-                var q = (from r in ep.cache
+                var q = (from r in ep.CachedRoutines
                          where r.Contains(query)
                          select r.FullName).ToList();
 
@@ -61,8 +61,8 @@ namespace jsdal_server_core.Controllers
                 return BadRequest(e.ToString());
             }
         }
-        
-         [HttpGet("/api/exec-tester/routine-metadata")]
+
+        [HttpGet("/api/exec-tester/routine-metadata")]
         public IActionResult GetRoutineMetadata([FromQuery] string project, [FromQuery] string app, [FromQuery] string endpoint, [FromQuery] string routine)
         {
             try
@@ -77,16 +77,17 @@ namespace jsdal_server_core.Controllers
                     return NotFound($"The specified endpoint does not exist: {project}/{app}/{endpoint}");
                 }
 
-                var r = ep.cache.FirstOrDefault(rt=>rt.EqualsQuery(routine));
+                var r = ep.CachedRoutines.FirstOrDefault(rt => rt.EqualsQuery(routine));
 
                 if (r == null)
                 {
                     return NotFound("Specified routine not found");
                 }
-                
-                return Ok(new {
-                        Parameters = r.Parameters,
-                        ResultSets = r.ResultSetMetadata
+
+                return Ok(new
+                {
+                    Parameters = r.Parameters,
+                    ResultSets = r.ResultSetMetadata
                 });
             }
             catch (Exception e)
@@ -96,7 +97,7 @@ namespace jsdal_server_core.Controllers
         }
 
         [HttpGet("/api/endpoint")]
-        public ApiResponse GetAllEndpointsForSpecificApp([FromQuery] string project, [FromQuery(Name="dbSourceName")] string appName)
+        public ApiResponse GetAllEndpointsForSpecificApp([FromQuery] string project, [FromQuery(Name = "dbSourceName")] string appName)
         {
             try
             {
@@ -136,6 +137,7 @@ namespace jsdal_server_core.Controllers
                     endpoint.Name,
                     BgTaskKey = endpoint.GetBgTaskKey(),
                     endpoint.IsOrmInstalled,
+                    endpoint.DisableMetadataCapturing,
                     MetadataConnection = new
                     {
                         InitialCatalog = endpoint.MetadataConnection?.InitialCatalog,
@@ -445,7 +447,7 @@ namespace jsdal_server_core.Controllers
                 }
 
 
-                var routineCache = ep.cache;
+                var routineCache = ep.CachedRoutines;
 
                 dynamic ormSummary = new System.Dynamic.ExpandoObject();
 
@@ -529,7 +531,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
                 }
 
-                var routineCache = ep.cache;
+                var routineCache = ep.CachedRoutines;
                 IEnumerable<CachedRoutine> results = routineCache;
 
                 if (!string.IsNullOrWhiteSpace(q))
@@ -573,6 +575,36 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Exception(ex);
             }
 
+        }
+
+        [HttpPost]
+        [Route("api/endpoint/{name}/metadata-capturing")]
+        public ApiResponse EnableDisableMetadataCapturing([FromRoute] string name, [FromQuery(Name = "project")] string projectName, [FromQuery(Name = "dbSource")] string dbSourceName, [FromQuery] bool enable)
+        {
+
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(projectName, dbSourceName, out var proj, out var dbSource, out var resp))
+                {
+                    return resp;
+                }
+
+                if (!dbSource.GetEndpoint(name, out var endpoint, out var resp2))
+                {
+                    return ApiResponse.ExclamationModal(resp2.userErrorVal);
+                }
+
+                endpoint.DisableMetadataCapturing = !enable;
+
+                SettingsInstance.SaveSettingsToFile();
+
+                return ApiResponse.Success();
+
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
         }
 
 
