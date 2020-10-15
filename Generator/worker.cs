@@ -205,7 +205,7 @@ namespace jsdal_server_core
 
                                 int waitMS = Math.Min(3000 + (connectionOpenErrorCnt * 3000), 300000/*Max 5mins between tries*/);
 
-                                this.Status = $"Attempt: #{connectionOpenErrorCnt + 1} (waiting for {waitMS}ms). " + this.Status;
+                                this.Status = $"Attempt: #{connectionOpenErrorCnt + 1} (waiting for {waitMS / 1000} secs). " + this.Status;
 
                                 Hubs.WorkerMonitor.Instance.NotifyObservers();
 
@@ -229,7 +229,6 @@ namespace jsdal_server_core
 
                         exceptionThrottler.Add(DateTime.Now, ex);
 
-                        // TODO: make configurable
                         var thresholdDate = DateTime.Now.AddSeconds(-60);
 
                         var beforeThreshold = exceptionThrottler.Where(kv => kv.Key < thresholdDate).ToList();
@@ -374,7 +373,7 @@ namespace jsdal_server_core
                         Type = reader.GetString(ix["RoutineType"]),
                         IsDeleted = reader.GetBoolean(ix["IsDeleted"]),
                         Parameters = new List<RoutineParameterV2>(),
-                        RowVer = reader.GetInt64(ix["rowver"]),
+                        RowVer = reader.GetInt64(ix["rowver"])
                     };
 
                     var parmHash = reader.GetSqlBinary(ix["ParametersHash"]);
@@ -477,7 +476,7 @@ namespace jsdal_server_core
                         }
                     } // !IsDeleted
 
-                    //newCachedRoutine.PrecalculateJsGenerationValues(this.Endpoint);
+                    //!!! newCachedRoutine.PrecalculateJsGenerationValues(this.Endpoint);
 
                     Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, lastUpdateByHostName, out var changesDesc);
 

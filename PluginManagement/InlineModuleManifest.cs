@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using Newtonsoft.Json;
 using System.Linq;
+using System;
 
 namespace jsdal_server_core
 {
@@ -13,8 +14,6 @@ namespace jsdal_server_core
         private List<InlineModuleManifestEntry> _entries;
         private static InlineModuleManifest _instance;
         public ReadOnlyCollection<InlineModuleManifestEntry> Entries { get; private set; }
-
-
         public static InlineModuleManifest Instance
         {
             get
@@ -28,24 +27,46 @@ namespace jsdal_server_core
         }
         private InlineModuleManifest()
         {
+
+        }
+
+        public void Init()
+        {
             this.Load();
         }
 
         private void Load()
         {
-            if (File.Exists(InlinePluginManifestPath))
+            try
             {
-                var json = File.ReadAllText(InlinePluginManifestPath);
+                if (File.Exists(InlinePluginManifestPath))
+                {
+                    var json = File.ReadAllText(InlinePluginManifestPath);
 
-                var entries = JsonConvert.DeserializeObject<InlineModuleManifestEntry[]>(json);
+                    if (!string.IsNullOrWhiteSpace(json))
+                    {
 
-                _entries = new List<InlineModuleManifestEntry>(entries);
-                Entries = _entries.AsReadOnly();
+                        var entries = JsonConvert.DeserializeObject<InlineModuleManifestEntry[]>(json);
+
+                        _entries = new List<InlineModuleManifestEntry>(entries);
+                        Entries = _entries.AsReadOnly();
+                    }
+                    else
+                    {
+                        _entries = new List<InlineModuleManifestEntry>();
+                        Entries = _entries.AsReadOnly();
+                    }
+                }
+                else
+                {
+                    _entries = new List<InlineModuleManifestEntry>();
+                    Entries = _entries.AsReadOnly();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _entries = new List<InlineModuleManifestEntry>();
-                Entries = _entries.AsReadOnly();
+                ExceptionLogger.LogException(ex);
+                SessionLog.Exception(ex);
             }
         }
 

@@ -27,7 +27,6 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int DefaultRuleMode;
 
         public List<string> Plugins; // TODO: Need to build this out for Access-list functionality of some sort? -->Specifically for the Server methods and SignalR loops and such?
-                                     //   public List<string> InlinePlugins;
 
         public List<JsFile> JsFiles;
         public List<BaseRule> Rules;
@@ -143,16 +142,48 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public CommonReturnValue UpdatePluginList(dynamic pluginList)
         {
-            this.Plugins = new List<string>();
-            if (pluginList == null) return CommonReturnValue.Success();
+            var oldList = this.Plugins;
 
+            if (oldList == null) oldList = new List<string>();
+
+            this.Plugins = new List<string>();
+
+            if (pluginList == null) return CommonReturnValue.Success();
 
             foreach (Newtonsoft.Json.Linq.JObject p in pluginList)
             {
                 bool included = (bool)p["Included"];
                 Guid g = (Guid)p["Guid"];
-                if (included) this.Plugins.Add(g.ToString());
+
+                if (included)
+                {
+                    this.Plugins.Add(g.ToString());
+                }
             };
+
+            var newlyEnabled = this.Plugins.Where(p => oldList.FirstOrDefault(x => x.Equals(p, StringComparison.OrdinalIgnoreCase)) == null).Select(g => g.ToLower());
+            var disabled = oldList.Where(p => this.Plugins.FirstOrDefault(x => x.Equals(p, StringComparison.OrdinalIgnoreCase)) == null).Select(g => g.ToLower());
+
+
+            var ret = PluginLoader.Instance.PluginAssemblies
+                .SelectMany(a => a.Plugins, (pa, plugin) => new
+                {
+                    pa.IsInline,
+                    Name = plugin.Name,
+                    Guid = plugin.Guid,
+                    plugin.Type
+
+                })
+                .Where(p => p.Type == PluginType.BackgroundThread || p.Type == PluginType.ServerMethod)
+                .ToList();
+
+            var startList = ret.Where(p => newlyEnabled.Contains(p.Guid.ToString().ToLower()));
+            var stopList = ret.Where(p => disabled.Contains(p.Guid.ToString().ToLower()));
+
+            // TODO: Figure out which ones to stop and which ones to start up
+
+
+
 
             return CommonReturnValue.Success();
         }
@@ -243,7 +274,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
             return CommonReturnValue.Success();
         }
-
 
         public CommonReturnValue DeleteRule(string ruleId)
         {

@@ -1,12 +1,16 @@
 // https://github.com/bolorundurowb/shortid
 
 using System;
+using System.Security.Cryptography;
 
 namespace shortid
 {
     public class ShortId
     {
+        //private static RNGCryptoServiceProvider _seedRNG = new RNGCryptoServiceProvider();
         private static Random _random = new Random();
+
+        private static object _lockObj = new object();
         private const string Capitals = "BCDFGHJKLMNPQRSTVWX";
         private const string Smalls = "bcdfghjlkmnpqrstvwxz";
         private const string Numbers = "0123456789";
@@ -34,7 +38,20 @@ namespace shortid
         /// <returns>A random string</returns>
         public static string Generate(bool useNumbers, bool useSpecial, int length)
         {
+            // lock (_lockObj)
+            // {
+            //     if (_random == null)
+            //     {
+            //         byte[] buffer = new byte[4];
+
+            //         _seedRNG.GetBytes(buffer);
+
+            //         _random = new Random(BitConverter.ToInt32(buffer, 0));
+            //     }
+            // }
+
             string pool = _pool;
+
             if (useNumbers)
             {
                 pool = Numbers + pool;
@@ -45,11 +62,16 @@ namespace shortid
             }
 
             string output = string.Empty;
-            for (int i = 0; i < length; i++)
+
+            lock (_lockObj)
             {
-                int charIndex = _random.Next(0, pool.Length);
-                output += pool[charIndex];
+                for (int i = 0; i < length; i++)
+                {
+                    int charIndex = _random.Next(0, pool.Length);
+                    output += pool[charIndex];
+                }
             }
+
             return output;
         }
 
@@ -74,13 +96,13 @@ namespace shortid
             {
                 throw new ArgumentException("The replacement characters must not be null or empty.");
             }
-            
+
             characters = characters
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "")
                 .Replace("\r", "");
-            
+
             if (characters.Length < 20)
             {
                 throw new InvalidOperationException(

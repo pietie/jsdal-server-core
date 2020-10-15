@@ -119,6 +119,8 @@ namespace jsdal_server_core
                         ExceptionLogger.LogException(e);
                     }
                 });
+
+                Hubs.WorkerMonitor.Instance.NotifyObservers();
             }
             catch (Exception e)
             {

@@ -199,7 +199,6 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/blob")]
         public IActionResult PrepareBlob()
         {
-            // TODO: Limit allowable size of post
             var res = this.Response;
             var req = this.Request;
 
@@ -376,83 +375,94 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+
+        public static int ExceutionsInFlight = 0;
         private IActionResult exec(ExecOptions execOptions)
         {
-            var res = this.Response;
-            var req = this.Request;
-
-            string body = null;
-
-            // always start off not caching whatever we send back
-            res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
-            res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
-            res.Headers["Content-Type"] = "application/json";
-            res.Headers["Expires"] = "-1";
-
-            // TODO: log remote IP with exception and associate with request itself?
-            var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
-
-            //   var remoteIpAddress2 = req.HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
-
-            // convert request headers to normal Dictionary
-            var requestHeaders = req.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
-
-            var referer = requestHeaders.Val("Referer");
-            var appTitle = requestHeaders.Val("app-title");
-            var appVersion = requestHeaders.Val("app-ver");
-
-            var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
-
-            if (isPOST)
+            try
             {
-                using (var sr = new StreamReader(req.Body))
+                Interlocked.Increment(ref ExceutionsInFlight);
+
+                var res = this.Response;
+                var req = this.Request;
+
+                string body = null;
+
+                // always start off not caching whatever we send back
+                res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
+                res.Headers["Pragma"] = "no-cache"; // HTTP 1.0.
+                res.Headers["Content-Type"] = "application/json";
+                res.Headers["Expires"] = "-1";
+
+                // TODO: log remote IP with exception and associate with request itself?
+                var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
+
+                //   var remoteIpAddress2 = req.HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
+
+                // convert request headers to normal Dictionary
+                var requestHeaders = req.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                var referer = requestHeaders.Val("Referer");
+                var appTitle = requestHeaders.Val("app-title");
+                var appVersion = requestHeaders.Val("app-ver");
+
+                var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
+
+                if (isPOST)
                 {
-                    body = sr.ReadToEnd();
+                    using (var sr = new StreamReader(req.Body))
+                    {
+                        body = sr.ReadToEnd();
 
-                    execOptions.inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
+                        execOptions.inputParameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(body);
+                    }
                 }
-            }
-            else
-            {
-                execOptions.inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
-            }
-
-            if (execOptions.OverridingInputParameters != null)
-            {
-                execOptions.inputParameters = execOptions.OverridingInputParameters;
-            }
-
-            if (execOptions.inputParameters == null) execOptions.inputParameters = new Dictionary<string, string>();
-
-
-            (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, requestHeaders,
-                referer, remoteIpAddress,
-                appTitle, appVersion, out var responseHeaders);
-
-            if (responseHeaders != null && responseHeaders.Count > 0)
-            {
-                foreach (var kv in responseHeaders)
+                else
                 {
-                    res.Headers[kv.Key] = kv.Value;
+                    execOptions.inputParameters = req.Query.ToDictionary(t => t.Key, t => t.Value.ToString());
                 }
-            }
 
-            if (mayAccess != null && !mayAccess.IsSuccess)
+                if (execOptions.OverridingInputParameters != null)
+                {
+                    execOptions.inputParameters = execOptions.OverridingInputParameters;
+                }
+
+                if (execOptions.inputParameters == null) execOptions.inputParameters = new Dictionary<string, string>();
+
+
+                (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, requestHeaders,
+                    referer, remoteIpAddress,
+                    appTitle, appVersion, out var responseHeaders);
+
+                if (responseHeaders != null && responseHeaders.Count > 0)
+                {
+                    foreach (var kv in responseHeaders)
+                    {
+                        res.Headers[kv.Key] = kv.Value;
+                    }
+                }
+
+                if (mayAccess != null && !mayAccess.IsSuccess)
+                {
+                    res.ContentType = "text/plain";
+                    res.StatusCode = 403; // Forbidden
+                    return this.Content(mayAccess.userErrorVal);
+                }
+
+                // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter/header)
+                if (routineExecutionMetric != null)
+                {
+                    res.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
+                }
+
+                if (result is IActionResult) return result as IActionResult;
+
+                return Ok(result);
+            }
+            finally
             {
-                res.ContentType = "text/plain";
-                res.StatusCode = 403; // Forbidden
-                return this.Content(mayAccess.userErrorVal);
+                Interlocked.Decrement(ref ExceutionsInFlight);
             }
-
-            // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter)
-            if (routineExecutionMetric != null)
-            {
-                res.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
-            }
-
-            if (result is IActionResult) return result as IActionResult;
-
-            return Ok(result);
         }
 
         public static (object/*ApiResponse | IActionResult*/, RoutineExecution, CommonReturnValue) ExecuteRoutine(ExecOptions execOptions,

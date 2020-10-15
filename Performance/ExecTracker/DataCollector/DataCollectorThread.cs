@@ -123,7 +123,7 @@ namespace jsdal_server_core.Performance.DataCollector
                     _nextAggregate = CalculateNextAggregateTime(now);
                 }
 
-                if (now.AddSeconds(-35)/*give stragglers a chance to catch up*/ > _nextAggregate.Value)
+                if (now.AddSeconds(-15)/*give stragglers a chance to catch up*/ > _nextAggregate.Value)
                 {
                     var maxBracketDate = _nextAggregate.Value;
 
@@ -150,7 +150,7 @@ namespace jsdal_server_core.Performance.DataCollector
 
                         var s = itemsToAggregate.Count == 1 ? "" : "s";
 
-                        Audit($"Aggregated {itemsToAggregate.Count} executions into {aggregateCount} group{s} in {_aggStopwatch.ElapsedMilliseconds:N0}ms for bracket < { _nextAggregate.Value:HH:mm}");
+                        Audit($"Aggregated {itemsToAggregate.Count} executions into {aggregateCount} group{s} in {_aggStopwatch.ElapsedMilliseconds:N0}ms for bracket <= { maxBracketDate:HH:mm}");
                     }
                 }
             }
@@ -347,7 +347,7 @@ namespace jsdal_server_core.Performance.DataCollector
 
         public dynamic GetAggregateStats()
         {
-            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>();
+            var executionAggregates = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
 
             var minBracket = executionAggregates.Min(x => x.Bracket);
             var maxBracket = executionAggregates.Max(x => x.Bracket);

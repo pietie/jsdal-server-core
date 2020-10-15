@@ -28,7 +28,6 @@ namespace jsdal_server_core.PluginManagement
             this._endpointInstances = new Dictionary<Endpoint, BackgroundThreadPluginInstance>();
         }
 
-
         public List<BackgroundThreadPluginInstance> GetLoadedInstances()
         {
             return _endpointInstances.Values.ToList();

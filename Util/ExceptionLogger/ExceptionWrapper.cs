@@ -95,7 +95,7 @@ namespace jsdal_server_core
                 this.state = re.State;
             }
 
-            this.sId = ShortId.Generate(useNumbers: true, useSpecial: false, length: 6);
+            this.sId = ShortId.Generate(useNumbers: true, useSpecial: false, length: 7);
             this.message = msg;
             this.additionalInfo = additionalInfo;
             this.stackTrace = ex.StackTrace;

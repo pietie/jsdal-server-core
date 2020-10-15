@@ -34,6 +34,10 @@ namespace jsdal_server_core
 
         public static bool IsShuttingDown { get; private set; }
 
+
+        static System.Collections.Concurrent.ConcurrentDictionary<string, string> dict = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+      
+
         public static void Main(string[] args)
         {
             IsShuttingDown = false;
@@ -61,6 +65,7 @@ namespace jsdal_server_core
 
             try
             {
+
                 var isService = args.Length == 1 && args[0].Equals("--service", StringComparison.OrdinalIgnoreCase);
                 var justRun = args.Length == 1 && args[0].Equals("--run", StringComparison.OrdinalIgnoreCase);
 
@@ -133,6 +138,9 @@ namespace jsdal_server_core
 
                 Log.Information("Initialising data collector");
                 DataCollectorThread.Instance.Init();
+
+
+                InlineModuleManifest.Instance.Init();
 
                 _startDate = DateTime.Now;
 
@@ -293,7 +301,7 @@ namespace jsdal_server_core
                       int interfaceCnt = 0;
 
                       if ((webServerSettings.EnableSSL ?? false)
-                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsServerHostname)  
+                      && !string.IsNullOrWhiteSpace(webServerSettings.HttpsServerHostname)
                       && webServerSettings.HttpsServerPort.HasValue
                       && !string.IsNullOrWhiteSpace(webServerSettings.HttpsCertHash))
                       {

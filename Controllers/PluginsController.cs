@@ -119,5 +119,40 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Exception(ex);
             }
         }
+
+        [HttpGet("/plugins/diagnostics")]
+        public IActionResult GetDiagnosticInfo()
+        {
+            try
+            {
+                var q = from pa in PluginLoader.Instance.PluginAssemblies
+                        select new
+                        {
+                            pa.Assembly.FullName,
+                            pa.IsInline,
+                            pa.InlineEntryId,
+                            pa.InstanceId,
+                            Plugins = (from p in pa.Plugins
+                                       select new
+                                       {
+                                           p.Name,
+                                           p.Description,
+                                           p.Guid,
+                                           Type = p.Type.ToString()
+                                           // TODO: CNT of Endpoints that use this plugin
+                                       })
+                        };
+
+
+
+                return Ok(q);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+        }
+
+
     }
 }

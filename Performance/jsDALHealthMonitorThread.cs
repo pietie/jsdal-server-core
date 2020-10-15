@@ -77,13 +77,14 @@ namespace jsdal_server_core.Performance
                             BlobStats = BlobStore.Instance.GetStats(),
                             EndpointStats = endpointStats,
                             WorkingSet64 = proc.WorkingSet64,
-                            PrivateMemorySize64 = proc.PrivateMemorySize64
+                            PrivateMemorySize64 = proc.PrivateMemorySize64,
+                            ExceutionsInFlight = Controllers.ExecController.ExceutionsInFlight
 
                         });
 
-                        
+
                         // delete entries older than 10 days
-                        dbCollection.DeleteMany(x=>x.Created.Value <= DateTime.Now.AddDays(-10));
+                        dbCollection.DeleteMany(x => x.Created.Value <= DateTime.Now.AddDays(-10));
 
                         _database.Checkpoint();
                         _nextCheck = DateTime.Now.AddSeconds(45);
@@ -137,7 +138,7 @@ namespace jsdal_server_core.Performance
             var baseQuery = BuildBaseQuery(fromDate, toDate);
 
             var totals = from x in baseQuery
-                         group x by new { Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day, x.Created.Value.Hour, (int)((double)x.Created.Value.Minute / 5.0)*5, 0) } into grp1
+                         group x by new { Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day, x.Created.Value.Hour, (int)((double)x.Created.Value.Minute / 5.0) * 5, 0) } into grp1
                          select new
                          {
                              grp1.Key.Created,
@@ -147,7 +148,8 @@ namespace jsdal_server_core.Performance
                              WorkingSet64 = grp1.Average(c => c.WorkingSet64),
                              TimeToCalculateSizesInMS = (int)grp1.Average(c => c.TimeToCalculateSizesInMS),
                              //CachedRoutinesSizeInMB = x.EndpointStats.Where(e => e.CachedRoutinesCount > 0).Sum(e => (double)e.CachedRoutinesSizeInBytes / (double)e.CachedRoutinesCount) / 1024.0 / 1024.0
-                             CachedRoutinesSizeInMB = Math.Round(grp1.Average(c => (double)c.EndpointStats.Sum(e => e.CachedRoutinesSizeInBytes)) / 1024.0 / 1024.0,2)
+                             CachedRoutinesSizeInMB = Math.Round(grp1.Average(c => (double)c.EndpointStats.Sum(e => e.CachedRoutinesSizeInBytes)) / 1024.0 / 1024.0, 2),
+                             ExecutionsInFlight = (int)grp1.Sum(c => c.ExceutionsInFlight)
 
                          };
 
@@ -191,10 +193,16 @@ namespace jsdal_server_core.Performance
                 data = (from e in totals select e.CachedRoutinesSizeInMB),
             };
 
+            var execInFlightDataset = new
+            {
+                label = "Executions in flight",
+                data = (from e in totals select e.ExecutionsInFlight),
+            };
+
             dynamic ret = new
             {
                 labels = labels,
-                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, workingSetDataset, privateDataset, timeToCalcSizesDataset, cachedRoutineSizeDataset }
+                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, workingSetDataset, privateDataset, timeToCalcSizesDataset, cachedRoutineSizeDataset, execInFlightDataset }
             };
 
             return ret;
@@ -249,6 +257,8 @@ namespace jsdal_server_core.Performance
 
         public long WorkingSet64 { get; set; }
         public long PrivateMemorySize64 { get; set; }
+
+        public int ExceutionsInFlight { get; set; }
     }
 
     public class EndpointStats

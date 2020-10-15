@@ -345,9 +345,11 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
+        public object _cacheLock = new object();
         public void SaveCache()
         {
-            try
+
+            lock (_cacheLock)
             {
                 string cachePath = "./cache";
 
@@ -367,11 +369,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var json = JsonConvert.SerializeObject(this.CachedRoutineList);
 
                 File.WriteAllText(cacheFilePath, json, System.Text.Encoding.UTF8);
-            }
-            catch (Exception ex)
-            {
-
-                throw ex; // TODO: handle
             }
         }
 

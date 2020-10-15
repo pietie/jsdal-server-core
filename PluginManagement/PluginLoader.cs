@@ -76,7 +76,6 @@ namespace jsdal_server_core
                         var code = File.ReadAllText(sourcePath);
                         var assembly = CSharpCompilerHelper.CompileIntoAssembly(inlineEntry.Name, code, out var problems);
 
-
                         if ((problems != null && problems.Count == 0) && assembly != null)
                         {
                             try

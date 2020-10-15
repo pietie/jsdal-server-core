@@ -9,9 +9,9 @@ using shortid;
 namespace jsdal_server_core
 {
 
+    [Obsolete("Replaced with LiteDB based implementation")]
     public class ExceptionLoggerFileBased
     {
-        // TODO: Move exception log to LiteDB
         private static string ExceptionFilePath = "./data/exceptions.lst";
         private static readonly int MAX_ENTRIES_PER_ENDPOINT = 1000;
         private static Dictionary<string/*EndpointKey*/, List<ExceptionWrapper>> exceptionDict = new Dictionary<string, List<ExceptionWrapper>>();
