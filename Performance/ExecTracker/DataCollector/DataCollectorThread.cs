@@ -418,13 +418,20 @@ namespace jsdal_server_core.Performance.DataCollector
             long bracketStart = long.Parse(fromDate.ToString("yyyyMMddHHmm"));
             long bracketEnd = long.Parse(toDate.ToString("yyyyMMddHHmm"));
 
+            var upperEndpoints = endpoints.Select(ep=>ep.ToUpper()).ToArray();
+
             var baseQuery = collection
                     .Query()
                     .Where(x => x.Bracket >= bracketStart
                               && x.Bracket <= bracketEnd
-                              && endpoints.Contains(x.Endpoint))
+                              //&& endpoints.FirstOrDefault(ep => ep.Equals(x.Endpoint, StringComparison.OrdinalIgnoreCase)) != null
+                              && upperEndpoints.Contains(x.Endpoint.ToUpper())
+                              
+                              )
                     .ToEnumerable()
                     ;
+
+
             return baseQuery;
         }
 
