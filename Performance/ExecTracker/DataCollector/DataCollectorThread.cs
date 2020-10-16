@@ -410,7 +410,6 @@ namespace jsdal_server_core.Performance.DataCollector
             return x;
         }
 
-
         private IEnumerable<DataCollectorDataAgg> BuildBaseQuery(DateTime fromDate, DateTime toDate, string[] endpoints)
         {
             var collection = _database.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);

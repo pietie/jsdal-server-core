@@ -51,7 +51,7 @@ namespace jsdal_server_core.Hubs
         {
             Thread.CurrentThread.Name = "CommonNotificationThread";
 
-            var checkMainStatsEvery = new CheckEvery(3);
+            var checkMainStatsEvery = new CheckEvery(10);
             var checkHeartBeatEvery = new CheckEvery(10);
 
             this.IsRunning = true;

@@ -25,6 +25,13 @@ namespace jsdal_server_core.Hubs
             return new MainStats();
         }
 
+        public int ForceGCCollect()
+        {
+            int tick = Environment.TickCount;
+            GC.Collect();
+            return Environment.TickCount - tick;
+        }
+
         public Dictionary<string, Dictionary<string, jsdal_server_core.Performance.dotnet.CounterEventArgs>> SubscribeToDotnetCorePerfCounters()
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, GROUP_NAME_CLR_COUNTERS);

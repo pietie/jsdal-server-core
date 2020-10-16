@@ -70,17 +70,22 @@ namespace jsdal_server_core.Performance
 
                         var proc = Process.GetCurrentProcess();
 
-                        dbCollection.Insert(new jsDALHealthDbEntry()
+                        var blobStats = BlobStore.Instance.GetStats();
+
+                        var newEntry = new jsDALHealthDbEntry()
                         {
                             Created = DateTime.Now,
                             TimeToCalculateSizesInMS = sw.ElapsedMilliseconds,
-                            BlobStats = BlobStore.Instance.GetStats(),
+                            BlobCnt = blobStats.TotalItemsInCache,
+                            BlobsBytesInCache = blobStats.TotalBytesInCache,
                             EndpointStats = endpointStats,
                             WorkingSet64 = proc.WorkingSet64,
                             PrivateMemorySize64 = proc.PrivateMemorySize64,
                             ExceutionsInFlight = Controllers.ExecController.ExceutionsInFlight
 
-                        });
+                        };
+
+                        dbCollection.Insert(newEntry);
 
 
                         // delete entries older than 10 days
@@ -138,12 +143,15 @@ namespace jsdal_server_core.Performance
             var baseQuery = BuildBaseQuery(fromDate, toDate);
 
             var totals = from x in baseQuery
-                         group x by new { Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day, x.Created.Value.Hour, (int)((double)x.Created.Value.Minute / 5.0) * 5, 0) } into grp1
+                         group x by new
+                         {
+                             Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day, x.Created.Value.Hour, (int)((double)x.Created.Value.Minute / 5.0) * 5, 0)
+                         } into grp1
                          select new
                          {
                              grp1.Key.Created,
-                             BlobsInCacheCnt = grp1.Average(c => c.BlobStats.TotalItemsInCache),
-                             BlobsInCacheSizeInMB = Math.Round(grp1.Average(c => (double)c.BlobStats.TotalBytesInCache) / 1024.0 / 1024.0, 2),
+                             BlobsInCacheCnt = grp1.Max(c => c.BlobCnt),
+                             BlobsInCacheSizeInMB = Math.Round(grp1.Max(c => (double)c.BlobsBytesInCache) / 1024.0 / 1024.0, 2),
                              PrivateMemorySize64 = grp1.Average(c => c.PrivateMemorySize64),
                              WorkingSet64 = grp1.Average(c => c.WorkingSet64),
                              TimeToCalculateSizesInMS = (int)grp1.Average(c => c.TimeToCalculateSizesInMS),
@@ -251,7 +259,8 @@ namespace jsdal_server_core.Performance
 
         public long TimeToCalculateSizesInMS { get; set; }
 
-        public BlobStats BlobStats { get; set; }
+        public long BlobsBytesInCache { get; set; }
+        public int BlobCnt { get; set; }
 
         public List<EndpointStats> EndpointStats { get; set; }
 

@@ -21,8 +21,30 @@ namespace jsdal_server_core.Hubs
 
             this.ProcessThreadCount = System.Diagnostics.Process.GetCurrentProcess().Threads.Count;
             this.HandleCount = System.Diagnostics.Process.GetCurrentProcess().HandleCount;
+
+
+            this.GCDetail = new
+            {
+                Total = GC.GetTotalMemory(false),
+                MemInfo = GC.GetGCMemoryInfo(),
+                Settings = new
+                {
+                    System.Runtime.GCSettings.IsServerGC,
+                    LargeObjectHeapCompactionMode = System.Runtime.GCSettings.LargeObjectHeapCompactionMode.ToString(),
+                    LatencyMode = System.Runtime.GCSettings.LatencyMode.ToString()
+                }
+            };
+
+
         }
         public DateTime? WebServerStartDate { get { return Program.StartDate; } }
+
+        public object GCDetail
+        {
+            get;
+            private set;
+        }
+
         public int TickCount
         {
             get { return Environment.TickCount; }
