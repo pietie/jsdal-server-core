@@ -168,20 +168,49 @@ namespace jsdal_server_core.Settings.ObjectModel
             var ret = PluginLoader.Instance.PluginAssemblies
                 .SelectMany(a => a.Plugins, (pa, plugin) => new
                 {
-                    pa.IsInline,
-                    Name = plugin.Name,
-                    Guid = plugin.Guid,
-                    plugin.Type
+                    PluginAssembly = pa,
+                    PluginInfo = plugin
 
                 })
-                .Where(p => p.Type == PluginType.BackgroundThread || p.Type == PluginType.ServerMethod)
+                .Where(p => p.PluginInfo.Type == PluginType.BackgroundThread || p.PluginInfo.Type == PluginType.ServerMethod)
                 .ToList();
 
-            var startList = ret.Where(p => newlyEnabled.Contains(p.Guid.ToString().ToLower()));
-            var stopList = ret.Where(p => disabled.Contains(p.Guid.ToString().ToLower()));
+            var startList = ret.Where(p => newlyEnabled.Contains(p.PluginInfo.Guid.ToString().ToLower()));
+            var stopList = ret.Where(p => disabled.Contains(p.PluginInfo.Guid.ToString().ToLower()));
 
-            // TODO: Figure out which ones to stop and which ones to start up
+            // START
+            {
+                foreach (var item in startList)
+                {
+                    if (item.PluginInfo.Type == PluginType.BackgroundThread)
+                    {
 
+                        BackgroundThreadPluginManager.Instance.Register(item.PluginInfo);
+                    }
+                    else if (item.PluginInfo.Type == PluginType.ServerMethod)
+                    {
+                        ServerMethodManager.Register(item.PluginAssembly.InstanceId, item.PluginInfo);
+                    }
+                }
+            }
+
+            // STOP
+            {
+                foreach (var item in stopList)
+                {
+
+                    if (item.PluginInfo.Type == PluginType.BackgroundThread)
+                    {
+                        // TODO: Implement a stop and call for every EP!
+                        //BackgroundThreadPluginManager.Instance.FindPluginInstance()
+                        //BackgroundThreadPluginManager.Instance.Register(item.PluginInfo);
+                    }
+                    else if (item.PluginInfo.Type == PluginType.ServerMethod)
+                    {
+                        //ServerMethodManager.Register(item.PluginAssembly.InstanceId, item.PluginInfo);
+                    }
+                }
+            }
 
 
 
@@ -347,12 +376,20 @@ namespace jsdal_server_core.Settings.ObjectModel
             {
                 if (System.Uri.TryCreate(referer, UriKind.RelativeOrAbsolute, out var refererUri))
                 {
-
                     foreach (string en in whitelistedIPs)
                     {
                         if (en.Equals(refererUri.Host, StringComparison.OrdinalIgnoreCase))
                         {
                             return CommonReturnValue.Success();
+                        }
+                        else if (en.StartsWith("*.")) // wildcard sub-domain
+                        {
+                            var tld = refererUri.Host.Substring(refererUri.Host.IndexOf(".") + 1);
+
+                            if (en.Substring(2).Equals(tld, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return CommonReturnValue.Success();
+                            }
                         }
                     }
                 }

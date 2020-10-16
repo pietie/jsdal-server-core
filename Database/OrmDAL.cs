@@ -569,7 +569,7 @@ namespace jsdal_server_core
                     }
                     else
                     {
-                        throw new JsdalServerParameterValueException(paramName, $"Invalid DateTime value. Expected format is: {expectedFormat} e.g. {DateTime.Now.ToString(expectedFormat)}");
+                        throw new JsdalServerParameterValueException(paramName, $"Invalid DateTime value of {value ?? "(null)"}. Expected format is: {expectedFormat} e.g. {DateTime.Now.ToString(expectedFormat)}");
                     }
 
                 case SqlDbType.Bit:
@@ -602,9 +602,7 @@ namespace jsdal_server_core
                         }
 
                         return value;
-
                     }
-
 
                 default:
                     {
