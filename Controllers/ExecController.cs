@@ -82,13 +82,23 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
+            ExecOptions execOptions = null;
+
             try
             {
-                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery });
+                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery };
+                return exec(execOptions);
             }
             catch (Exception ex)
             {
-                return Ok(ApiResponse.Exception(ex));
+                var requestHeaders = this.Request.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                var appTitle = requestHeaders.Val("app-title");
+                var appVersion = requestHeaders.Val("app-ver");
+
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, out var exceptionId, null, appTitle, appVersion);
+
+                return Ok(exceptionResponse);
             }
         }
 
@@ -97,13 +107,23 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
+            ExecOptions execOptions = null;
+
             try
             {
-                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query });
+                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query };
+                return exec(execOptions);
             }
             catch (Exception ex)
             {
-                return Ok(ApiResponse.Exception(ex));
+                var requestHeaders = this.Request.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                var appTitle = requestHeaders.Val("app-title");
+                var appVersion = requestHeaders.Val("app-ver");
+
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, out var exceptionId, null, appTitle, appVersion);
+
+                return Ok(exceptionResponse);
             }
         }
 
@@ -112,14 +132,24 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public IActionResult Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
+            ExecOptions execOptions = null;
+
             try
             {
-                return exec(new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar });
+                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar };
+                return exec(execOptions);
 
             }
             catch (Exception ex)
             {
-                return Ok(ApiResponse.Exception(ex));
+                var requestHeaders = this.Request.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                var appTitle = requestHeaders.Val("app-title");
+                var appVersion = requestHeaders.Val("app-ver");
+
+                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, out var exceptionId, null, appTitle, appVersion);
+
+                return Ok(exceptionResponse);
             }
         }
 
