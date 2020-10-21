@@ -7,7 +7,7 @@ namespace jsdal_server_core.Performance.DataCollector
     {
         public DataCollectorDataEntry(string shortId = null)
         {
-            if (shortId == null) this.ShortId = shortid.ShortId.Generate(true, false, 6);
+            if (shortId == null) this.ShortId = shortid.ShortId.Generate(true, false, 7);
             else this.ShortId = shortId;
 
             this.Created = DateTime.Now;

@@ -33,8 +33,9 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         [JsonIgnore] public Application Application { get; private set; }
 
-        public bool CaptureConnectionStats = true; // TODO: Default false? Provide 
+        public bool CaptureConnectionStats = true; // TODO: Default false? Provide way to turon on/off 
 
+        
 
         public Endpoint()
         {
