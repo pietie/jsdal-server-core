@@ -95,7 +95,7 @@
 
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
 
-		<PackageReference Include="NUglify" Version="1.5.13" />
+		<PackageReference Include="NUglify" Version="1.9.9" />
  
 
 		<!-- <PackageReference Include="System.Reactive.Linq" Version="4.1.0" /> -->

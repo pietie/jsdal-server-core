@@ -32,22 +32,25 @@ namespace jsdal_server_core
         {
             if (JsFileGenerator.StartsWithNum(s)) s = "_" + s;
             return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_");
-
         }
 
         public static void GenerateJsFileV2(string source, Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
         {
-            // use paralell foreach
-            // use new pre-calculated fields on CachedRoutine(for TS types etc)
-            // foreach Routine --> (1) generate JS (2) generated TSD
-            // concat all the things
-            // better metrics?
-
             var generateMetric = new Performance.ExecutionBase("GenerateJsFileV2");
             var noChanges = false;
 
             try
             {
+                // TODO: Figure out out casing on this property 
+                string jsNamespace = null;//endpoint.JsNamespace;
+                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
+
+                var jsSafeNamespace = MakeNameJsSafe(jsNamespace);
+
+                // maps Custom SQL types to TypeScript definitions
+                // TODO: Get from cached version Endpoint/App/Worker ? - if on worker needs to be persisted!
+                var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
+
                 var routineContainerTemplate = WorkSpawner.TEMPLATE_RoutineContainer;
                 var routineTemplate = WorkSpawner.TEMPLATE_Routine;
                 var typescriptDefinitionsContainer = WorkSpawner.TEMPLATE_TypescriptDefinitions;
@@ -75,8 +78,10 @@ namespace jsdal_server_core
                     }
                 }
 
-                var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+                var jsSchemaLookupForJsFunctions = new Dictionary<string, List<string>/*Routine defs*/>();
                 var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+
+                var typeScriptParameterAndResultTypesSB = new StringBuilder();
 
                 var serverMethodPlugins = PluginLoader.Instance.PluginAssemblies
                             .SelectMany(pa => pa.Plugins)
@@ -84,13 +89,54 @@ namespace jsdal_server_core
 
                 var uniqueSchemas = new List<string>();
 
-                //System.Threading.Tasks.Parallel.ForEach(includedRoutines, (r, i) =>
+                var mainLoopMetric = generateMetric.BeginChildStage("Main loop");
+
                 includedRoutines.ForEach(r =>
                 {
                     try
                     {
+                        if (r.TypescriptMethodStub == null)
+                        {
+                            r.PrecalculateJsGenerationValues(endpoint);
+                        }
 
+                        var jsSchemaName = JsFileGenerator.MakeNameJsSafe(r.Schema);
+                        var jsFunctionName = JsFileGenerator.MakeNameJsSafe(r.Routine);
 
+                        if (!jsSchemaLookupForJsFunctions.ContainsKey(jsSchemaName))
+                        {
+                            jsSchemaLookupForJsFunctions.Add(jsSchemaName, new List<string>());
+                        }
+
+                        if (!tsSchemaLookup.ContainsKey(jsSchemaName))
+                        {
+                            tsSchemaLookup.Add(jsSchemaName, new List<string>());
+                        }
+
+                        if (!uniqueSchemas.Contains(r.Schema))
+                        {
+                            uniqueSchemas.Add(r.Schema);
+                        }
+
+                        var schemaIx = uniqueSchemas.IndexOf(r.Schema);
+
+                        // .js
+                        {
+                            var jsFunctionDefLine = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", r.Routine);
+
+                            if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) jsFunctionDefLine = jsFunctionDefLine.Replace("<<CLASS>>", "S");
+                            else jsFunctionDefLine = jsFunctionDefLine.Replace("<<CLASS>>", "U");
+
+                            jsSchemaLookupForJsFunctions[jsSchemaName].Add(jsFunctionDefLine);
+                        }
+
+                        // .tsd
+                        {
+                            typeScriptParameterAndResultTypesSB.AppendLine(r.TypescriptParameterTypeDefinition);
+                            typeScriptParameterAndResultTypesSB.AppendLine(r.TypescriptOutputParameterTypeDefinition);
+                            typeScriptParameterAndResultTypesSB.AppendLine(r.TypescriptResultSetDefinitions);
+                            tsSchemaLookup[jsSchemaName].Add(r.TypescriptMethodStub);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -99,15 +145,97 @@ namespace jsdal_server_core
                     }
                 });
 
+                mainLoopMetric.End();
+
+                var finalSBMetric = generateMetric.BeginChildStage("Final SB");
+
+                var schemaAndRoutineDefs = string.Join("\r\n", jsSchemaLookupForJsFunctions.Select(s => "\tx." + s.Key + " = {\r\n\t\t" + string.Join(",\r\n\t\t", s.Value.ToArray()) + "\r\n\t}\r\n").ToArray());
+                var tsSchemaAndRoutineDefs = string.Join("\r\n", tsSchemaLookup.Select(s => "\t\tclass " + s.Key + " {\r\n" + string.Join(";\r\n", s.Value.ToArray()) + "\r\n\t\t}\r\n").ToArray());
+
+                var finalSB = new StringBuilder(routineContainerTemplate);
+
+                jsFile.IncrementVersion();
+
+                // record changes against new version
+
+                if (changesInFile != null && changesInFile.Count > 0)
+                {
+                    JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, changesInFile.Select(kv => kv.Value).ToList());
+                }
+
+                if (rulesChanged)
+                {
+                    JsFileChangesTracker.Instance.AddUpdate(endpoint, jsFile, new List<ChangeDescriptor> { ChangeDescriptor.Create("System", "One or more rules changed.") });
+                }
+
+                finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
+                    .Replace("<<UNIQUE_SCHEMAS>>", string.Join(',', uniqueSchemas.Select(k => $"'{k}'")))
+                    .Replace("<<Catalog>>", jsSafeNamespace)
+                    .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
+                ;
+
+                var finalTypeScriptSB = new StringBuilder();
+
+                finalTypeScriptSB = finalTypeScriptSB.Append(typescriptDefinitionsContainer);
+
+                // Custom/User types
+                if (customTypeLookupWithTypeScriptDef.Count > 0)
+                {
+                    var customTSD = from kv in customTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value};";
+                    typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD));
+                }
+
+                var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();
+
+                finalTypeScriptSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
+                    .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
+                    .Replace("<<SERVER_NAME>>", Environment.MachineName)
+                    .Replace("<<Catalog>>", jsSafeNamespace)
+                    .Replace("<<ResultAndParameterTypes>>", resultAndParameterTypes)
+                    .Replace("<<MethodsStubs>>", tsSchemaAndRoutineDefs)
+                ;
+
+                finalSBMetric.End();
+
+                var toStringMetric = generateMetric.BeginChildStage("ToString");
+                var typescriptDefinitionsOutput = finalTypeScriptSB.ToString();
+                var finalOutput = finalSB.ToString();
+                toStringMetric.End();
+
+                var filePath = endpoint.OutputFilePath(jsFile);
+                var minfiedFilePath = endpoint.MinifiedOutputFilePath(jsFile);
+                var tsTypingsFilePath = endpoint.OutputTypeScriptTypingsFilePath(jsFile);
+
+                var minifyMetric = generateMetric.BeginChildStage("Minify");
+
+                var minifiedSource = Uglify.Js(finalOutput/*, { }*/).Code;
+
+                minifyMetric.End();
+
+                if (!Directory.Exists(endpoint.OutputDir)) { Directory.CreateDirectory(endpoint.OutputDir); }
+
+                var fileOutputMetric = generateMetric.BeginChildStage("Write");
+
+                var jsFinalBytes = System.Text.Encoding.UTF8.GetBytes(finalOutput);
+                var jsFinalMinifiedBytes = System.Text.Encoding.UTF8.GetBytes(minifiedSource);
+
+                jsFile.ETag = Controllers.PublicController.ComputeETag(jsFinalBytes);
+                jsFile.ETagMinified = Controllers.PublicController.ComputeETag(jsFinalMinifiedBytes);
+
+
+                File.WriteAllText(filePath, finalOutput);
+                File.WriteAllText(minfiedFilePath, minifiedSource);
+                File.WriteAllText(tsTypingsFilePath, typescriptDefinitionsOutput);
+
+                fileOutputMetric.End();
             }
             finally
             {
                 generateMetric.End();
-                //generateMetric.DurationInMS
-                if (!noChanges)
-                {
-                    ///SessionLog.InfoToFileOnly($"{endpoint.Pedigree.PadRight(25, ' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
-                }
+
+                SessionLog.InfoToFileOnly($"{endpoint.Pedigree.PadRight(25, ' ')} - {generateMetric.DurationInMS.ToString().PadLeft(4)} ms {jsFile.Filename.PadRight(20)} (source={source};rulesChanged={rulesChanged};changes={!noChanges}); {generateMetric.ChildDurationsSingleLine()}");
             }
         }
 
@@ -158,9 +286,9 @@ namespace jsdal_server_core
                     }
                 }
 
-                SessionLog.InfoToFileOne($"{endpoint.Pedigree.PadRight(25, ' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
+                SessionLog.InfoToFileOnly($"{endpoint.Pedigree.PadRight(25, ' ')} - generating {jsFile.Filename} (source={source};rulesChanged={rulesChanged}) {correlationGuid}");
 
-                var schemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
+                var jsSchemaLookupForJsFunctions = new Dictionary<string, List<string>/*Routine defs*/>();
                 var tsSchemaLookup = new Dictionary<string, List<string>/*Routine defs*/>();
 
 
@@ -189,9 +317,9 @@ namespace jsdal_server_core
                         var jsFunctionName = JsFileGenerator.MakeNameJsSafe(routineName);
                         var jsSchemaName = JsFileGenerator.MakeNameJsSafe(schemaName);
 
-                        if (!schemaLookup.ContainsKey(jsSchemaName))
+                        if (!jsSchemaLookupForJsFunctions.ContainsKey(jsSchemaName))
                         {
-                            schemaLookup.Add(jsSchemaName, new List<string>());
+                            jsSchemaLookupForJsFunctions.Add(jsSchemaName, new List<string>());
                         }
 
                         if (!tsSchemaLookup.ContainsKey(jsSchemaName))
@@ -243,10 +371,10 @@ namespace jsdal_server_core
                             //     factoryRef = $"U{schemaIx}";
                             // }
 
-                            var line = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", routineName);
+                            var jsFunctionLine = routineTemplate.Replace("<<FUNC_NAME>>", jsFunctionName).Replace("<<SCHEMA_IX>>", schemaIx.ToString()).Replace("<<ROUTINE>>", routineName);
 
-                            if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) line = line.Replace("<<CLASS>>", "S");
-                            else line = line.Replace("<<CLASS>>", "U");
+                            if (r.Type.Equals("PROCEDURE", StringComparison.OrdinalIgnoreCase)) jsFunctionLine = jsFunctionLine.Replace("<<CLASS>>", "S");
+                            else jsFunctionLine = jsFunctionLine.Replace("<<CLASS>>", "U");
 
 
                             string jsParameters = null;
@@ -313,11 +441,11 @@ namespace jsdal_server_core
 
                             if (!string.IsNullOrEmpty(jsParameters))
                             {
-                                line = line.Replace("<<PARM_DEFINITION>>", jsParameters);
+                                jsFunctionLine = jsFunctionLine.Replace("<<PARM_DEFINITION>>", jsParameters);
                             }
                             else
                             {
-                                line = line.Replace("<<PARM_DEFINITION>>", "");
+                                jsFunctionLine = jsFunctionLine.Replace("<<PARM_DEFINITION>>", "");
                             }
 
                             var resultTypes = new List<string>();
@@ -451,7 +579,7 @@ namespace jsdal_server_core
 
                             }
 
-                            schemaLookup[jsSchemaName].Add(line);
+                            jsSchemaLookupForJsFunctions[jsSchemaName].Add(jsFunctionLine);
 
                             time5 += Environment.TickCount - tick;
                         }
@@ -471,7 +599,7 @@ namespace jsdal_server_core
 
                 int tick = Environment.TickCount;
 
-                var schemaAndRoutineDefs = string.Join("\r\n", schemaLookup.Select(s => "\tx." + s.Key + " = {\r\n\t\t" + string.Join(",\r\n\t\t", s.Value.ToArray()) + "\r\n\t}\r\n").ToArray());
+                var schemaAndRoutineDefs = string.Join("\r\n", jsSchemaLookupForJsFunctions.Select(s => "\tx." + s.Key + " = {\r\n\t\t" + string.Join(",\r\n\t\t", s.Value.ToArray()) + "\r\n\t}\r\n").ToArray());
                 var tsSchemaAndRoutineDefs = string.Join("\r\n", tsSchemaLookup.Select(s => "\t\tclass " + s.Key + " {\r\n" + string.Join(";\r\n", s.Value.ToArray()) + "\r\n\t\t}\r\n").ToArray());
 
                 var finalSB = new StringBuilder(routineContainerTemplate);
@@ -553,7 +681,7 @@ namespace jsdal_server_core
                 if (!noChanges)
                 {
                     var overallTime = Environment.TickCount - overAlltick;
-                    SessionLog.InfoToFileOne($"{correlationGuid} completed in {overallTime}ms\tt1={time1} t2={time2} t3={time3} t4={time4} t5={time5} t6={time6}");
+                    SessionLog.InfoToFileOnly($"{correlationGuid} completed in {overallTime}ms\tt1={time1} t2={time2} t3={time3} t4={time4} t5={time5} t6={time6}");
                 }
             }
         }

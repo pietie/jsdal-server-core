@@ -38,7 +38,7 @@ namespace jsdal_server_core
             }
         }
 
-        public static void InfoToFileOne(string info, params object[] args)
+        public static void InfoToFileOnly(string info, params object[] args)
         {
             LogToStream("INF", info, args);
         }

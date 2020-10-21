@@ -476,7 +476,7 @@ namespace jsdal_server_core
                         }
                     } // !IsDeleted
 
-                    //!!! newCachedRoutine.PrecalculateJsGenerationValues(this.Endpoint);
+                    newCachedRoutine.PrecalculateJsGenerationValues(this.Endpoint);
 
                     Endpoint.AddToCache(newCachedRoutine.RowVer, newCachedRoutine, lastUpdateByHostName, out var changesDesc);
 
@@ -662,8 +662,8 @@ namespace jsdal_server_core
                 // TODO: changesList contains absolute of changes..does not necessarily apply to all files!!!!
                 endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    JsFileGenerator.GenerateJsFile("001", endpoint, jsFile, fullChangeSet);
-
+                    //JsFileGenerator.GenerateJsFile("001", endpoint, jsFile, fullChangeSet);
+                    JsFileGenerator.GenerateJsFileV2("001", endpoint, jsFile, fullChangeSet);
 
                     this.IsOutputFilesDirty = false;
 
@@ -683,7 +683,7 @@ namespace jsdal_server_core
             {
                 endpoint.Application.JsFiles.ForEach(jsFile =>
                 {
-                    JsFileGenerator.GenerateJsFile("002", endpoint, jsFile, rulesChanged: true);
+                    JsFileGenerator.GenerateJsFileV2("002", endpoint, jsFile, rulesChanged: true);
 
                     this.IsOutputFilesDirty = false;
                     endpoint.LastUpdateDate = DateTime.Now;
@@ -699,7 +699,7 @@ namespace jsdal_server_core
         {
             try
             {
-                JsFileGenerator.GenerateJsFile("003", endpoint, jsFile, rulesChanged: true);
+                JsFileGenerator.GenerateJsFileV2("003", endpoint, jsFile, rulesChanged: true);
 
                 this.IsOutputFilesDirty = false;
                 endpoint.LastUpdateDate = DateTime.Now;

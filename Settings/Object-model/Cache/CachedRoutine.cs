@@ -164,20 +164,20 @@ namespace jsdal_server_core.Settings.ObjectModel
         //             + TypescriptResultSetDefinitions.ByteSize() + TypescriptMethodStub.ByteSize() + sizeof(bool/*IsDeleted*/);
 
 
-            
+
         //     /*
-        
-        
+
+
         // public bool IsDeleted;
 
 
         // public List<RoutineParameterV2> Parameters;
         // public Dictionary<string, List < ResultSetFieldMetadata >> ResultSetMetadata;
-        
+
         // public jsDALMetadata jsDALMetadata;
-        
-        
-        
+
+
+
         //     */
 
         // }
@@ -331,65 +331,72 @@ namespace jsdal_server_core.Settings.ObjectModel
         // compute & persist some of the TypeScript definitions for reuse during .js generation
         public void PrecalculateJsGenerationValues(Endpoint endpoint)
         {
-            // TODO: Figure out what to do with JsNamespace CASING. Sometimes case changes in connection string and that breaks all existing code
-            string jsNamespace = null;//endpoint.JsNamespace;
-            if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
-
-            var jsSafeNamespace = JsFileGenerator.MakeNameJsSafe(jsNamespace);
-
-            var jsSchemaName = JsFileGenerator.MakeNameJsSafe(this.Schema);
-            var jsFunctionName = JsFileGenerator.MakeNameJsSafe(this.Routine);
-
-            // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Pass in from worker thread.
-            var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
-
-            var paramTypeScriptDefList = new List<string>();
-
-            this.Parameters.ForEach(p =>
+            try
             {
-                var tsType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef);
-                var name = p.Name.TrimStart('@');
+                // TODO: Figure out what to do with JsNamespace CASING. Sometimes case changes in connection string and that breaks all existing code
+                string jsNamespace = null;//endpoint.JsNamespace;
+                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
-                if (JsFileGenerator.StartsWithNum(name)) name = "$" + name;
+                var jsSafeNamespace = JsFileGenerator.MakeNameJsSafe(jsNamespace);
 
-                var tsDefinition = $"{name}{(p.HasDefault ? "?" : "")}: {tsType}";
+                var jsSchemaName = JsFileGenerator.MakeNameJsSafe(this.Schema);
+                var jsFunctionName = JsFileGenerator.MakeNameJsSafe(this.Routine);
 
-                paramTypeScriptDefList.Add(tsDefinition);
-            });
+                // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Pass in from worker thread.
+                var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
 
-            var tsParameterTypeDefName = $"{ jsSafeNamespace }_{ jsSchemaName }_{ jsFunctionName }Parameters";
+                var paramTypeScriptDefList = new List<string>();
 
-            // TypeScript input parameter definitions
-            this.TypescriptParameterTypeDefinition = $"type {tsParameterTypeDefName} = {{ { string.Join(", ", paramTypeScriptDefList) } }}";
+                this.Parameters.Where(p => !string.IsNullOrEmpty(p.Name)).ToList().ForEach(p =>
+                  {
+                      var tsType = RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef);
+                      var name = p.Name.TrimStart('@');
 
-            // TypeScript output parameter definitions
-            var tsOutputParamDefs = (from p in this.Parameters
-                                     where !string.IsNullOrEmpty(p.Name)
-                                       && !p.IsResult
-                                       && p.IsOutput
-                                     select string.Format("{0}?: {1}", JsFileGenerator.StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
-                                      , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
+                      if (JsFileGenerator.StartsWithNum(name)) name = "$" + name;
+
+                      var tsDefinition = $"{name}{(p.HasDefault ? "?" : "")}: {tsType}";
+
+                      paramTypeScriptDefList.Add(tsDefinition);
+                  });
+
+                var tsParameterTypeDefName = $"{ jsSafeNamespace }_{ jsSchemaName }_{ jsFunctionName }Parameters";
+
+                // TypeScript input parameter definitions
+                this.TypescriptParameterTypeDefinition = $"type {tsParameterTypeDefName} = {{ { string.Join(", ", paramTypeScriptDefList) } }}";
+
+                // TypeScript output parameter definitions
+                var tsOutputParamDefs = (from p in this.Parameters
+                                         where !string.IsNullOrEmpty(p.Name)
+                                           && !p.IsResult
+                                           && p.IsOutput
+                                         select string.Format("{0}?: {1}", JsFileGenerator.StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
+                                          , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
 
 
 
-            string typeScriptOutputParameterTypeName = null;
+                string typeScriptOutputParameterTypeName = null;
 
-            if (tsOutputParamDefs.Count > 0)
-            {
-                typeScriptOutputParameterTypeName = string.Format("{0}_{1}_{2}OutputParms", jsSafeNamespace, jsSchemaName, jsFunctionName);
+                if (tsOutputParamDefs.Count > 0)
+                {
+                    typeScriptOutputParameterTypeName = string.Format("{0}_{1}_{2}OutputParms", jsSafeNamespace, jsSchemaName, jsFunctionName);
 
-                // TypeScript OUPUT parameter type definition
-                this.TypescriptOutputParameterTypeDefinition = string.Format("type {0} = {{ {1} }}", typeScriptOutputParameterTypeName, string.Join(", ", tsOutputParamDefs));
+                    // TypeScript OUPUT parameter type definition
+                    this.TypescriptOutputParameterTypeDefinition = string.Format("type {0} = {{ {1} }}", typeScriptOutputParameterTypeName, string.Join(", ", tsOutputParamDefs));
+                }
+
+                var resultTypes = new List<string>();
+
+                if (this.ResultSetMetadata != null)
+                {
+                    (resultTypes, this.TypescriptResultSetDefinitions) = BuildResultSetTypescriptDefs(jsSafeNamespace, jsSchemaName, jsFunctionName, ref customTypeLookupWithTypeScriptDef);
+                }
+
+                this.TypescriptMethodStub = BuildMethodTypescriptStub(jsFunctionName, tsParameterTypeDefName, typeScriptOutputParameterTypeName, resultTypes, ref customTypeLookupWithTypeScriptDef);
             }
-
-            var resultTypes = new List<string>();
-
-            if (this.ResultSetMetadata != null)
+            catch (Exception ex)
             {
-                (resultTypes, this.TypescriptResultSetDefinitions) = BuildResultSetTypescriptDefs(jsSafeNamespace, jsSchemaName, jsFunctionName, ref customTypeLookupWithTypeScriptDef);
+                ExceptionLogger.LogExceptionThrottled(ex, "PrecalculateJsGenerationValues", 2, $"{endpoint.Pedigree} - {this.Schema}.{this.Routine}");
             }
-
-            this.TypescriptMethodStub = BuildMethodTypescriptStub(jsFunctionName, tsParameterTypeDefName, typeScriptOutputParameterTypeName, resultTypes, ref customTypeLookupWithTypeScriptDef);
         }
 
         private string BuildMethodTypescriptStub(string jsFunctionName, string tsParameterTypeDefName,

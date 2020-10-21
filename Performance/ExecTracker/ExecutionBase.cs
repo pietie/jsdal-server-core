@@ -80,6 +80,24 @@ namespace jsdal_server_core.Performance
             this.End();
         }
 
+        public string ChildDurationsSingleLine()
+        {
+            if (this._childStages == null || this._childStages.Count == 0) return null;
+
+            var sb = new System.Text.StringBuilder();
+
+            for (var i = 0; i < this._childStages.Count; i++)
+            {
+                if (sb.Length > 0) sb.Append(';');
+
+                var stage = this._childStages[i];
+
+                sb.Append($"{stage.Name}={stage.DurationInMS}");
+            };
+
+            return sb.ToString();
+        }
+
         public string GetServerTimeHeader()
         {
             if (this._childStages == null || this._childStages.Count == 0) return null;
