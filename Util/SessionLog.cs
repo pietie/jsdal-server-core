@@ -81,7 +81,7 @@ namespace jsdal_server_core
                         formatted = string.Format(line, args);
                     }
 
-                    var final = $"[{DateTime.Now:HH:mm:ss}] {type} {formatted}\r\n";
+                    var final = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {type} {formatted}\r\n";
                     var data = System.Text.Encoding.UTF8.GetBytes(final);
 
                     lock (_fs)

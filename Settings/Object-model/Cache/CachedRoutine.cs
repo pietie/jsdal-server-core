@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Text;
+using System.Collections.Concurrent;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -142,6 +143,8 @@ namespace jsdal_server_core.Settings.ObjectModel
         //?public List<string> TypescriptResultTypes { get; set; }
         public string TypescriptResultSetDefinitions { get; set; }
         public string TypescriptMethodStub { get; set; }
+
+        public string PrecalcError { get; set; }
 
 
         [JsonIgnore]
@@ -333,17 +336,24 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             try
             {
+                if (this.IsDeleted)
+                {
+                    this.TypescriptOutputParameterTypeDefinition = this.TypescriptParameterTypeDefinition = this.TypescriptMethodStub = this.TypescriptResultSetDefinitions = null;
+                    return;
+                }
+
                 // TODO: Figure out what to do with JsNamespace CASING. Sometimes case changes in connection string and that breaks all existing code
                 string jsNamespace = null;//endpoint.JsNamespace;
                 if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
+
+                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = "NotSet";
 
                 var jsSafeNamespace = JsFileGenerator.MakeNameJsSafe(jsNamespace);
 
                 var jsSchemaName = JsFileGenerator.MakeNameJsSafe(this.Schema);
                 var jsFunctionName = JsFileGenerator.MakeNameJsSafe(this.Routine);
 
-                // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Pass in from worker thread.
-                var customTypeLookupWithTypeScriptDef = new Dictionary<string, string>();
+                var customTypeLookupWithTypeScriptDef = endpoint.CustomTypeLookupWithTypeScriptDef;
 
                 var paramTypeScriptDefList = new List<string>();
 
@@ -371,8 +381,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                                            && p.IsOutput
                                          select string.Format("{0}?: {1}", JsFileGenerator.StartsWithNum(p.Name.TrimStart('@')) ? (/*"_" + */p.Name.TrimStart('@')) : p.Name.TrimStart('@')
                                           , RoutineParameterV2.GetTypescriptTypeFromSql(p.SqlDataType, p.CustomType, ref customTypeLookupWithTypeScriptDef))).ToList();
-
-
 
                 string typeScriptOutputParameterTypeName = null;
 
@@ -402,7 +410,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         private string BuildMethodTypescriptStub(string jsFunctionName, string tsParameterTypeDefName,
                 string typeScriptOutputParameterTypeName,
                 List<string> resultTypes,
-                ref Dictionary<string, string> customTypeLookupWithTypeScriptDef)
+                ref ConcurrentDictionary<string, string> customTypeLookupWithTypeScriptDef)
         {
             var tsArguments = "";
 
@@ -419,7 +427,9 @@ namespace jsdal_server_core.Settings.ObjectModel
             {
                 if (this.Parameters != null)
                 {
-                    var resultParm = this.Parameters.First(p => p.IsResult);
+                    var resultParm = this.Parameters.FirstOrDefault(p => p.IsResult);
+
+                    if (resultParm == null) return null;
 
                     var tsMethodStub = string.Format("static {0}(parameters?: {1}): IUDFExecGeneric<{2}, {1}>", jsFunctionName, tsArguments,
                             RoutineParameterV2.GetTypescriptTypeFromSql(resultParm.SqlDataType, resultParm.CustomType,
@@ -473,7 +483,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        private (List<string>, string) BuildResultSetTypescriptDefs(string jsSafeNamespace, string jsSchemaName, string jsFunctionName, ref Dictionary<string, string> customTypeLookupWithTypeScriptDef)
+        private (List<string>, string) BuildResultSetTypescriptDefs(string jsSafeNamespace, string jsSchemaName, string jsFunctionName, ref ConcurrentDictionary<string, string> customTypeLookupWithTypeScriptDef)
         {
             var resultTypes = new List<string>();
             var typeScriptParameterAndResultTypesSB = new StringBuilder();

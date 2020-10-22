@@ -57,7 +57,7 @@ namespace jsdal_server_core.Settings
 
                 var settingsInst = JsonConvert.DeserializeObject<JsDalServerConfig>(data, new JsonConverter[] { new ObjectModel.RuleJsonConverter() });
 
-                settingsInst.ProjectList.ForEach(p => p.AfterDeserializationInit());
+               //? settingsInst.ProjectList.ForEach(p => p.AfterDeserializationInit());
 
                 SettingsInstance._instance = settingsInst;
                 return true;

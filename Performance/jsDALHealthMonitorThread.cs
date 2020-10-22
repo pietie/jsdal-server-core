@@ -142,10 +142,42 @@ namespace jsdal_server_core.Performance
         {
             var baseQuery = BuildBaseQuery(fromDate, toDate);
 
+            int groupByMin = 10;
+
+            int? specificHour = null;
+            int? specificMinute = null;
+            var rangeInMins = (int)toDate.Subtract(fromDate).TotalMinutes;
+            /*
+                        groupByMin = rangeInMins switch
+                        {
+                            var n when n >= 120 => 60,
+                            var n when n > 60 => 15,
+                            _ => 10
+                        };
+            */
+            switch (rangeInMins)
+            {
+                case var n when n >= 60 * 24:
+                    specificHour = specificMinute = 0;
+                    break;
+                case var n when n >= 120:
+                    groupByMin = 60;
+                    break;
+                case var n when n > 60:
+                    groupByMin = 15;
+                    break;
+                default:
+                    groupByMin = 10;
+                    break;
+            }
+
             var totals = from x in baseQuery
                          group x by new
                          {
-                             Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day, x.Created.Value.Hour, (int)((double)x.Created.Value.Minute / 5.0) * 5, 0)
+                             Created = new DateTime(x.Created.Value.Year, x.Created.Value.Month, x.Created.Value.Day,
+                                                                            specificHour ?? x.Created.Value.Hour,
+                                                                            specificMinute ?? (int)((double)x.Created.Value.Minute / (double)groupByMin) * groupByMin,
+                                                                            0)
                          } into grp1
                          select new
                          {

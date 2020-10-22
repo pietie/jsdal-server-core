@@ -36,10 +36,9 @@ namespace jsdal_server_core
 
 
         static System.Collections.Concurrent.ConcurrentDictionary<string, string> dict = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
-      
 
         public static void Main(string[] args)
-        {
+        {     
             IsShuttingDown = false;
 
             var loggerConfig = new LoggerConfiguration()
@@ -135,11 +134,10 @@ namespace jsdal_server_core
                 Log.Information("Initialising real-time tracker");
                 RealtimeTrackerThread.Instance.Init();
 
-
                 Log.Information("Initialising data collector");
                 DataCollectorThread.Instance.Init();
 
-
+                Log.Information("Initialising inline module manifest");
                 InlineModuleManifest.Instance.Init();
 
                 _startDate = DateTime.Now;

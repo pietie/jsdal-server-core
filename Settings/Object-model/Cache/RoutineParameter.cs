@@ -3,6 +3,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using System.Xml.Serialization;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -73,7 +74,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
 
         public static string GetTypescriptTypeFromSql(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType,
-            ref Dictionary<string, string> customTypeLookupWithTypeScriptDef)
+            ref ConcurrentDictionary<string, string> customTypeLookupWithTypeScriptDef)
         {
             var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
             var dt = elems[elems.Length - 1];
@@ -166,7 +167,12 @@ namespace jsdal_server_core.Settings.ObjectModel
                                 }
 
                                 var customTSD = string.Join(", ", from kv in properties select $"{kv.Key}: {kv.Value}");
-                                customTypeLookupWithTypeScriptDef.Add(typeName, $"{{{ customTSD }}}[]");//TODO: Custom types are not necessarily arrays?
+
+                                //TODO: Custom types are not necessarily arrays?
+                                if (!customTypeLookupWithTypeScriptDef.TryAdd(typeName, $"{{{ customTSD }}}[]"))
+                                {
+                                    SessionLog.Error($"Failed to add custom type {typeName} to dictionary");
+                                }
 
                                 return typeName;
                             }

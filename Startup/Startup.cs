@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
@@ -229,6 +230,12 @@ namespace jsdal_server_core
                 DotNetCoreCounterListener.Instance.Start();
 
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
+
+                    Log.Information("Initialising project object model");
+                    // we can only initialise the Project structure once ConnectionStringSecurity exists
+                    Settings.SettingsInstance.Instance.ProjectList.ForEach(p => p.AfterDeserializationInit());                   
+
+                    Log.Information("Initialising plugin loader");
                     PluginLoader.Instance = pmInst;
                     PluginLoader.Instance.Init();
 
@@ -341,7 +348,7 @@ namespace jsdal_server_core
             //app.UseSerilogRequestLogging();
             app.UseSerilogRequestLogging(options =>
             {
-                options.GetType().GetFields(System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+                options.GetType().GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 // Customize the message template
                 //HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms
                 options.MessageTemplate = "Req/Res: {ReqLen,7} {ResLen,7} {StatusCode} {Elapsed,7:0} ms {RequestMethod,4} {RequestPath}";
@@ -406,7 +413,6 @@ namespace jsdal_server_core
                     });
                 });
             }
-
 
             app.UseMvc(routes =>
                         {

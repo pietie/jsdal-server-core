@@ -18,69 +18,22 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         private readonly IDataProtector _protector;
 
-        public static ConnectionStringSecurity Instance { get;set; }
+        public static ConnectionStringSecurity Instance { get; set; }
+
+
         public ConnectionStringSecurity(IDataProtectionProvider provider)
         {
             encryptor = new Encryptor(provider);
-            // var serviceCollection = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-            // serviceCollection.AddDataProtection();
-            // var services = serviceCollection.BuildServiceProvider();
-
-            // encryptor = Microsoft.Extensions
-            //                     .DependencyInjection
-            //                     .ActivatorUtilities
-            //                     .CreateInstance<Settings.ObjectModel.ConnectionStringSecurity.Encryptor>(services);
-
-
-            // setup the connection private key used for encryption/decryption if it does not already exist
-            // // if (!File.Exists(KEY_FILEPATH))
-            // // {
-            // //     try
-            // //     {// TODO: Replace console.log and console.error with Session Log
-            // //         Cons ole.WriteLine("Creating private key for Connections...");
-            // //         Cons ole.WriteLine("\t{0}", Path.GetFullPath(KEY_FILEPATH));
-
-            // //         var key = StringCipher.Generate256BytesOfRandomEntropy();
-            // //         var keyString = Convert.ToBase64String(key, Base64FormattingOptions.InsertLineBreaks);
-            // //         File.WriteAllText(KEY_FILEPATH, keyString, Encoding.UTF8);
-
-            // //         connectionPrivateKey = keyString;
-
-            // //         Co nsole.WriteLine("...private key created.");
-            // //     }
-            // //     catch (Exception e)
-            // //     {
-            // //         SessionLog.Exception(e);
-            // //     }
-            // // }
-            // // else
-            // // {
-            // //     try
-            // //     {
-            // //         connectionPrivateKey = File.ReadAllText(KEY_FILEPATH, Encoding.UTF8);
-            // //     }
-            // //     catch (Exception e)
-            // //     {
-            // //         SessionLog.Exception(e);
-            // //     }
-            // // }
         }
 
         public string Encrypt(string text)
         {
-            //connectionPrivateKey = "XYZ6C8DF278CD5931069B522E695D4F2";
-            //return StringCipher.Encrypt(text, connectionPrivateKey);
-            //return X.EncryptString(text, connectionPrivateKey);
-
             return encryptor.Encrypt(text);
 
         }
 
         public string Decrypt(string text)
         {
-            //return StringCipher.Decrypt(text, connectionPrivateKey);
-            //connectionPrivateKey = "XYZ6C8DF278CD5931069B522E695D4F2";
-            //return X.DecryptString(text, connectionPrivateKey);
             if (encryptor.TryDecrypt(text, out string decrypted))
             {
                 return decrypted;
@@ -99,13 +52,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var purpose = "jsDALServer::ConnectionString";
                 _protector = provider.CreateProtector(purpose);
             }
-
-            // public string Encrypt<T>(T obj)
-            // {
-            //     var json = JsonConvert.SerializeObject(obj);
-
-            //     return Encrypt(json);
-            // }
 
             public string Encrypt(string plaintext)
             {
@@ -129,74 +75,9 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        // public static class X
-        // {
-        //     public static string EncryptString(string text, string keyString)
-        //     {
-        //         var key = Encoding.UTF8.GetBytes(keyString);
-
-        //         using (var aesAlg = Aes.Create())
-        //         {
-        //             using (var encryptor = aesAlg.CreateEncryptor(key, aesAlg.IV))
-        //             {
-        //                 using (var msEncrypt = new MemoryStream())
-        //                 {
-        //                     using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-        //                     using (var swEncrypt = new StreamWriter(csEncrypt))
-        //                     {
-        //                         swEncrypt.Write(text);
-        //                     }
-
-        //                     var iv = aesAlg.IV;
-
-        //                     var decryptedContent = msEncrypt.ToArray();
-
-        //                     var result = new byte[iv.Length + decryptedContent.Length];
-
-        //                     Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
-        //                     Buffer.BlockCopy(decryptedContent, 0, result, iv.Length, decryptedContent.Length);
-
-        //                     return Convert.ToBase64String(result);
-        //                 }
-        //             }
-        //         }
-        //     }
-
-        //     public static string DecryptString(string cipherText, string keyString)
-        //     {
-        //         var fullCipher = Convert.FromBase64String(cipherText);
-
-        //         var iv = new byte[16];
-        //         var cipher = new byte[16];
-
-        //         Buffer.BlockCopy(fullCipher, 0, iv, 0, iv.Length);
-        //         Buffer.BlockCopy(fullCipher, iv.Length, cipher, 0, iv.Length);
-        //         var key = Encoding.UTF8.GetBytes(keyString);
-
-        //         using (var aesAlg = Aes.Create())
-        //         {
-        //             using (var decryptor = aesAlg.CreateDecryptor(key, iv))
-        //             {
-        //                 string result;
-        //                 using (var msDecrypt = new MemoryStream(cipher))
-        //                 {
-        //                     using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-        //                     {
-        //                         using (var srDecrypt = new StreamReader(csDecrypt))
-        //                         {
-        //                             result = srDecrypt.ReadToEnd();
-        //                         }
-        //                     }
-        //                 }
-
-        //                 return result;
-        //             }
-        //         }
-        //     }
-        // }
-
 
         // https://stackoverflow.com/a/10177020
+        /*
         public static class StringCipher
         {
             // This constant is used to determine the keysize of the encryption algorithm in bits.
@@ -315,7 +196,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 }
                 return randomBytes;
             }
-        }
+        }*/
 
     }
 

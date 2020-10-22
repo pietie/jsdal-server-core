@@ -12,6 +12,7 @@ using System.Text;
 using jsdal_server_core.PluginManagement;
 using System.Reflection;
 using plugin = jsdal_plugin;
+using System.Collections.Concurrent;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -35,11 +36,16 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public bool CaptureConnectionStats = true; // TODO: Default false? Provide way to turon on/off 
 
-        
+        [JsonIgnore]
+        public ConcurrentDictionary<string, string> CustomTypeLookupWithTypeScriptDef
+        {
+            get; private set;
+        }
 
         public Endpoint()
         {
             this.CachedRoutineList = new List<CachedRoutine>();
+            this.CustomTypeLookupWithTypeScriptDef = new ConcurrentDictionary<string, string>();
         }
 
         public void UpdateParentReferences(Application app)
@@ -338,14 +344,27 @@ namespace jsdal_server_core.Settings.ObjectModel
                 var allCacheEntries = JsonConvert.DeserializeObject<List<CachedRoutine>>(data/*, new BoolJsonConverter()*/);
 
                 this.CachedRoutineList = allCacheEntries;
-            }
 
+                // pre-calc to build up initial CustomTypeLookupWithTypeScriptDef
+                this.CachedRoutineList.AsParallel().ForAll(r =>
+                {
+                    try
+                    {
+                        r.PrecalculateJsGenerationValues(this);
+                    }
+                    catch (Exception ee)
+                    {
+                        r.PrecalcError = ee.ToString();
+                    }
+                });
+            }
             catch (Exception ex)
             {
                 SessionLog.Exception(ex);
             }
         }
 
+        [JsonIgnore]
         public object _cacheLock = new object();
         public void SaveCache()
         {
