@@ -30,7 +30,18 @@ namespace jsdal_server_core.PluginManagement
         {
             try
             {
-                _registrations.Add(BackgroundThreadPluginRegistration.Create(pluginInfo, _hubContext));
+                var existing = _registrations.FirstOrDefault(r => r.PluginGuid.Equals(pluginInfo.Guid.ToString(), StringComparison.OrdinalIgnoreCase));
+
+                if (existing == null)
+                {
+                    existing = BackgroundThreadPluginRegistration.Create(pluginInfo);
+                    _registrations.Add(existing);
+                }
+
+                existing.CreateEndpointInstances(_hubContext);
+
+                var list = Hubs.BackgroundPluginHub.BgPluginsList();
+                _hubContext.Clients.Group(Hubs.BackgroundPluginHub.ADMIN_GROUP_NAME).SendAsync("updateList", list);
             }
             catch (Exception ex)
             {
@@ -48,6 +59,20 @@ namespace jsdal_server_core.PluginManagement
             if (reg == null) return null;
 
             return reg.FindPluginInstance(endpoint);
+        }
+
+        public void StopForApp(Application app, PluginInfo pluginInfo)
+        {
+            var reg = _registrations.FirstOrDefault(r => r.PluginGuid.Equals(pluginInfo.Guid.ToString(), StringComparison.OrdinalIgnoreCase));
+
+            if (reg == null) return;
+
+            app.Endpoints.ForEach(ep => reg.KillInstance(ep));
+
+
+            var list = Hubs.BackgroundPluginHub.BgPluginsList();
+
+            _hubContext.Clients.Group(Hubs.BackgroundPluginHub.ADMIN_GROUP_NAME).SendAsync("updateList", list);
         }
 
         public void Shutdown()

@@ -164,7 +164,6 @@ namespace jsdal_server_core.Settings.ObjectModel
             var newlyEnabled = this.Plugins.Where(p => oldList.FirstOrDefault(x => x.Equals(p, StringComparison.OrdinalIgnoreCase)) == null).Select(g => g.ToLower());
             var disabled = oldList.Where(p => this.Plugins.FirstOrDefault(x => x.Equals(p, StringComparison.OrdinalIgnoreCase)) == null).Select(g => g.ToLower());
 
-
             var ret = PluginLoader.Instance.PluginAssemblies
                 .SelectMany(a => a.Plugins, (pa, plugin) => new
                 {
@@ -184,7 +183,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                 {
                     if (item.PluginInfo.Type == PluginType.BackgroundThread)
                     {
-
                         BackgroundThreadPluginManager.Instance.Register(item.PluginInfo);
                     }
                     else if (item.PluginInfo.Type == PluginType.ServerMethod)
@@ -198,11 +196,10 @@ namespace jsdal_server_core.Settings.ObjectModel
             {
                 foreach (var item in stopList)
                 {
-
                     if (item.PluginInfo.Type == PluginType.BackgroundThread)
                     {
-                        // TODO: Implement a stop and call for every EP!
-                        //BackgroundThreadPluginManager.Instance.FindPluginInstance()
+                        // TODO: Implement a stop and call for specific EP!
+                        BackgroundThreadPluginManager.Instance.StopForApp(this, item.PluginInfo);
                         //BackgroundThreadPluginManager.Instance.Register(item.PluginInfo);
                     }
                     else if (item.PluginInfo.Type == PluginType.ServerMethod)
@@ -211,8 +208,6 @@ namespace jsdal_server_core.Settings.ObjectModel
                     }
                 }
             }
-
-
 
             return CommonReturnValue.Success();
         }

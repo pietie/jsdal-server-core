@@ -48,28 +48,35 @@ namespace jsdal_server_core.Hubs
         {
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, ADMIN_GROUP_NAME);
 
-        // tmp for debugging
-        //  {
-        //     Log.Information($"JoinAdminGroup - Called. Reg count = {BackgroundThreadPluginManager.Instance.Registrations.Count()}");
-            
-        //     var asm = string.Join('|', BackgroundThreadPluginManager.Instance.Registrations.Select(r=>r.Assembly.FullName).ToArray());
-        //     Log.Information($"JoinAdminGroup - Loaded assemblies: {asm}");
-        // }
-             
+            // tmp for debugging
+            //  {
+            //     Log.Information($"JoinAdminGroup - Called. Reg count = {BackgroundThreadPluginManager.Instance.Registrations.Count()}");
+
+            //     var asm = string.Join('|', BackgroundThreadPluginManager.Instance.Registrations.Select(r=>r.Assembly.FullName).ToArray());
+            //     Log.Information($"JoinAdminGroup - Loaded assemblies: {asm}");
+            // }
+
+            var ret = BgPluginsList();
+
+            return ret;
+        }
+
+        public static object BgPluginsList()
+        {
             var ret = BackgroundThreadPluginManager.Instance.Registrations
-                                    .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
-                                    .Select(a => new
-                                    {
-                                        Assymbly = a.Reg.Assembly.FullName,
-                                        InstanceId = a.Instance.Id,
-                                        a.Instance.Plugin.Name,
-                                        a.Instance.Plugin.IsRunning,
-                                        a.Instance.Plugin.EndpointPedigree,
-                                        a.Instance.Plugin.Status,
-                                        a.Instance.Plugin.Progress,
-                                        a.Instance.Plugin.Description,
-                                        PluginGuid = a.Instance.Plugin.Guid
-                                    });
+                                  .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
+                                  .Select(a => new
+                                  {
+                                      Assymbly = a.Reg.Assembly.FullName,
+                                      InstanceId = a.Instance.Id,
+                                      a.Instance.Plugin.Name,
+                                      a.Instance.Plugin.IsRunning,
+                                      a.Instance.Plugin.EndpointPedigree,
+                                      a.Instance.Plugin.Status,
+                                      a.Instance.Plugin.Progress,
+                                      a.Instance.Plugin.Description,
+                                      PluginGuid = a.Instance.Plugin.Guid
+                                  });
 
             return ret;
         }

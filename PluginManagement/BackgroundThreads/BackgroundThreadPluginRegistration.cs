@@ -17,13 +17,16 @@ namespace jsdal_server_core.PluginManagement
         public Assembly Assembly { get; private set; }
         public TypeInfo TypeInfo { get; private set; }
         public string PluginGuid { get; private set; }
+        public string PluginName { get; private set; }
 
-        private Dictionary<Endpoint, BackgroundThreadPluginInstance> _endpointInstances;
+        private object _lockObj = new object();
+        private Dictionary<Endpoint, BackgroundThreadPluginInstance> _endpointInstances;// instances are specific to the Plugin this Registration is for
 
-        private BackgroundThreadPluginRegistration(Assembly assembly, TypeInfo typeInfo, Guid pluginGuid)
+        private BackgroundThreadPluginRegistration(Assembly assembly, TypeInfo typeInfo, Guid pluginGuid, string pluginName)
         {
             this.Assembly = assembly;
             this.TypeInfo = typeInfo;
+            this.PluginName = pluginName;
             this.PluginGuid = pluginGuid.ToString();
             this._endpointInstances = new Dictionary<Endpoint, BackgroundThreadPluginInstance>();
         }
@@ -33,27 +36,31 @@ namespace jsdal_server_core.PluginManagement
             return _endpointInstances.Values.ToList();
         }
 
-        public static BackgroundThreadPluginRegistration Create(PluginInfo pluginInfo, IHubContext<Hubs.BackgroundPluginHub> hub)
+        public static BackgroundThreadPluginRegistration Create(PluginInfo pluginInfo)
+        {
+            var reg = new BackgroundThreadPluginRegistration(pluginInfo.Assembly, pluginInfo.TypeInfo, pluginInfo.Guid, pluginInfo.Name);
+            return reg;
+        }
+
+        public void CreateEndpointInstances(IHubContext<Hubs.BackgroundPluginHub> hub)
         {
             IHubClients hubClients = hub.Clients;
 
-            var reg = new BackgroundThreadPluginRegistration(pluginInfo.Assembly, pluginInfo.TypeInfo, pluginInfo.Guid);
-
-            // TODO: Instantiate for each configured App/EP? Also need to look at EP Creation Event and EP stopped & deleted event. 
+            // TODO: Need to look at EP Creation Event and EP stopped & deleted event. 
 
             var apps = Settings.SettingsInstance.Instance
                                     .ProjectList
                                     .SelectMany(proj => proj.Applications)
-                                    .Where(app => app.IsPluginIncluded(pluginInfo.Guid.ToString()));
+                                    .Where(app => app.IsPluginIncluded(this.PluginGuid.ToString()));
 
             var endpointCollection = apps.SelectMany(app => app.Endpoints);
 
             // create a default instance just to read the Default Value collection
-            var defaultInstance = (BackgroundThreadPlugin)pluginInfo.Assembly.CreateInstance(pluginInfo.TypeInfo.FullName);
+            var defaultInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName);
 
             var defaultConfig = defaultInstance.GetDefaultConfig();
 
-            if (defaultConfig.ContainsKey("IsEnabled"))
+            if (defaultConfig?.ContainsKey("IsEnabled") ?? false)
             {
                 var defIsEnabled = defaultConfig["IsEnabled"];
                 // TODO: Convert to better typed class (e.g. true/false)
@@ -66,7 +73,18 @@ namespace jsdal_server_core.PluginManagement
             {
                 try
                 {
-                    var pluginInstance = (BackgroundThreadPlugin)pluginInfo.Assembly.CreateInstance(pluginInfo.TypeInfo.FullName);
+                    // TODO: Look for an existing instance on the EP
+                    // TODO: If no longer ENABLED on EP kill instance? Won't currently be in collection above
+
+                    var existingInstance = FindPluginInstance(endpoint);
+
+                    if (existingInstance != null)
+                    {
+                        // no need to instantiate again
+                        continue;
+                    }
+
+                    var pluginInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName);
                     var initMethod = typeof(BackgroundThreadPlugin).GetMethod("Init", BindingFlags.Instance | BindingFlags.NonPublic);
 
                     if (initMethod != null)
@@ -82,10 +100,10 @@ namespace jsdal_server_core.PluginManagement
                                 application = endpoint.Application.Name,
                                 endpoint = endpoint.Name,
                                 schema = "BG PLUGIN",
-                                routine = pluginInfo.Name,
+                                routine = this.PluginName,
                                 type = Controllers.ExecController.ExecType.BackgroundThread
 
-                            }, additionalInfo, $"BG PLUGIN - {pluginInfo.Name}", endpoint.Pedigree);
+                            }, additionalInfo, $"BG PLUGIN - {this.PluginName}", endpoint.Pedigree);
                         });
 
 
@@ -160,9 +178,9 @@ namespace jsdal_server_core.PluginManagement
                                 null/*configKeys*/,
                                 null/*configSource*/ });
 
-                        reg.AddEnpointInstance(endpoint, instanceWrapper);
+                        this.AddEnpointInstance(endpoint, instanceWrapper);
 
-                        SessionLog.Info($"BG plugin '{pluginInfo.Name}' instantiated successfully on endpoint {endpoint.Pedigree}");
+                        SessionLog.Info($"BG plugin '{this.PluginName}' instantiated successfully on endpoint {endpoint.Pedigree}");
                     }
                     else
                     {
@@ -171,12 +189,10 @@ namespace jsdal_server_core.PluginManagement
                 }
                 catch (Exception ex)
                 {
-                    SessionLog.Error($"Failed to instantiate plugin '{pluginInfo.Name}' ({pluginInfo.Guid}) from assembly {pluginInfo.Assembly.FullName} on endpoint {endpoint.Pedigree}. See exception that follows.");
+                    SessionLog.Error($"Failed to instantiate plugin '{this.PluginName}' ({this.PluginGuid}) from assembly {this.Assembly.FullName} on endpoint {endpoint.Pedigree}. See exception that follows.");
                     SessionLog.Exception(ex);
                 }
             }
-
-            return reg;
         }
 
         private void AddEnpointInstance(Endpoint endpoint, BackgroundThreadPluginInstance instanceWrapper)
@@ -189,6 +205,21 @@ namespace jsdal_server_core.PluginManagement
             if (_endpointInstances == null || !_endpointInstances.ContainsKey(endpoint)) return null;
 
             return _endpointInstances[endpoint];
+        }
+
+        public void KillInstance(Endpoint endpoint)
+        {
+            var instance = FindPluginInstance(endpoint);
+
+            if (instance != null)
+            {
+                instance.Plugin.Stop();
+
+                lock (_lockObj)
+                {
+                    this._endpointInstances.Remove(endpoint);
+                }
+            }
         }
 
         public void Shutdown()
