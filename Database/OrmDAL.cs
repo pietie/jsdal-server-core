@@ -576,6 +576,8 @@ namespace jsdal_server_core
                     return ConvertToSqlBit(value);
                 case SqlDbType.VarBinary:
                     return ConvertToSqlVarbinary(value);
+                case SqlDbType.Timestamp:
+                    return BitConverter.GetBytes(long.Parse(value)).Reverse().ToArray()/*have to reverse to match the endianness*/;
                 case SqlDbType.Time:
                     return value;
                 case SqlDbType.Float:

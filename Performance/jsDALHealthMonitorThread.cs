@@ -88,8 +88,8 @@ namespace jsdal_server_core.Performance
                         dbCollection.Insert(newEntry);
 
 
-                        // delete entries older than 10 days
-                        dbCollection.DeleteMany(x => x.Created.Value <= DateTime.Now.AddDays(-10));
+                        // delete entries older than 5 days
+                        dbCollection.DeleteMany(x => x.Created.Value <= DateTime.Now.AddDays(-5));
 
                         _database.Checkpoint();
                         _nextCheck = DateTime.Now.AddSeconds(45);

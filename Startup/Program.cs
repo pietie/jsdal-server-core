@@ -38,7 +38,7 @@ namespace jsdal_server_core
         static System.Collections.Concurrent.ConcurrentDictionary<string, string> dict = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
 
         public static void Main(string[] args)
-        {     
+        {
             IsShuttingDown = false;
 
             var loggerConfig = new LoggerConfiguration()

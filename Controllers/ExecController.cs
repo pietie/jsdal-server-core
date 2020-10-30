@@ -850,6 +850,8 @@ namespace jsdal_server_core.Controllers
                     return (SqlDbType.SmallInt, defUdtType);
                 case "bigint":
                     return (SqlDbType.BigInt, defUdtType);
+                case "timestamp":
+                    return (SqlDbType.Timestamp, defUdtType);                    
                 case "bit":
                     return (SqlDbType.Bit, defUdtType);
                 case "nvarchar":

@@ -26,6 +26,7 @@ namespace jsdal_server_core.Performance.DataCollector
         public override void Init()
         {
             _database = new LiteDB.LiteDatabase("data/datacollector.db");
+            
             base.Init();
         }
 
