@@ -131,7 +131,7 @@ namespace jsdal_server_core.Util
             this.Init();
         }
 
-        public void Shutdown()
+        public virtual void Shutdown()
         {
             IsRunning = false;
             if (_winThread != null)

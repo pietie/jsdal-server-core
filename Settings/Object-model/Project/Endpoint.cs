@@ -13,6 +13,7 @@ using jsdal_server_core.PluginManagement;
 using System.Reflection;
 using plugin = jsdal_plugin;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -30,6 +31,8 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public bool DisableMetadataCapturing;
 
+        public string PullMetadataFromEndpointId { get; set; }
+
         [JsonIgnore] private List<CachedRoutine> CachedRoutineList;
 
         [JsonIgnore] public Application Application { get; private set; }
@@ -46,6 +49,25 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             this.CachedRoutineList = new List<CachedRoutine>();
             this.CustomTypeLookupWithTypeScriptDef = new ConcurrentDictionary<string, string>();
+        }
+
+        public void ShareMetadaFrom(Endpoint srcEndpoint)
+        {
+            if (srcEndpoint == null)
+            {
+                this.PullMetadataFromEndpointId = null;
+                // TODO: Rebuild local cache? Spin up worker
+            }
+            else
+            {
+
+
+                PullMetadataFromEndpointId = srcEndpoint.Id;
+
+                this.CachedRoutineList = srcEndpoint.CachedRoutineList;
+
+                // TODO: Kill related Worker if it exists
+            }
         }
 
         public void UpdateParentReferences(Application app)
@@ -311,9 +333,26 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         // called after Endpoint is deserialized from the Settings json 
-        public void AfterDeserializationInit()
+        public async void AfterDeserializationInit()
         {
-            this.LoadCache();
+            if (!string.IsNullOrEmpty(this.PullMetadataFromEndpointId))
+            {
+                var srcEndPoint = Settings.SettingsInstance.Instance.FindEndpointById(this.PullMetadataFromEndpointId);
+
+                if (srcEndPoint != null)
+                {
+                    var cachedRoutineList = await srcEndPoint._cachedRoutinesPromise.Task;
+                    this.CachedRoutineList = cachedRoutineList;
+                }
+                else
+                {
+                    SessionLog.Error($"Endpoint {this.Pedigree} is configured to pull metadata from an endpoint with id {this.PullMetadataFromEndpointId} but that endpoint does not exist.");
+                }
+            }
+            else
+            {
+                this.LoadCache();
+            }
 
             if (this.ExecutionConnection != null)
             {
@@ -327,6 +366,8 @@ namespace jsdal_server_core.Settings.ObjectModel
                 this.MetadataConnection.Type = "metadata";
             }
         }
+
+        private TaskCompletionSource<List<CachedRoutine>> _cachedRoutinesPromise = new TaskCompletionSource<List<CachedRoutine>>();
 
         public void LoadCache()
         {
@@ -357,6 +398,8 @@ namespace jsdal_server_core.Settings.ObjectModel
                         r.PrecalcError = ee.ToString();
                     }
                 });
+
+                _cachedRoutinesPromise.TrySetResult(this.CachedRoutineList);
             }
             catch (Exception ex)
             {
@@ -407,7 +450,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 if (!File.Exists(cacheFilePath)) return true;
 
-                this.CachedRoutineList = new List<CachedRoutine>();
+                this.CachedRoutineList.Clear();
 
                 File.Delete(cacheFilePath);
 

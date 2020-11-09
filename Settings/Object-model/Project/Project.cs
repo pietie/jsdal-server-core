@@ -84,6 +84,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public void AfterDeserializationInit()
         {
             this.UpdateParentReferences();
+            
             if (this.Applications != null)
             {
                 this.Applications.ForEach(app => app.AfterDeserializationInit());

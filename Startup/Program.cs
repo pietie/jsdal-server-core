@@ -122,17 +122,13 @@ namespace jsdal_server_core
                 ExceptionLogger.Init();
 
                 Log.Information("Loading settings");
-
-                if (SettingsInstance.LoadSettingsFromFile())
-                {
-                    //ServerMethodManager.RebuildCacheForAllApps();
-                }
-
-                Log.Information("Initialising jsDAL health monitor");
-                jsDALHealthMonitorThread.Instance.Init();
+                SettingsInstance.LoadSettingsFromFile();
 
                 Log.Information("Initialising real-time tracker");
                 RealtimeTrackerThread.Instance.Init();
+
+                Log.Information("Initialising jsDAL health monitor");
+                jsDALHealthMonitorThread.Instance.Init();
 
                 Log.Information("Initialising data collector");
                 DataCollectorThread.Instance.Init();

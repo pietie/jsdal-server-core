@@ -64,6 +64,12 @@ namespace jsdal_server_core.Settings
 
         }
 
+        public Endpoint FindEndpointById(string endpointId)
+        {
+            if (string.IsNullOrWhiteSpace(endpointId)) return null;
+            return this.ProjectList.SelectMany(p => p.Applications).SelectMany(app => app.Endpoints).FirstOrDefault(ep => ep.Id.Equals(endpointId, StringComparison.OrdinalIgnoreCase));
+        }
+
         public Project GetProject(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;

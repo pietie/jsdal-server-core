@@ -183,6 +183,22 @@ namespace jsdal_server_core
                             Thread.Sleep(3000);
                             continue;
                         }
+                        else if (!string.IsNullOrEmpty(Endpoint.PullMetadataFromEndpointId))
+                        {
+                            var ep = Settings.SettingsInstance.Instance.FindEndpointById(Endpoint.PullMetadataFromEndpointId);
+
+                            if (ep != null)
+                            {
+                                this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Metadata pulled from {ep.Pedigree}";
+                            }
+                            else
+                            {
+                                this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - ERROR. Metadata configured to pull from endpoint with Id {Endpoint.PullMetadataFromEndpointId} but source endpoint not found.";
+                            }
+
+                            this.IsRunning = false;
+                            continue;
+                        }
 
 
                         var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);

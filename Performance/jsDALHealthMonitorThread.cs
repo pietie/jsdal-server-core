@@ -147,6 +147,8 @@ namespace jsdal_server_core.Performance
             int? specificHour = null;
             int? specificMinute = null;
             var rangeInMins = (int)toDate.Subtract(fromDate).TotalMinutes;
+
+
             /*
                         groupByMin = rangeInMins switch
                         {

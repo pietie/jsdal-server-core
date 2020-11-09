@@ -96,7 +96,7 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/data-collector/purge")]
         public ActionResult PurgeOld([FromQuery] int daysOld)
         {
-            int deleteCnt = DataCollectorThread.Instance.Purge(daysOld);
+            int deleteCnt = DataCollectorThread.Instance.PurgeOldAggregates(daysOld);
             return Ok(deleteCnt);
         }
 

@@ -117,6 +117,27 @@ namespace jsdal_server_core.Controllers
 
         }
 
+        [HttpGet("/api/endpoints-with-metadata")]
+        public ApiResponse GetEndpointsWithMetadata()
+        {
+            try
+            {
+                var q = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications)
+                        .SelectMany(a => a.Endpoints)
+                        .Where(ep => ep.MetadataConnection != null/*TODO:Chceck for NOT sharing*/)
+                        .Select(ep => new { ep.Id, ep.Pedigree })
+                        .OrderBy(ep => ep.Pedigree);
+
+
+                return ApiResponse.Payload(q);
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+
+        }
+
         [HttpGet("/api/endpoint/{endpointName}")]
         public ApiResponse GetSingleEndpoint([FromRoute] string endpointName, [FromQuery] string project, [FromQuery] string dbSource)
         {
@@ -132,12 +153,33 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
                 }
 
+                string srcEndpointPedigree = null;
+                string srcEndpointError = null;
+
+                if (!string.IsNullOrEmpty(endpoint.PullMetadataFromEndpointId))
+                {
+                    var srcEndpoint = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(a => a.Endpoints).FirstOrDefault(ep => ep.Id.Equals(endpoint.PullMetadataFromEndpointId, StringComparison.Ordinal));
+
+                    if (srcEndpoint != null)
+                    {
+                        srcEndpointPedigree = srcEndpoint.Pedigree;
+                    }
+                    else
+                    {
+                        srcEndpointError = $"Failed to find source Endpoint with Id = {endpoint.PullMetadataFromEndpointId}";
+                    }
+                }
+
+
                 return ApiResponse.Payload(new
                 {
                     endpoint.Name,
                     BgTaskKey = endpoint.GetBgTaskKey(),
                     endpoint.IsOrmInstalled,
                     endpoint.DisableMetadataCapturing,
+                    PullsMetadataFromEndpoint = !string.IsNullOrEmpty(endpoint.PullMetadataFromEndpointId),
+                    PullMetdataFromEndpointPedigree = srcEndpointPedigree,
+                    PullMetdataFromEndpointError = srcEndpointError,
                     MetadataConnection = new
                     {
                         InitialCatalog = endpoint.MetadataConnection?.InitialCatalog,
@@ -214,6 +256,69 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.ExclamationModal(ret.userErrorVal);
             }
         }
+
+        [HttpPost("/api/endpoint/{endpointName}/setup-shared-metadata")]
+        public ApiResponse SetupSharedMetadata([FromRoute] string endpointName, [FromQuery(Name = "project")] string projectName, [FromQuery(Name = "app")] string appName, [FromQuery(Name = "srcEndpointId")] string shareFromEndpointId)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(projectName, appName, endpointName, out var project, out var app, out var endpoint, out var resp))
+                {
+                    return resp;
+                }
+
+                var shareDependencies = Settings.SettingsInstance.Instance
+                                                .ProjectList
+                                                .SelectMany(p => p.Applications)
+                                                .SelectMany(a => a.Endpoints)
+                                                .Where(ep => ep.PullMetadataFromEndpointId?.Equals(endpoint.Id, StringComparison.Ordinal) ?? false)
+                                                .Select(ep => ep.Pedigree)
+                                                ;
+
+                if (shareDependencies.Count() > 0)
+                {
+                    return ApiResponse.ExclamationModal($"This endpoint cannot be configured with metadata sharing while other endpoints dependent on it. The following endpoint(s) share metadata from this endpoint: {string.Join(',', shareDependencies.ToArray())} ");
+                }
+
+                var srcEndpoint = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(a => a.Endpoints).FirstOrDefault(ep => ep.Id.Equals(shareFromEndpointId, StringComparison.Ordinal));
+
+                if (srcEndpoint == null)
+                {
+                    return ApiResponse.ExclamationModal($"Failed to find source endpoint with id: {shareFromEndpointId ?? "(null)"}");
+                }
+
+                endpoint.ShareMetadaFrom(srcEndpoint);
+                SettingsInstance.SaveSettingsToFile();
+
+                return ApiResponse.Success();
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpPost("/api/endpoint/{endpointName}/setup-shared-metadata/clear")]
+        public ApiResponse ClearSharedMetadata([FromRoute] string endpointName, [FromQuery(Name = "project")] string projectName, [FromQuery(Name = "app")] string appName)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(projectName, appName, endpointName, out var project, out var app, out var endpoint, out var resp))
+                {
+                    return resp;
+                }
+
+                endpoint.ShareMetadaFrom(null);
+                SettingsInstance.SaveSettingsToFile();
+
+                return ApiResponse.Success();
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
 
         [HttpPost("/api/endpoint/{name}/installOrm")]
         public ApiResponse InstallOrm([FromRoute] string name, [FromQuery] string projectName, [FromQuery] string dbSourceName)
