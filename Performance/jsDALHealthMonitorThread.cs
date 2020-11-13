@@ -72,14 +72,18 @@ namespace jsdal_server_core.Performance
 
                         var blobStats = BlobStore.Instance.GetStats();
 
+                        var memInfo = GC.GetGCMemoryInfo();
+
+
                         var newEntry = new jsDALHealthDbEntry()
                         {
                             Created = DateTime.Now,
-                            TimeToCalculateSizesInMS = sw.ElapsedMilliseconds,
+                            // TimeToCalculateSizesInMS = sw.ElapsedMilliseconds,
+                            // WorkingSet64 = proc.WorkingSet64,
+                            HeapSizeMB = (double)memInfo.HeapSizeBytes / 1024.0 / 1024.0,
                             BlobCnt = blobStats.TotalItemsInCache,
                             BlobsBytesInCache = blobStats.TotalBytesInCache,
                             EndpointStats = endpointStats,
-                            WorkingSet64 = proc.WorkingSet64,
                             PrivateMemorySize64 = proc.PrivateMemorySize64,
                             ExceutionsInFlight = Controllers.ExecController.ExceutionsInFlight
 
@@ -162,7 +166,7 @@ namespace jsdal_server_core.Performance
                 case var n when n >= 60 * 24:
                     specificHour = specificMinute = 0;
                     break;
-                case var n when n >= 120:
+                case var n when n > 180:
                     groupByMin = 60;
                     break;
                 case var n when n > 60:
@@ -187,9 +191,9 @@ namespace jsdal_server_core.Performance
                              BlobsInCacheCnt = grp1.Max(c => c.BlobCnt),
                              BlobsInCacheSizeInMB = Math.Round(grp1.Max(c => (double)c.BlobsBytesInCache) / 1024.0 / 1024.0, 2),
                              PrivateMemorySize64 = grp1.Average(c => c.PrivateMemorySize64),
-                             WorkingSet64 = grp1.Average(c => c.WorkingSet64),
-                             TimeToCalculateSizesInMS = (int)grp1.Average(c => c.TimeToCalculateSizesInMS),
-                             //CachedRoutinesSizeInMB = x.EndpointStats.Where(e => e.CachedRoutinesCount > 0).Sum(e => (double)e.CachedRoutinesSizeInBytes / (double)e.CachedRoutinesCount) / 1024.0 / 1024.0
+                             //WorkingSet64 = grp1.Average(c => c.WorkingSet64),
+                             //TimeToCalculateSizesInMS = (int)grp1.Average(c => c.TimeToCalculateSizesInMS),
+                             HeapSizeInMB = Math.Round(grp1.Average(c => c.HeapSizeMB), 2),
                              CachedRoutinesSizeInMB = Math.Round(grp1.Average(c => (double)c.EndpointStats.Sum(e => e.CachedRoutinesSizeInBytes)) / 1024.0 / 1024.0, 2),
                              ExecutionsInFlight = (int)grp1.Sum(c => c.ExceutionsInFlight)
 
@@ -209,12 +213,19 @@ namespace jsdal_server_core.Performance
                 data = (from e in totals select e.BlobsInCacheSizeInMB),
             };
 
-            var workingSetDataset = new
+             var heapSizeDataset = new
             {
-                label = "Working set (MB)",
+                label = "Heap Size (MB)",
                 data = (from e in totals
-                        select Math.Round((double)e.WorkingSet64 / 1024.0 / 1024.0, 2))
+                        select Math.Round((double)e.HeapSizeInMB, 2))
             };
+
+            // var workingSetDataset = new
+            // {
+            //     label = "Working set (MB)",
+            //     data = (from e in totals
+            //             select Math.Round((double)e.WorkingSet64 / 1024.0 / 1024.0, 2))
+            // };
 
             var privateDataset = new
             {
@@ -223,11 +234,11 @@ namespace jsdal_server_core.Performance
                         select Math.Round((double)e.PrivateMemorySize64 / 1024.0 / 1024.0, 2)),
             };
 
-            var timeToCalcSizesDataset = new
-            {
-                label = "Time to calc sizes (ms)",
-                data = (from e in totals select e.TimeToCalculateSizesInMS),
-            };
+            // var timeToCalcSizesDataset = new
+            // {
+            //     label = "Time to calc sizes (ms)",
+            //     data = (from e in totals select e.TimeToCalculateSizesInMS),
+            // };
 
             var cachedRoutineSizeDataset = new
             {
@@ -244,7 +255,7 @@ namespace jsdal_server_core.Performance
             dynamic ret = new
             {
                 labels = labels,
-                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, workingSetDataset, privateDataset, timeToCalcSizesDataset, cachedRoutineSizeDataset, execInFlightDataset }
+                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, heapSizeDataset, privateDataset, cachedRoutineSizeDataset, execInFlightDataset }
             };
 
             return ret;
@@ -291,14 +302,16 @@ namespace jsdal_server_core.Performance
 
         public DateTime? Created { get; set; }
 
-        public long TimeToCalculateSizesInMS { get; set; }
+        //public long TimeToCalculateSizesInMS { get; set; }
+        //public long WorkingSet64 { get; set; }
+
+        public double HeapSizeMB { get; set; }
 
         public long BlobsBytesInCache { get; set; }
         public int BlobCnt { get; set; }
 
         public List<EndpointStats> EndpointStats { get; set; }
 
-        public long WorkingSet64 { get; set; }
         public long PrivateMemorySize64 { get; set; }
 
         public int ExceutionsInFlight { get; set; }

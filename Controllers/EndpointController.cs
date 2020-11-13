@@ -124,7 +124,7 @@ namespace jsdal_server_core.Controllers
             {
                 var q = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications)
                         .SelectMany(a => a.Endpoints)
-                        .Where(ep => ep.MetadataConnection != null/*TODO:Chceck for NOT sharing*/)
+                        .Where(ep => string.IsNullOrWhiteSpace(ep.PullMetadataFromEndpointId))
                         .Select(ep => new { ep.Id, ep.Pedigree })
                         .OrderBy(ep => ep.Pedigree);
 
@@ -257,6 +257,34 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+
+        [HttpGet("/api/endpoint/{endpointName}/metadata-dependencies")]
+        public ApiResponse GetMetadataDependencies([FromRoute] string endpointName, [FromQuery(Name = "project")] string projectName, [FromQuery(Name = "app")] string appName)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(projectName, appName, endpointName, out var project, out var app, out var endpoint, out var resp))
+                {
+                    return resp;
+                }
+
+                var shareDependencies = Settings.SettingsInstance.Instance
+                                        .ProjectList
+                                        .SelectMany(p => p.Applications)
+                                        .SelectMany(a => a.Endpoints)
+                                        .Where(ep => ep.PullMetadataFromEndpointId?.Equals(endpoint.Id, StringComparison.Ordinal) ?? false)
+                                        .Select(ep => ep.Pedigree)
+                                        .OrderBy(p => p)
+                                        ;
+
+                return ApiResponse.Payload(shareDependencies);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
+        }
+
         [HttpPost("/api/endpoint/{endpointName}/setup-shared-metadata")]
         public ApiResponse SetupSharedMetadata([FromRoute] string endpointName, [FromQuery(Name = "project")] string projectName, [FromQuery(Name = "app")] string appName, [FromQuery(Name = "srcEndpointId")] string shareFromEndpointId)
         {
@@ -277,14 +305,19 @@ namespace jsdal_server_core.Controllers
 
                 if (shareDependencies.Count() > 0)
                 {
-                    return ApiResponse.ExclamationModal($"This endpoint cannot be configured with metadata sharing while other endpoints dependent on it. The following endpoint(s) share metadata from this endpoint: {string.Join(',', shareDependencies.ToArray())} ");
+                    return ApiResponse.ExclamationModal($"This endpoint cannot be configured with metadata sharing while other endpoints dependent on it. The following endpoint(s) share metadata from this endpoint:<p>{string.Join("<br>", shareDependencies.ToArray())}</p>");
                 }
 
                 var srcEndpoint = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(a => a.Endpoints).FirstOrDefault(ep => ep.Id.Equals(shareFromEndpointId, StringComparison.Ordinal));
 
+
                 if (srcEndpoint == null)
                 {
                     return ApiResponse.ExclamationModal($"Failed to find source endpoint with id: {shareFromEndpointId ?? "(null)"}");
+                }
+                else if (srcEndpoint == endpoint)
+                {
+                    return ApiResponse.ExclamationModal($"Endpoint cannot share with itself");
                 }
 
                 endpoint.ShareMetadaFrom(srcEndpoint);
@@ -419,7 +452,6 @@ namespace jsdal_server_core.Controllers
         }
 
 
-
         [HttpPost]
         [Route("api/endpoint/{name}/uninstallOrm")]
         public ApiResponse UninstallOrm([FromRoute] string name, [FromQuery] string projectName, [FromQuery] string dbSourceName)
@@ -456,31 +488,6 @@ namespace jsdal_server_core.Controllers
                 return ApiResponse.Exception(ex);
             }
         }
-
-        // Not needed as it is retrieved through the main /endpoint GET
-        // [HttpGet("api/endpoint/{endpoint}/metadata-connection")]
-        // public ApiResponse GetMetadataConnection([FromRoute] string endpoint, [FromQuery] string projectName, [FromQuery] string dbSourceName)
-        // {
-        //     if (!ControllerHelper.GetProjectAndApp(projectName, dbSourceName, out var proj, out var dbSource, out var resp))
-        //     {
-        //         return resp;
-        //     }
-
-        //     if (!dbSource.GetEndpoint(endpoint, out var ep, out var resp2))
-        //     {
-        //         return ApiResponse.ExclamationModal(resp2.userErrorVal);
-        //     }
-
-        //     var mdc = ep.MetadataConnection;
-        //     return ApiResponse.Payload(new
-        //     {
-        //         InitialCatalog = mdc.initialCatalog,
-        //         DataSource = mdc.dataSource,
-        //         UserID = mdc.userID,
-        //         IntegratedSecurity = mdc.integratedSecurity,
-        //         port = mdc.port
-        //     });
-        // }
 
         [HttpPost("api/endpoint/{endpoint}/connection")]
         public ApiResponse AddUpdateConnection([FromRoute] string endpoint, [FromQuery] string projectName, [FromQuery] string dbSourceName,
@@ -697,6 +704,23 @@ namespace jsdal_server_core.Controllers
                 if (!dbSource.GetEndpoint(name, out var endpoint, out var resp2))
                 {
                     return ApiResponse.ExclamationModal(resp2.userErrorVal);
+                }
+
+                if (!enable)
+                {
+                    var shareDependencies = Settings.SettingsInstance.Instance
+                                           .ProjectList
+                                           .SelectMany(p => p.Applications)
+                                           .SelectMany(a => a.Endpoints)
+                                           .Where(ep => ep.PullMetadataFromEndpointId?.Equals(endpoint.Id, StringComparison.Ordinal) ?? false)
+                                           .Select(ep => ep.Pedigree)
+                                           ;
+
+                    if (shareDependencies.Count() > 0)
+                    {
+                        return ApiResponse.ExclamationModal($"Cannot disable metadata capturing on this endpoint while other endpoints depend on it. The following endpoint(s) share metadata from this endpoint:<p>{string.Join("<br>", shareDependencies.ToArray())}</p>");
+                    }
+
                 }
 
                 endpoint.DisableMetadataCapturing = !enable;

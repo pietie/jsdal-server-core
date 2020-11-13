@@ -106,7 +106,7 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
-                return Ok(DataCollectorThread.Instance.GetAggregateStats());
+                return Ok(DataCollectorThread.Instance?.GetAggregateStats());
             }
             catch (Exception ex)
             {

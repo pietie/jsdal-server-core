@@ -105,8 +105,21 @@ namespace jsdal_server_core
 
                     Log.Fatal("Unhandled exception", e.ExceptionObject);
                     ExceptionLogger.LogException(e.ExceptionObject as Exception);
-
                 };
+
+                AppConfigSettings appConfigSettings = null;
+
+                try
+                {
+                    var appSettingsJson = File.ReadAllText("./appsettings.json");
+
+                    appConfigSettings = System.Text.Json.JsonSerializer.Deserialize<AppConfigSettings>(appSettingsJson);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Failed to read appsettings.json");
+                }
+
 
                 Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
@@ -119,7 +132,7 @@ namespace jsdal_server_core
                 UserManagement.LoadUsersFromFile();
 
                 Log.Information("Initialising exception logger");
-                ExceptionLogger.Init();
+                ExceptionLogger.Instance.Init();
 
                 Log.Information("Loading settings");
                 SettingsInstance.LoadSettingsFromFile();
@@ -127,11 +140,25 @@ namespace jsdal_server_core
                 Log.Information("Initialising real-time tracker");
                 RealtimeTrackerThread.Instance.Init();
 
-                Log.Information("Initialising jsDAL health monitor");
-                jsDALHealthMonitorThread.Instance.Init();
+                if (appConfigSettings?.AppSettings?.Startup?.HealthMonitor ?? false)
+                {
+                    Log.Information("Initialising jsDAL health monitor");
+                    jsDALHealthMonitorThread.Instance.Init();
+                }
+                else
+                {
+                    Log.Information("jsDAL health monitor not configured to run at startup");
+                }
 
-                Log.Information("Initialising data collector");
-                DataCollectorThread.Instance.Init();
+                if (appConfigSettings?.AppSettings?.Startup?.DataCollector ?? false)
+                {
+                    Log.Information("Initialising data collector");
+                    DataCollectorThread.Instance.Init();
+                }
+                else
+                {
+                    Log.Information("Data collector not configured to run at startup");
+                }
 
                 Log.Information("Initialising inline module manifest");
                 InlineModuleManifest.Instance.Init();
@@ -201,7 +228,7 @@ namespace jsdal_server_core
             Log.Information("Shutting down common notifications...");
             Hubs.CommonNotificationThread.Instance?.Shutdown();
             Log.Information("Shutting down exception logger...");
-            ExceptionLogger.Shutdown();
+            ExceptionLogger.Instance?.Shutdown();
             Log.Information("Shutting down background thread plugins...");
             BackgroundThreadPluginManager.Instance?.Shutdown();
 
@@ -432,5 +459,22 @@ namespace jsdal_server_core
 
         }
 
+    }
+
+    public class AppConfigSettings
+    {
+        public AppSettings AppSettings { get; set; }
+
+    }
+
+    public class AppSettings
+    {
+        public AppSettingsStartup Startup { get; set; }
+    }
+
+    public class AppSettingsStartup
+    {
+        public bool DataCollector { get; set; }
+        public bool HealthMonitor { get; set; }
     }
 }

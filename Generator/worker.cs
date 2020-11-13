@@ -170,20 +170,7 @@ namespace jsdal_server_core
 
                     try
                     {
-                        if (Endpoint.DisableMetadataCapturing)
-                        {
-                            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Metadata capturing disabled";
-                            this.IsRunning = false;
-                            continue;
-                        }
-                        else if (!Endpoint.IsOrmInstalled)
-                        {
-                            // try again in 3 seconds
-                            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Waiting for ORM to be installed";
-                            Thread.Sleep(3000);
-                            continue;
-                        }
-                        else if (!string.IsNullOrEmpty(Endpoint.PullMetadataFromEndpointId))
+                        if (!string.IsNullOrEmpty(Endpoint.PullMetadataFromEndpointId))
                         {
                             var ep = Settings.SettingsInstance.Instance.FindEndpointById(Endpoint.PullMetadataFromEndpointId);
 
@@ -197,6 +184,19 @@ namespace jsdal_server_core
                             }
 
                             this.IsRunning = false;
+                            continue;
+                        }
+                        else if (Endpoint.DisableMetadataCapturing)
+                        {
+                            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Metadata capturing disabled";
+                            this.IsRunning = false;
+                            continue;
+                        }
+                        else if (!Endpoint.IsOrmInstalled)
+                        {
+                            // try again in 3 seconds
+                            this.Status = $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm")} - Waiting for ORM to be installed";
+                            Thread.Sleep(3000);
                             continue;
                         }
 

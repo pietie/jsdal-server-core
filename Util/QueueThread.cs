@@ -12,13 +12,16 @@ namespace jsdal_server_core.Util
         private Thread _winThread;
         public bool IsRunning { get; protected set; }
 
+        private string _threadName;
+
         private int _flushTimeoutInSeconds;
         private int _flushCountThreshold;
 
-        public QueueThread(int flushTimeoutInSeconds = 25, int flushCountThreshold = 300)
+        public QueueThread(int flushTimeoutInSeconds = 25, int flushCountThreshold = 300, string threadName = null)
         {
             this._flushTimeoutInSeconds = flushTimeoutInSeconds;
             this._flushCountThreshold = flushCountThreshold;
+            this._threadName = threadName;
         }
         public virtual void Init()
         {
@@ -49,6 +52,8 @@ namespace jsdal_server_core.Util
                 IsRunning = true;
 
                 var nextFlush = DateTime.Now.AddSeconds(_flushTimeoutInSeconds);
+
+                if (!string.IsNullOrWhiteSpace(_threadName)) System.Threading.Thread.CurrentThread.Name = _threadName;
 
                 while (IsRunning && !Program.IsShuttingDown)
                 {

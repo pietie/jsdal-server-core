@@ -56,17 +56,15 @@ namespace jsdal_server_core.Settings.ObjectModel
             if (srcEndpoint == null)
             {
                 this.PullMetadataFromEndpointId = null;
-                // TODO: Rebuild local cache? Spin up worker
+
+                this.CachedRoutineList = new List<CachedRoutine>();
+                WorkSpawner.RestartWorker(this);
             }
             else
             {
-
-
                 PullMetadataFromEndpointId = srcEndpoint.Id;
 
                 this.CachedRoutineList = srcEndpoint.CachedRoutineList;
-
-                // TODO: Kill related Worker if it exists
             }
         }
 
@@ -105,7 +103,6 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 if (cmd.Parameters["@err"].Value == DBNull.Value)
                 {
-                    // TODO: Can the validity be cached somehow?
                     return null;
                 }
 

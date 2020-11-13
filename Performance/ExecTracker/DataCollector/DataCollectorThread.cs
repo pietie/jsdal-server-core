@@ -26,7 +26,7 @@ namespace jsdal_server_core.Performance.DataCollector
         // private readonly string Collection_Agg_Weekly = "ExecutionAggW";
         // private readonly string Collection_Agg_Monthly = "ExecutionAggM";
 
-        private DataCollectorThread() : base()
+        private DataCollectorThread() : base(threadName: "DataCollectorThread")
         {
         }
 
@@ -403,6 +403,8 @@ namespace jsdal_server_core.Performance.DataCollector
 
         public dynamic GetAggregateStats()
         {
+            if (_dbRunningValues == null) return null;
+
             var executionAggregates = _dbRunningValues.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
 
             var minBracket = executionAggregates.Min(x => x.Bracket);
@@ -505,6 +507,8 @@ namespace jsdal_server_core.Performance.DataCollector
 
         public dynamic GetTopNResource(int topN, DateTime fromDate, DateTime toDate, string[] endpoints, TopNResourceType type)
         {
+            if (_dbRunningValues == null) return null;
+            
             var baseQuery = BuildBaseQuery(fromDate, toDate, endpoints);
 
             switch (type)

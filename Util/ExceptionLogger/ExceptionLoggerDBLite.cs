@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using jsdal_server_core.Util;
 using LiteDB;
 using Newtonsoft.Json;
 using Serilog;
@@ -13,29 +14,34 @@ using shortid;
 namespace jsdal_server_core
 {
 
-    public static class ExceptionLogger
+    public class ExceptionLogger : QueueThread<ExceptionWrapper>
     {
-        private static readonly int MAX_ENTRIES_PER_ENDPOINT = 1000;
-        private static LiteDatabase _database;
-        private static ConcurrentQueue<ExceptionWrapper> _exceptionQueue;
+        private readonly int MAX_ENTRIES_PER_ENDPOINT = 1000;
+        private LiteDatabase _database;
+        //private static ConcurrentQueue<ExceptionWrapper> _exceptionQueue;
 
-        private static Dictionary<string, List<DateTime>> _throttleTracker;
+        private Dictionary<string, List<DateTime>> _throttleTracker;
 
-        private static object _throttleTrackerLock = new object();
+        private object _throttleTrackerLock = new object();
 
-        private static Thread _winThread;
-        private static bool IsRunning;
+        public static ExceptionLogger Instance { get; private set; }
 
         static ExceptionLogger()
         {
+            Instance = new ExceptionLogger();
         }
 
-        public static void Init()
+        private ExceptionLogger() : base(threadName: "ExceptionLoggerThread")
+        {
+
+        }
+
+        public override void Init()
         {
             try
             {
                 _throttleTracker = new Dictionary<string, List<DateTime>>();
-                _exceptionQueue = new ConcurrentQueue<ExceptionWrapper>();
+
                 _database = new LiteDB.LiteDatabase("data/exceptions.db");
 
                 var exceptionCollection = _database.GetCollection<ExceptionWrapper>("Exceptions");
@@ -43,8 +49,7 @@ namespace jsdal_server_core
                 exceptionCollection.EnsureIndex("sId", unique: true);
                 exceptionCollection.EnsureIndex("EndpointKey", unique: false);
 
-                _winThread = new Thread(new ThreadStart(ProcessMessagesLoop));
-                _winThread.Start();
+                base.Init();
             }
             catch (Exception ex)
             {
@@ -53,78 +58,39 @@ namespace jsdal_server_core
             }
         }
 
-        public static void ProcessMessagesLoop()
+        public override void Shutdown()
+        {
+            base.Shutdown();
+
+            if (_database != null)
+            {
+                _database.Checkpoint();
+                _database.Dispose();
+                _database = null;
+            }
+        }
+
+        protected override void ProcessQueueEntries(List<ExceptionWrapper> entryCollection)
         {
             try
             {
-                IsRunning = true;
-                var flushTimeoutInSeconds = 25;
-                var checkpointTimeoutInSeconds = 3 * 60;
-
-                var nextFlush = DateTime.Now.AddSeconds(flushTimeoutInSeconds);
-                var nextCheckpoint = DateTime.Now.AddSeconds(checkpointTimeoutInSeconds);
-
                 DateTime? lastFailedToLogToStoreDate = null;
 
-                while (IsRunning && !Program.IsShuttingDown)
+                foreach (var ew in entryCollection)
                 {
-                    // timeout or count trigger check 
-                    if (DateTime.Now >= nextFlush || _exceptionQueue.Count >= 100)
+                    try
                     {
-                        while (!_exceptionQueue.IsEmpty)
-                        {
-                            if (_exceptionQueue.TryDequeue(out var ew))
-                            {
-                                try
-                                {
-                                    AddExceptionToDB(ew);
-                                }
-                                catch (Exception ee)
-                                {
-                                    // prevent logging failures too often
-                                    if (!lastFailedToLogToStoreDate.HasValue || DateTime.Now.Subtract(lastFailedToLogToStoreDate.Value).TotalSeconds >= 25)
-                                    {
-                                        Log.Error(ee, $"Failed to log exception to DB store. EP={ew.EndpointKey}; sID={ew.sId};");
-                                        Log.Error($"Original: {ew.message}; stack=\r\n{ew.stackTrace}");
-
-                                        lastFailedToLogToStoreDate = DateTime.Now;
-                                    }
-                                }
-                            }
-                        }
-
-                        nextFlush = DateTime.Now.AddSeconds(flushTimeoutInSeconds);
+                        AddExceptionToDB(ew);
                     }
-
-                    // checkpoint 
-                    if (DateTime.Now >= nextCheckpoint)
+                    catch (Exception ee)
                     {
-                        _database.Checkpoint();
-
-                        nextCheckpoint = DateTime.Now.AddSeconds(checkpointTimeoutInSeconds);
-                    }
-
-                    Thread.Sleep(60);
-                }
-
-                // flush any remaining items out
-                while (!_exceptionQueue.IsEmpty)
-                {
-                    if (_exceptionQueue.TryDequeue(out var ew))
-                    {
-                        try
+                        // prevent logging failures too often
+                        if (!lastFailedToLogToStoreDate.HasValue || DateTime.Now.Subtract(lastFailedToLogToStoreDate.Value).TotalSeconds >= 25)
                         {
-                            AddExceptionToDB(ew);
-                        }
-                        catch (Exception ee)
-                        {
-                            // prevent logging failures too often
-                            if (!lastFailedToLogToStoreDate.HasValue || DateTime.Now.Subtract(lastFailedToLogToStoreDate.Value).TotalSeconds >= 25)
-                            {
-                                Log.Error(ee, $"Failed to log exception to DB store. EP={ew.EndpointKey}; sID={ew.sId};");
-                                Log.Error($"Original: {ew.message}; stack=\r\n{ew.stackTrace}");
-                                lastFailedToLogToStoreDate = DateTime.Now;
-                            }
+                            Log.Error(ee, $"Failed to log exception to DB store. EP={ew.EndpointKey}; sID={ew.sId};");
+                            Log.Error($"Original: {ew.message}; stack=\r\n{ew.stackTrace}");
+
+                            lastFailedToLogToStoreDate = DateTime.Now;
                         }
                     }
                 }
@@ -141,7 +107,7 @@ namespace jsdal_server_core
             }
         }
 
-        private static void AddExceptionToDB(ExceptionWrapper ew)
+        private void AddExceptionToDB(ExceptionWrapper ew)
         {
             _database.BeginTrans();
 
@@ -151,7 +117,7 @@ namespace jsdal_server_core
             {
                 // cull from the front
                 int currentCount = exceptionCollection.Count(e => e.EndpointKey == ew.EndpointKey);
-                int countToRemove = (currentCount - 4/*ExceptionLogger.MAX_ENTRIES_PER_ENDPOINT*/) + 1;
+                int countToRemove = (currentCount - MAX_ENTRIES_PER_ENDPOINT) + 1;
 
                 if (countToRemove > 0)
                 {
@@ -181,6 +147,7 @@ namespace jsdal_server_core
                                 .Where(e => (e.server == null && ew.server == null) || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
                                 .Where(e => (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase)))
                                 .Where(e => (e.innerException == null && ew.innerException == null) || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
+                                .Where(e => e.created >= DateTime.Now.AddDays(-1)/*limit to last 24 hours*/)
                                 .FirstOrDefault();
             }
 
@@ -236,37 +203,37 @@ namespace jsdal_server_core
 
         public static string LogExceptionThrottled(Exception ex, string throttleKey, int maxExcpetionsPerMin, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            lock (_throttleTrackerLock)
+            lock (Instance._throttleTrackerLock)
             {
-                if (!_throttleTracker.ContainsKey(throttleKey))
+                if (!Instance._throttleTracker.ContainsKey(throttleKey))
                 {
-                    _throttleTracker.Add(throttleKey, new List<DateTime>());
+                    Instance._throttleTracker.Add(throttleKey, new List<DateTime>());
                 }
 
                 var now = DateTime.Now;
 
-                _throttleTracker[throttleKey].Add(now);
+                Instance._throttleTracker[throttleKey].Add(now);
 
                 // remove old items from the sample
-                while (_throttleTracker[throttleKey][0] < now.AddSeconds(-60))
+                while (Instance._throttleTracker[throttleKey][0] < now.AddSeconds(-60))
                 {
-                    _throttleTracker[throttleKey].RemoveAt(0);
+                    Instance._throttleTracker[throttleKey].RemoveAt(0);
                 }
 
 
-                if (_throttleTracker[throttleKey].Count >= maxExcpetionsPerMin)
+                if (Instance._throttleTracker[throttleKey].Count >= maxExcpetionsPerMin)
                 {
                     return null;
                 }
 
             }
 
-            return QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
+            return Instance.QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
         }
 
         public static string LogException(Exception ex, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
-            return QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
+            return Instance.QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
         }
 
         public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
@@ -278,53 +245,34 @@ namespace jsdal_server_core
                 endpointKey = $"{execOptions.project}/{execOptions.application}/{execOptions.endpoint}".ToUpper();
             }
 
-            return QueueException(endpointKey, ex, execOptions, additionalInfo, appTitle, appVersion);
+            return Instance.QueueException(endpointKey, ex, execOptions, additionalInfo, appTitle, appVersion);
         }
 
-        private static string QueueException(string endpointKey, Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo, string appTitle, string appVersion = null)
+        private string QueueException(string endpointKey, Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo, string appTitle, string appVersion = null)
         {
             var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle, appVersion) { EndpointKey = endpointKey };
 
-            _exceptionQueue.Enqueue(ew);
-
+            this.Enqueue(ew);
             return ew.sId;
-        }
-
-        public static void Shutdown()
-        {
-            IsRunning = false;
-            if (_winThread != null)
-            {
-                if (!_winThread.Join(TimeSpan.FromSeconds(10)))
-                {
-                    Log.Error("ExceptionsDB failed to shutdown in time");
-                }
-                _winThread = null;
-            }
-
-            if (_database != null)
-            {
-                _database.Dispose();
-            }
         }
 
         public static void ClearAll()
         {
-            _database.BeginTrans();
-            var exceptionCollection = _database.GetCollection<ExceptionWrapper>("Exceptions");
+            Instance._database.BeginTrans();
+            var exceptionCollection = Instance._database.GetCollection<ExceptionWrapper>("Exceptions");
             exceptionCollection.DeleteAll();
-            _database.Commit();
+            Instance._database.Commit();
         }
 
         public static ExceptionWrapper GetException(string sId)
         {
-            var ew = _database.GetCollection<ExceptionWrapper>("Exceptions").FindOne(e => e.sId.Equals(sId));
+            var ew = Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindOne(e => e.sId.Equals(sId));
             return ew;
         }
 
         public static ExceptionWrapper DeepFindRelated(string sId)
         {
-            var topLevelCollection = _database.GetCollection<ExceptionWrapper>("Exceptions").FindAll();
+            var topLevelCollection = Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindAll();
 
             foreach (var topLevelException in topLevelCollection)
             {
@@ -340,11 +288,11 @@ namespace jsdal_server_core
             // return ALL
             if (endpointLookup == null || endpointLookup.Length == 0)
             {
-                return _database.GetCollection<ExceptionWrapper>("Exceptions").FindAll();
+                return Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindAll();
             }
             else
             {
-                var exceptionCollection = _database.GetCollection<ExceptionWrapper>("Exceptions");
+                var exceptionCollection = Instance._database.GetCollection<ExceptionWrapper>("Exceptions");
 
                 var finalList = new List<ExceptionWrapper>();
 
@@ -363,7 +311,7 @@ namespace jsdal_server_core
         {
             get
             {
-                return _database.GetCollection<ExceptionWrapper>("Exceptions").Count();
+                return Instance._database.GetCollection<ExceptionWrapper>("Exceptions").Count();
             }
         }
 
@@ -371,7 +319,7 @@ namespace jsdal_server_core
         {
             get
             {
-                return _database.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.EndpointKey).Distinct().OrderBy(k => k).ToList();
+                return Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.EndpointKey).Distinct().OrderBy(k => k).ToList();
             }
         }
 
@@ -379,7 +327,7 @@ namespace jsdal_server_core
         {
             get
             {
-                return _database.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.appTitle).Where(at => !string.IsNullOrWhiteSpace(at)).Distinct().OrderBy(at => at).ToList();
+                return Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.appTitle).Where(at => !string.IsNullOrWhiteSpace(at)).Distinct().OrderBy(at => at).ToList();
             }
         }
 
