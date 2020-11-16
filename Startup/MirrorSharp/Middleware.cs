@@ -12,29 +12,29 @@ using MirrorSharp.Internal;
 
 namespace Extensions
 {
-    internal class Middleware : MiddlewareBase
-    {
-        private readonly RequestDelegate _next;
+    // internal class Middleware : MiddlewareBase
+    // {
+    //     private readonly RequestDelegate _next;
 
-        public Middleware(RequestDelegate next, MirrorSharp.MirrorSharpOptions options) : base(options)
-        {
-            //_next = Argument.NotNull(nameof(next), next);
-            _next = next;
-        }
+    //     public Middleware(RequestDelegate next, MirrorSharp.MirrorSharpOptions options) : base(options)
+    //     {
+    //         //_next = Argument.NotNull(nameof(next), next);
+    //         _next = next;
+    //     }
 
-        public Task InvokeAsync(HttpContext context)
-        {
-            if (!context.WebSockets.IsWebSocketRequest || !context.Request.Path.HasValue || !context.Request.Path.Value.Equals("/mirrorsharp", StringComparison.OrdinalIgnoreCase))
-                return _next(context);
+    //     public Task InvokeAsync(HttpContext context)
+    //     {
+    //         if (!context.WebSockets.IsWebSocketRequest || !context.Request.Path.HasValue || !context.Request.Path.Value.Equals("/mirrorsharp", StringComparison.OrdinalIgnoreCase))
+    //             return _next(context);
 
-            return StartWebSocketLoopAsync(context);
-        }
+    //         return StartWebSocketLoopAsync(context);
+    //     }
 
-        public async Task StartWebSocketLoopAsync(HttpContext context)
-        {
-            var webSocket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
-            await WebSocketLoopAsync(webSocket, CancellationToken.None);
-        }
-    }
+    //     public async Task StartWebSocketLoopAsync(HttpContext context)
+    //     {
+    //         var webSocket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
+    //         await WebSocketLoopAsync(webSocket, CancellationToken.None);
+    //     }
+    // }
 
 }

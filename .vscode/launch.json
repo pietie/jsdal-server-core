@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-project",
-            "program": "${workspaceFolder}/bin/Debug/netcoreapp3.1/win-x64/jsdal-server.dll",
+            "program": "${workspaceFolder}/bin/Debug/net5.0/win-x64/jsdal-server.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,

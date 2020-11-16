@@ -18,34 +18,38 @@ namespace jsdal_server_core
             var win = new Window(new Rect(0, 0, top.Frame.Width, top.Frame.Height - 0), "jsDAL Server");
             top.Add(win);
 
-            win.Add(
-                new Button(3, 2, "Install service")
-                {
-                    Clicked = () =>
-                    {
-                        var dlg = BuildCreateNewServiceDialog();
 
-                        Application.Run(dlg);
-                    }
-                },
+            var installServiceButton = new Button(3, 2, "Install service");
 
-                new Button(3, 3, "Uninstall service")
-                {
-                    Clicked = () =>
+            installServiceButton.Clicked += () =>
+                  {
+                      var dlg = BuildCreateNewServiceDialog();
+
+                      Application.Run(dlg);
+                  };
+
+            var uninstallServiceButton = new Button(3, 3, "Uninstall service");
+
+            uninstallServiceButton.Clicked += () =>
                     {
                         var dlg = BuildUninstallServiceDialog();
                         Application.Run(dlg);
 
-                    }
-                },
-                new Button(3, 4, "Exit")
-                {
-                    Clicked = () =>
+                    };
+
+
+            var exitButton = new Button(3, 4, "Exit");
+
+            exitButton.Clicked += () =>
                     {
                         Application.RequestStop();
-                    }
-                }
-                );
+                    };
+
+            win.Add(
+                    installServiceButton,
+                    uninstallServiceButton,
+                    exitButton
+                    );
 
             Application.Run();
         }
@@ -70,7 +74,7 @@ namespace jsdal_server_core
                      tf2
                 );
 
-            ok.Clicked = () =>
+            ok.Clicked += () =>
             {
                 InstallService(tf1.Text.ToString(), tf2.Text.ToString());
             };
@@ -98,31 +102,33 @@ namespace jsdal_server_core
             for (var i = 0; i < items.Length; i++)
             {
                 var local = i;
-                dlg.Add(new Button(1, 3 + i, items[i])
-                {
-                    Clicked = () =>
-                    {
-                        var service = jsdalLikeServices[local];
-                        int ret = MessageBox.Query(80, 10, "Confirm action", $"Are you sure you want to uninstall '{service.ServiceName}'?", "Confirm", "Cancel");
 
-                        if (ret == 0)
-                        {
-                            ManagementObject wmiService;
+                var but = new Button(1, 3 + i, items[i]);
 
-                            wmiService = new ManagementObject("Win32_Service.Name='" + service.ServiceName + "'");
-                            wmiService.Get();
-                            wmiService.Delete();
+                but.Clicked += () =>
+                      {
+                          var service = jsdalLikeServices[local];
+                          int ret = MessageBox.Query(80, 10, "Confirm action", $"Are you sure you want to uninstall '{service.ServiceName}'?", "Confirm", "Cancel");
+
+                          if (ret == 0)
+                          {
+                              ManagementObject wmiService;
+
+                              wmiService = new ManagementObject("Win32_Service.Name='" + service.ServiceName + "'");
+                              wmiService.Get();
+                              wmiService.Delete();
 
 
-                            MessageBox.Query(30, 8, "", "Service uninstalled", "Ok");
-                            Application.RequestStop();
-                        }
-                        else if (ret == 1)
-                        {
+                              MessageBox.Query(30, 8, "", "Service uninstalled", "Ok");
+                              Application.RequestStop();
+                          }
+                          else if (ret == 1)
+                          {
 
-                        }
-                    }
-                });
+                          }
+                      };
+
+                dlg.Add(but);
             }
 
             return dlg;

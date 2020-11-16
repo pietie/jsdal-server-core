@@ -52,21 +52,21 @@ namespace jsdal_server_core.Performance
                 {
                     if (!_nextCheck.HasValue || DateTime.Now >= _nextCheck.Value)
                     {
-                        var endpoints = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(a => a.Endpoints);
+                        // var endpoints = Settings.SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications).SelectMany(a => a.Endpoints);
 
-                        sw.Restart();
+                        // sw.Restart();
 
-                        var q = from ep in endpoints
-                                select new EndpointStats()
-                                {
-                                    Endpoint = ep.Pedigree,
-                                    CachedRoutinesCount = ep.CachedRoutines.Count,
-                                    CachedRoutinesSizeInBytes = CalculateEstSizeInBytes(ep.CachedRoutines)
-                                };
+                        // var q = from ep in endpoints
+                        //         select new EndpointStats()
+                        //         {
+                        //             Endpoint = ep.Pedigree,
+                        //             CachedRoutinesCount = ep.CachedRoutines.Count,
+                        //             CachedRoutinesSizeInBytes = CalculateEstSizeInBytes(ep.CachedRoutines)
+                        //         };
 
-                        var endpointStats = q.ToList();
+                        // var endpointStats = q.ToList();
 
-                        sw.Stop();
+                        // sw.Stop();
 
                         var proc = Process.GetCurrentProcess();
 
@@ -74,23 +74,21 @@ namespace jsdal_server_core.Performance
 
                         var memInfo = GC.GetGCMemoryInfo();
 
-
                         var newEntry = new jsDALHealthDbEntry()
                         {
                             Created = DateTime.Now,
                             // TimeToCalculateSizesInMS = sw.ElapsedMilliseconds,
                             // WorkingSet64 = proc.WorkingSet64,
+                            //EndpointStats = endpointStats,
                             HeapSizeMB = (double)memInfo.HeapSizeBytes / 1024.0 / 1024.0,
                             BlobCnt = blobStats.TotalItemsInCache,
                             BlobsBytesInCache = blobStats.TotalBytesInCache,
-                            EndpointStats = endpointStats,
                             PrivateMemorySize64 = proc.PrivateMemorySize64,
                             ExceutionsInFlight = Controllers.ExecController.ExceutionsInFlight
 
                         };
 
                         dbCollection.Insert(newEntry);
-
 
                         // delete entries older than 5 days
                         dbCollection.DeleteMany(x => x.Created.Value <= DateTime.Now.AddDays(-5));
@@ -124,9 +122,9 @@ namespace jsdal_server_core.Performance
 
         public jsDALHealthDbEntry GetLatest()
         {
-            var dbCollection = _database.GetCollection<jsDALHealthDbEntry>($"HealthData");
+            var dbCollection = _database?.GetCollection<jsDALHealthDbEntry>($"HealthData");
 
-            return dbCollection.FindOne(Query.All(Query.Descending));
+            return dbCollection?.FindOne(Query.All(Query.Descending));
         }
 
         private IEnumerable<jsDALHealthDbEntry> BuildBaseQuery(DateTime fromDate, DateTime toDate)
@@ -193,8 +191,8 @@ namespace jsdal_server_core.Performance
                              PrivateMemorySize64 = grp1.Average(c => c.PrivateMemorySize64),
                              //WorkingSet64 = grp1.Average(c => c.WorkingSet64),
                              //TimeToCalculateSizesInMS = (int)grp1.Average(c => c.TimeToCalculateSizesInMS),
+                            //CachedRoutinesSizeInMB = Math.Round(grp1.Average(c => (double)c.EndpointStats.Sum(e => e.CachedRoutinesSizeInBytes)) / 1024.0 / 1024.0, 2),
                              HeapSizeInMB = Math.Round(grp1.Average(c => c.HeapSizeMB), 2),
-                             CachedRoutinesSizeInMB = Math.Round(grp1.Average(c => (double)c.EndpointStats.Sum(e => e.CachedRoutinesSizeInBytes)) / 1024.0 / 1024.0, 2),
                              ExecutionsInFlight = (int)grp1.Sum(c => c.ExceutionsInFlight)
 
                          };
@@ -240,11 +238,11 @@ namespace jsdal_server_core.Performance
             //     data = (from e in totals select e.TimeToCalculateSizesInMS),
             // };
 
-            var cachedRoutineSizeDataset = new
-            {
-                label = "Cached routine size (MB)",
-                data = (from e in totals select e.CachedRoutinesSizeInMB),
-            };
+            // var cachedRoutineSizeDataset = new
+            // {
+            //     label = "Cached routine size (MB)",
+            //     data = (from e in totals select e.CachedRoutinesSizeInMB),
+            // };
 
             var execInFlightDataset = new
             {
@@ -255,7 +253,7 @@ namespace jsdal_server_core.Performance
             dynamic ret = new
             {
                 labels = labels,
-                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, heapSizeDataset, privateDataset, cachedRoutineSizeDataset, execInFlightDataset }
+                datasets = new object[] { blobsInCacheCntDataset, blobsMBInCacheCntDataset, heapSizeDataset, privateDataset, execInFlightDataset }
             };
 
             return ret;
@@ -310,17 +308,17 @@ namespace jsdal_server_core.Performance
         public long BlobsBytesInCache { get; set; }
         public int BlobCnt { get; set; }
 
-        public List<EndpointStats> EndpointStats { get; set; }
+        //public List<EndpointStats> EndpointStats { get; set; }
 
         public long PrivateMemorySize64 { get; set; }
 
         public int ExceutionsInFlight { get; set; }
     }
 
-    public class EndpointStats
-    {
-        public string Endpoint { get; set; }
-        public int CachedRoutinesCount { get; set; }
-        public long CachedRoutinesSizeInBytes { get; set; }
-    }
+    // public class EndpointStats
+    // {
+    //     public string Endpoint { get; set; }
+    //     public int CachedRoutinesCount { get; set; }
+    //     public long CachedRoutinesSizeInBytes { get; set; }
+    // }
 }

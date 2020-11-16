@@ -458,18 +458,18 @@ namespace jsdal_server_core.Performance.DataCollector
         // tmp test method
         public dynamic GetAllDataTmp()
         {
-            var collection1 = _dbRunningValues.GetCollection<DataCollectorDataEntry>(Collection_RunningExections);
-            var collection2 = _dbRunningValues.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
-            var collection3 = _dbRunningValues.GetCollection<AuditEntry>(Collection_Audit);
+            var collection1 = _dbRunningValues?.GetCollection<DataCollectorDataEntry>(Collection_RunningExections);
+            var collection2 = _dbRunningValues?.GetCollection<DataCollectorDataAgg>(Collection_Agg_IntraHour);
+            var collection3 = _dbRunningValues?.GetCollection<AuditEntry>(Collection_Audit);
 
             var x = new
             {
-                Executions = collection1.FindAll().TakeLast(50).ToList(),
-                Agg = collection2.FindAll().TakeLast(20).ToList(),
-                Audit = collection3.FindAll().TakeLast(10).ToList(),
-                ExecutionCnt = collection1.Count(),
-                AggCnt = collection2.Count(),
-                AuditCnt = collection3.Count()
+                Executions = collection1?.FindAll().TakeLast(50).ToList(),
+                Agg = collection2?.FindAll().TakeLast(20).ToList(),
+                Audit = collection3?.FindAll().TakeLast(10).ToList(),
+                ExecutionCnt = collection1?.Count(),
+                AggCnt = collection2?.Count(),
+                AuditCnt = collection3?.Count()
             };
 
             return x;

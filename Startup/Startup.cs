@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
@@ -23,7 +22,6 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis.CSharp;
 using Extensions;
 using System.IO;
-using MirrorSharp;
 using Newtonsoft.Json;
 using jsdal_server_core.Hubs;
 using jsdal_server_core.Hubs.Performance;
@@ -34,6 +32,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Serilog;
+using MirrorSharp.AspNetCore;
+using MirrorSharp;
 
 namespace jsdal_server_core
 {
@@ -233,7 +233,7 @@ namespace jsdal_server_core
 
                     Log.Information("Initialising project object model");
                     // we can only initialise the Project structure once ConnectionStringSecurity exists
-                    Settings.SettingsInstance.Instance.ProjectList.ForEach(p => p.AfterDeserializationInit());                   
+                    Settings.SettingsInstance.Instance.ProjectList.ForEach(p => p.AfterDeserializationInit());
 
                     Log.Information("Initialising plugin loader");
                     PluginLoader.Instance = pmInst;
@@ -319,28 +319,29 @@ namespace jsdal_server_core
                                             }
             );
 
-            var mirrorSharpOptions = new MirrorSharpOptions()
-            {
-                SelfDebugEnabled = true,
-                IncludeExceptionDetails = true,
-                //SetOptionsFromClient = SetOptionsFromClientExtension()
-                // CSharp = {
-                //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
-                //             CompilationOptions = compilationOptions
-                //          },
-                ExceptionLogger = new MirrorSharpExceptionLogger()
-            }.SetupCSharp(cs =>
-            {
-                //cs.MetadataReferences = cs.MetadataReferences.Clear();
-                //cs.AddMetadataReferencesFromFiles(all);
-                cs.MetadataReferences = ImmutableList.Create<MetadataReference>(all);
-                cs.CompilationOptions = compilationOptions;
+            /*****            
+                        var mirrorSharpOptions = new MirrorSharpOptions()
+                        {
+                            SelfDebugEnabled = true,
+                            IncludeExceptionDetails = true,
+                            //SetOptionsFromClient = SetOptionsFromClientExtension()
+                            // CSharp = {
+                            //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
+                            //             CompilationOptions = compilationOptions
+                            //          },
+                            ExceptionLogger = new MirrorSharpExceptionLogger()
+                        }.SetupCSharp(cs =>
+                        {
+                            //cs.MetadataReferences = cs.MetadataReferences.Clear();
+                            //cs.AddMetadataReferencesFromFiles(all);
+                            cs.MetadataReferences = ImmutableList.Create<MetadataReference>(all);
+                            cs.CompilationOptions = compilationOptions;
 
-            });
+                        });
 
 
-            app.UseMirrorSharp(mirrorSharpOptions);
-
+                        app.UseMirrorSharp(mirrorSharpOptions);
+            */
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
@@ -375,6 +376,27 @@ namespace jsdal_server_core
                 endpoints.MapHub<Hubs.BackgroundTaskHub>("/bgtasks-hub");
                 endpoints.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
                 endpoints.MapHub<Hubs.ExecHub>("/exec-hub");
+
+                var mirrorSharpOptions = new MirrorSharpOptions()
+                {
+                    SelfDebugEnabled = true,
+                    IncludeExceptionDetails = true
+                    //SetOptionsFromClient = SetOptionsFromClientExtension()
+                    // CSharp = {
+                    //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
+                    //             CompilationOptions = compilationOptions
+                    //          },
+                    //   ExceptionLogger = new MirrorSharpExceptionLogger()
+                }.SetupCSharp(cs =>
+                {
+                    //cs.MetadataReferences = cs.MetadataReferences.Clear();
+                    //cs.AddMetadataReferencesFromFiles(all);
+                    cs.MetadataReferences = ImmutableList.Create<MetadataReference>(all);
+                    cs.CompilationOptions = compilationOptions;
+
+                });
+
+                endpoints.MapMirrorSharp("/mirrorsharp", mirrorSharpOptions);
             });
 
             app.UseAuthentication();
