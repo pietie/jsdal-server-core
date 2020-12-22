@@ -13,6 +13,8 @@ using jsdal_server_core.PluginManagement;
 using jsdal_server_core.Settings.ObjectModel.Plugins;
 using Microsoft.CodeAnalysis.Emit;
 using System.Reflection;
+using Serilog;
+
 
 namespace jsdal_server_core
 {
@@ -23,7 +25,16 @@ namespace jsdal_server_core
         {
             var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
 
-            MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            if (string.IsNullOrEmpty(assemblyBasePath)) // fails to find a path when running on single exe publish since .net 5.0
+            {
+                Log.Information($"FullName = {typeof(object).Assembly.FullName}");
+                Log.Information($"Location = {typeof(object).Assembly.Location}");
+                throw new ArgumentException("Failed to determine assembly base path", assemblyBasePath);
+            }
+
+            try
+            {
+                MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
@@ -38,7 +49,15 @@ namespace jsdal_server_core
                                         Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
             };
 
-            return all;
+                return all;
+            }
+            catch (Exception ex)
+            {
+                Log.Information($"assemblyBasePath={assemblyBasePath}");
+                Log.Error(ex, "GetCommonMetadataReferences failed");
+
+                return null;
+            }
         }
 
         // public static async Task<(bool, List<string>)> Evaluate(string code)
@@ -428,6 +447,6 @@ namespace jsdal_server_core
         // //         }
         // //         return false;
         // //     }
-         }
-
     }
+
+}

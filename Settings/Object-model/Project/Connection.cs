@@ -24,8 +24,6 @@ namespace jsdal_server_core.Settings.ObjectModel
         [JsonIgnore]
         public string Type;
 
-        //[JsonIgnore] public string instanceName;
-
         public bool Unsafe = false; // if set true it means the ConnectionString is not encrypted
 
         private SqlConnectionStringBuilder _connectionStringBuilder;
@@ -151,9 +149,27 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public void Update(Endpoint endpoint, string type, string dataSource, string catalog, string username, string password, int port, string instanceName)
         {
+            string connectionString = BuildConnectionString(username, password, dataSource, catalog, port, instanceName);
+
+            this._descryptedConnectionString = null;
+            this._connectionStringBuilder = null;
+
+            this.Unsafe = false;
+            this.ConnectionString = ConnectionStringSecurity.Instance.Encrypt(connectionString);
+            this.Endpoint = endpoint;
+            this.Type = type;
+        }
+
+        private string BuildConnectionString(string username, string password, string dataSource, string catalog, int port, string instanceName, string applicationName = null)
+        {
             string connectionString = null;
 
             var hasInstanceName = dataSource.Contains("\\");
+
+            if (string.IsNullOrWhiteSpace(applicationName))
+            {
+                applicationName = "jsdal-server";
+            }
 
             if (!string.IsNullOrWhiteSpace(username))
             {
@@ -165,11 +181,11 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 if (hasInstanceName)
                 {// including a port will cause the instance name to be ignored so don't include a port
-                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}";
                 }
                 else
                 {
-                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }";
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}";
                 }
 
             }
@@ -177,21 +193,15 @@ namespace jsdal_server_core.Settings.ObjectModel
             {// use windows auth
                 if (hasInstanceName)
                 {
-                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}";
                 }
                 else
                 {
-                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi";
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}";
                 }
             }
 
-            this._descryptedConnectionString = null;
-            this._connectionStringBuilder = null;
-
-            this.Unsafe = false;
-            this.ConnectionString = ConnectionStringSecurity.Instance.Encrypt(connectionString);
-            this.Endpoint = endpoint;
-            this.Type = type;
+            return connectionString;
         }
 
     }

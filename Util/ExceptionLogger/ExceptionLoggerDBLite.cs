@@ -31,7 +31,7 @@ namespace jsdal_server_core
             Instance = new ExceptionLogger();
         }
 
-        private ExceptionLogger() : base(threadName: "ExceptionLoggerThread")
+        private ExceptionLogger() : base(threadName: "ExceptionLoggerThread", flushTimeoutInSeconds: 10)
         {
 
         }
@@ -100,10 +100,6 @@ namespace jsdal_server_core
                 Log.Error(ex, "ExceptionLogger::ProcessMessagesLoop failed");
                 SessionLog.Error("ExceptionLogger::ProcessMessagesLoop failed");
                 SessionLog.Exception(ex);
-            }
-            finally
-            {
-                IsRunning = false;
             }
         }
 

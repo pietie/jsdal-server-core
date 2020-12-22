@@ -17,7 +17,7 @@ namespace jsdal_server_core.Util
         private int _flushTimeoutInSeconds;
         private int _flushCountThreshold;
 
-        public QueueThread(int flushTimeoutInSeconds = 25, int flushCountThreshold = 300, string threadName = null)
+        public QueueThread(int flushTimeoutInSeconds = 25, int flushCountThreshold = 150, string threadName = null)
         {
             this._flushTimeoutInSeconds = flushTimeoutInSeconds;
             this._flushCountThreshold = flushCountThreshold;

@@ -291,33 +291,6 @@ namespace jsdal_server_core
                 }
             });
 
-            var assemblyBasePath = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location);
-
-            var all = CSharpCompilerHelper.GetCommonMetadataReferences();
-
-            var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
-
-            if (File.Exists("./plugins/jsdal-plugin.dll"))
-            {
-                Array.Resize(ref all, all.Length + 1);
-
-                all[all.Length - 1] = Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(jsDALBasePluginPath);
-            }
-            else
-            {
-                Log.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
-                SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
-            }
-
-            var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-            //            generalDiagnosticOption: ReportDiagnostic.Suppress 
-            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
-                                            {
-                                            { "CS1701", ReportDiagnostic.Suppress }, // Binding redirects
-                                            { "CS1702", ReportDiagnostic.Suppress },
-                                            { "CS1705", ReportDiagnostic.Suppress }
-                                            }
-            );
 
             /*****            
                         var mirrorSharpOptions = new MirrorSharpOptions()
@@ -367,6 +340,33 @@ namespace jsdal_server_core
             });
 
             app.UseRouting();
+
+
+            MetadataReference[] allMetadataReferences = null;
+
+            try
+            {
+                allMetadataReferences = CSharpCompilerHelper.GetCommonMetadataReferences();
+
+                var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
+
+                if (File.Exists("./plugins/jsdal-plugin.dll"))
+                {
+                    Array.Resize(ref allMetadataReferences, allMetadataReferences.Length + 1);
+
+                    allMetadataReferences[allMetadataReferences.Length - 1] = Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(jsDALBasePluginPath);
+                }
+                else
+                {
+                    Log.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                    SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                }
+            }
+            catch (Exception mex)
+            {
+                Log.Error(mex, "Failed to compile collection of metadata references");
+            }
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapHub<Hubs.HomeDashboardHub>("/main-stats");
@@ -377,26 +377,43 @@ namespace jsdal_server_core
                 endpoints.MapHub<Hubs.BackgroundPluginHub>("/bgplugin-hub");
                 endpoints.MapHub<Hubs.ExecHub>("/exec-hub");
 
-                var mirrorSharpOptions = new MirrorSharpOptions()
+                if (allMetadataReferences?.Length > 0)
                 {
-                    SelfDebugEnabled = true,
-                    IncludeExceptionDetails = true
-                    //SetOptionsFromClient = SetOptionsFromClientExtension()
-                    // CSharp = {
-                    //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
-                    //             CompilationOptions = compilationOptions
-                    //          },
-                    //   ExceptionLogger = new MirrorSharpExceptionLogger()
-                }.SetupCSharp(cs =>
+                    var compilationOptions = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                        //            generalDiagnosticOption: ReportDiagnostic.Suppress 
+                        specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+                                                        {
+                                                            { "CS1701", ReportDiagnostic.Suppress }, // Binding redirects
+                                                            { "CS1702", ReportDiagnostic.Suppress },
+                                                            { "CS1705", ReportDiagnostic.Suppress }
+                                                        }
+                        );
+
+                    var mirrorSharpOptions = new MirrorSharpOptions()
+                    {
+                        SelfDebugEnabled = true,
+                        IncludeExceptionDetails = true
+                        //SetOptionsFromClient = SetOptionsFromClientExtension()
+                        // CSharp = {
+                        //             MetadataReferences = ImmutableList.Create<MetadataReference>(all),
+                        //             CompilationOptions = compilationOptions
+                        //          },
+                        //   ExceptionLogger = new MirrorSharpExceptionLogger()
+                    }.SetupCSharp(cs =>
+                    {
+                        //cs.MetadataReferences = cs.MetadataReferences.Clear();
+                        //cs.AddMetadataReferencesFromFiles(all);
+                        cs.MetadataReferences = ImmutableList.Create<MetadataReference>(allMetadataReferences);
+                        cs.CompilationOptions = compilationOptions;
+
+                    });
+
+                    endpoints.MapMirrorSharp("/mirrorsharp", mirrorSharpOptions);
+                }
+                else
                 {
-                    //cs.MetadataReferences = cs.MetadataReferences.Clear();
-                    //cs.AddMetadataReferencesFromFiles(all);
-                    cs.MetadataReferences = ImmutableList.Create<MetadataReference>(all);
-                    cs.CompilationOptions = compilationOptions;
-
-                });
-
-                endpoints.MapMirrorSharp("/mirrorsharp", mirrorSharpOptions);
+                    Log.Warning("Mirrorsharp not started because of errors builiding up metadata references");
+                }
             });
 
             app.UseAuthentication();

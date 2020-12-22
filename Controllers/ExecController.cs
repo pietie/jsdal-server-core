@@ -792,7 +792,7 @@ namespace jsdal_server_core.Controllers
         // TODO: Consider reworking this - ExecPlugins should only get instantiated once?! The assembly is instantiated once so maybe creating new instances of the plugin class is not that bad?
         private static List<ExecutionPlugin> InitPlugins(Application app, Dictionary<string, string> queryString, Dictionary<string, string> requestHeaders)
         {
-            var plugins = new List<ExecutionPlugin>();
+            var concretePlugins = new List<ExecutionPlugin>();
 
             if (PluginLoader.Instance.PluginAssemblies != null && app.Plugins != null)
             {
@@ -801,10 +801,10 @@ namespace jsdal_server_core.Controllers
                     var plugin = PluginLoader.Instance
                                                 .PluginAssemblies
                                                 .SelectMany(a => a.Plugins)
-                                                .FirstOrDefault(p => p.Guid.ToString()
-                                                .Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
+                                                .Where(p=>p.Type == PluginType.Execution)
+                                                .FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
-                    if (plugin != null && plugin.Type == PluginType.Execution)
+                    if (plugin != null)
                     {
                         try
                         {
@@ -812,22 +812,19 @@ namespace jsdal_server_core.Controllers
 
                             initPluginMethod.Invoke(concrete, new object[] { queryString, requestHeaders });
 
-                            plugins.Add(concrete);
+                            concretePlugins.Add(concrete);
                         }
                         catch (Exception ex)
                         {
                             SessionLog.Error("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
                             SessionLog.Exception(ex);
+                            ExceptionLogger.LogExceptionThrottled(ex,"ExecController::InitPlugins", 2);
                         }
-                    }
-                    else
-                    {
-                        SessionLog.Warning("The specified plugin GUID '{0}' was not found in the list of loaded plugins.", pluginGuid);
                     }
                 }
             }
 
-            return plugins;
+            return concretePlugins;
         }
 
         public static (SqlDbType, string) GetSqlDbTypeFromParameterType(string parameterDataType)
@@ -851,7 +848,7 @@ namespace jsdal_server_core.Controllers
                 case "bigint":
                     return (SqlDbType.BigInt, defUdtType);
                 case "timestamp":
-                    return (SqlDbType.Timestamp, defUdtType);                    
+                    return (SqlDbType.Timestamp, defUdtType);
                 case "bit":
                     return (SqlDbType.Bit, defUdtType);
                 case "nvarchar":

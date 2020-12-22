@@ -13,7 +13,7 @@ namespace jsdal_server_core.Performance
 
         private DateTime? _lastPurge = null;
 
-        private RealtimeTrackerThread() : base(flushTimeoutInSeconds: 1, flushCountThreshold: 10, threadName: "RealtimeTrackerThread")
+        private RealtimeTrackerThread() : base(flushTimeoutInSeconds: 3, flushCountThreshold: 10, threadName: "RealtimeTrackerThread")
         {
         }
 

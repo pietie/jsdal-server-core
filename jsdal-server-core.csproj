@@ -5,19 +5,43 @@
 		<TargetFramework>net5.0</TargetFramework>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-		
-		<IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>        
 
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier> 
+		<IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<OutputType>Exe</OutputType>
-		<!-- <SelfContained>true</SelfContained>  -->
-		<PublishTrimmed>false</PublishTrimmed> 
-		<PublishReadyToRun>false</PublishReadyToRun> <!-- causes issues on startup if true-->
-    	<PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
-		<PublishSingleFile>true</PublishSingleFile>
-    	
+
+		<PublishTrimmed>false</PublishTrimmed>
+		<PublishReadyToRun>false</PublishReadyToRun>		<!-- causes issues on startup if true-->
+		<PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
+		<PublishSingleFile>false</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+
 		<!-- <DebugType>full</DebugType> -->
+
+
 	</PropertyGroup>
+
+	<PropertyGroup>
+		<BeautyLibsDir>libraries</BeautyLibsDir>
+		<!-- dlls that you don't want to be moved or can not be moved -->
+		<!-- <BeautyExcludes>dll1.dll;lib*;...</BeautyExcludes> -->
+		<!-- set to True if you want to disable -->
+		<DisableBeauty>False</DisableBeauty>
+		<ForceBeauty>False</ForceBeauty>
+		<!-- <BeautyAfterTasks></BeautyAfterTasks> -->
+		<!-- set to True if you want to disable -->
+		<DisablePatch>False</DisablePatch>
+		<!-- valid values: Error|Detail|Info -->
+		<BeautyLogLevel>Detail</BeautyLogLevel>
+		<!-- <GitCDN>https://gitee.com/liesauer/HostFXRPatcher</GitCDN> -->
+		<!-- <GitTree>master</GitTree> -->
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="nulastudio.NetCoreBeauty" />
+	</ItemGroup>
+
 
 	<ItemGroup>
 		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
@@ -35,7 +59,7 @@
 
 		<Content Include=".\plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 
-		
+
 	</ItemGroup>
 	<ItemGroup>
 		<Content Remove="00-Release/**/*" />
@@ -77,8 +101,9 @@
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="5.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="5.0.0" />
 		<PackageReference Include="MirrorSharp.AspNetCore" Version="3.0.0" />
+		<PackageReference Include="nulastudio.NetCoreBeauty" Version="1.2.9" />
 		<PackageReference Include="Serilog.AspNetCore" Version="3.4.0" />
- 
+
 
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
 
@@ -97,47 +122,47 @@
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
 
 		<PackageReference Include="NUglify" Version="1.11.0" />
- 
+
 
 		<!-- <PackageReference Include="System.Reactive.Linq" Version="4.1.0" /> -->
 		<PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
 		<PackageReference Include="Terminal.Gui" Version="0.90.3" />
 
-<!-- Wait for https://github.com/dotnet/sdk/issues/3510 to re-include TraceEvent package -->
-		  <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.62" GeneratePathProperty="true" />   
+		<!-- Wait for https://github.com/dotnet/sdk/issues/3510 to re-include TraceEvent package -->
+		<PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.62" GeneratePathProperty="true" />
 
 
 	</ItemGroup>
 	<ItemGroup>
 		<DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.4" />
 	</ItemGroup>
- 
-<Target Name="Microsoft_Diagnostics_Tracing_TraceEvent_FIX_PublishSingleFile" Condition="'$(PublishSingleFile)' == 'true'" AfterTargets="_ComputeFilesToBundle">
-        <ItemGroup>
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\Dia2Lib.dll" />
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\OSExtensions.dll" />
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\TraceReloggerLib.dll" />
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.dll" />
-            <_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.dll">
-                <RelativePath>.\x86\KernelTraceControl.dll</RelativePath>
-            </_FilesToBundle>
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.Win61.dll" />
-            <_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.Win61.dll">
-                <RelativePath>.\x86\KernelTraceControl.Win61.dll</RelativePath>
-            </_FilesToBundle>
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\msdia140.dll" />
-            <_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\msdia140.dll">
-                <RelativePath>.\x86\msdia140.dll</RelativePath>
-            </_FilesToBundle>
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\KernelTraceControl.dll" />
-            <_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\KernelTraceControl.dll">
-                <RelativePath>.\amd64\KernelTraceControl.dll</RelativePath>
-            </_FilesToBundle>
-            <_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\msdia140.dll" />
-            <_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\msdia140.dll">
-                <RelativePath>.\amd64\msdia140.dll</RelativePath>
-            </_FilesToBundle>
-        </ItemGroup>
-    </Target>
+
+	<Target Name="Microsoft_Diagnostics_Tracing_TraceEvent_FIX_PublishSingleFile" Condition="'$(PublishSingleFile)' == 'true'" AfterTargets="_ComputeFilesToBundle">
+		<ItemGroup>
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\Dia2Lib.dll" />
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\OSExtensions.dll" />
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\netstandard1.6\TraceReloggerLib.dll" />
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.dll" />
+			<_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.dll">
+				<RelativePath>.\x86\KernelTraceControl.dll</RelativePath>
+			</_FilesToBundle>
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.Win61.dll" />
+			<_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\KernelTraceControl.Win61.dll">
+				<RelativePath>.\x86\KernelTraceControl.Win61.dll</RelativePath>
+			</_FilesToBundle>
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\msdia140.dll" />
+			<_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\x86\msdia140.dll">
+				<RelativePath>.\x86\msdia140.dll</RelativePath>
+			</_FilesToBundle>
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\KernelTraceControl.dll" />
+			<_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\KernelTraceControl.dll">
+				<RelativePath>.\amd64\KernelTraceControl.dll</RelativePath>
+			</_FilesToBundle>
+			<_FilesToBundle Remove="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\msdia140.dll" />
+			<_FilesToBundle Include="$(PkgMicrosoft_Diagnostics_Tracing_TraceEvent)\lib\native\amd64\msdia140.dll">
+				<RelativePath>.\amd64\msdia140.dll</RelativePath>
+			</_FilesToBundle>
+		</ItemGroup>
+	</Target>
 
 </Project> 

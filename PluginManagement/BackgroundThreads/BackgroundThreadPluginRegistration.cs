@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using jsdal_plugin;
+using jsdal_server_core.Performance.DataCollector;
 using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.SignalR;
 
@@ -112,7 +113,12 @@ namespace jsdal_server_core.PluginManagement
                             var execConn = endpoint.GetSqlConnection();
                             if (execConn == null) throw new Exception($"Execution connection not configured on endpoint {endpoint.Pedigree}");
 
-                            var sqlCon = new System.Data.SqlClient.SqlConnection(execConn.ConnectionStringDecrypted);
+                            var cb = new System.Data.SqlClient.SqlConnectionStringBuilder(execConn.ConnectionStringDecrypted);
+
+                            cb.ApplicationName = $"{this.PluginName}";
+
+                            var sqlCon = new System.Data.SqlClient.SqlConnection(cb.ConnectionString);
+
                             sqlCon.Open();
                             return sqlCon;
                         });
@@ -165,6 +171,24 @@ namespace jsdal_server_core.PluginManagement
                             return null;
                         });
 
+                        var dataCollectorBeginCallback = new Func<string, string, string>((schema, routine) =>
+                        {
+                            string dataCollectorEntryShortId = DataCollectorThread.Enqueue(endpoint,
+                                new Controllers.ExecController.ExecOptions()
+                                {
+                                    project = endpoint.Application.Project.Name,
+                                    application = endpoint.Application.Name,
+                                    endpoint = endpoint.Name,
+                                    schema = schema,
+                                    routine = routine,
+                                    type = Controllers.ExecController.ExecType.BackgroundThread,
+                                    inputParameters = new Dictionary<string, string>() // TODO: needs to be an input parameter
+
+                                });
+
+                            return dataCollectorEntryShortId;
+                        });
+
 
                         initMethod.Invoke(pluginInstance,
                             new object[] {
@@ -177,6 +201,24 @@ namespace jsdal_server_core.PluginManagement
                                 sendToGroupsAsync,
                                 null/*configKeys*/,
                                 null/*configSource*/ });
+
+
+                        {
+                            var setGetServicesFuncMethod = typeof(PluginBase).GetMethod("SetGetServicesFunc", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                            if (setGetServicesFuncMethod != null)
+                            {
+                                setGetServicesFuncMethod.Invoke(pluginInstance, new object[] { new Func<Type, PluginService>(serviceType =>
+                                {
+                                    if (serviceType == typeof(BlobStoreBase))
+                                    {
+                                        return BlobStore.Instance;
+                                    }
+
+                                    return null;
+                                })});
+                            }
+                        }
 
                         this.AddEnpointInstance(endpoint, instanceWrapper);
 
