@@ -284,9 +284,13 @@ namespace jsdal_server_core
             {
                 await next();
 
-                if (context.Response.StatusCode == 404 && !Path.HasExtension(context.Request.Path.Value))
+                if (context.Response.StatusCode == 404
+                        && !Path.HasExtension(context.Request.Path.Value)
+                        && !(context.Request.Path.Value?.ToLower().StartsWith("/api/") ?? false))
                 {
                     context.Request.Path = "/index.html";
+                    context.Response.StatusCode = 200;
+                    
                     await next();
                 }
             });
