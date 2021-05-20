@@ -5,8 +5,9 @@ var DAL;
 
     var SC = [<<UNIQUE_SCHEMAS>>];
 
-	var S = function(n,r,o) { return new ss(SC[n],r,o);  }
-	var U = function(n,r,o) { return new uu(SC[n],r,o);  }
+	var ep = "<<ENDPOINT>>";
+	var S = function(n,r,o) { return new ss(SC[n],r,o,ep);  }
+	var U = function(n,r,o) { return new uu(SC[n],r,o,ep);  }
 
     dal.init = function (s, u) { ss = s; uu = u; }
 

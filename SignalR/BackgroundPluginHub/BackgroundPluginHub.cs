@@ -19,6 +19,17 @@ namespace jsdal_server_core.Hubs
         public BackgroundPluginHub()
         {
         }
+
+        public override Task OnConnectedAsync()
+        {
+            return base.OnConnectedAsync();
+        }
+
+        public override Task OnDisconnectedAsync(Exception exception)
+        {
+            return base.OnDisconnectedAsync(exception);
+        }
+
         public Task JoinBrowserDebugGroup()
         {
             return this.Groups.AddToGroupAsync(this.Context.ConnectionId, BROWSER_CONSOLE_GROUP_NAME);

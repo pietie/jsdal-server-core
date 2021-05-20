@@ -16,6 +16,8 @@ namespace jsdal_server_core
                 return (null, null, "Failed to find or create a plugin instance. Check your server logs. Also make sure the expected plugin is enabled on the Application.");
             }
 
+            if (inputParameters == null) inputParameters = new Dictionary<string, string>();
+
             // match up input parameters with expected parameters and order according to MethodInfo expectation
             var invokeParameters = (from methodParam in assemblyMethodInfo.GetParameters()
                                     join inputParam in inputParameters on methodParam.Name equals inputParam.Key into grp
@@ -178,6 +180,8 @@ namespace jsdal_server_core
             if (methodCandidates.Count() == 0) return null;
 
             var weightedMethodList = new List<(decimal/*weight*/, string/*error*/, MethodInfo)>();
+
+            if (inputParameters == null) inputParameters = new Dictionary<string, string>();
 
             // find the best matching overload (if any)
             foreach (var regMethod in methodCandidates)

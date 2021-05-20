@@ -36,6 +36,7 @@ namespace jsdal_server_core
             {
                 MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
+                                        MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Linq.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),

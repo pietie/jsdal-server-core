@@ -174,7 +174,7 @@ namespace jsdal_server_core
                 if (cachedRoutine == null)
                 {
                     // TODO: Return 404 rather?
-                    throw new Exception($"The routine[{ schemaName }].[{routineName}] was not found.");
+                    throw new Exception($"The routine [{ schemaName }].[{routineName}] was not found.");
                 }
 
                 s1.End();
@@ -199,6 +199,12 @@ namespace jsdal_server_core
                 var s3 = execRoutineQueryMetric.BeginChildStage("Open connection");
 
                 var cs = endpoint.GetSqlConnection();
+
+                if (cs == null)
+                {
+                    throw new Exception($"Execution connection not found on endpoint '{endpoint.Pedigree}'({ endpoint.Id }).");
+                }
+
                 con = new SqlConnection(cs.ConnectionStringDecrypted);
 
                 if (endpoint.CaptureConnectionStats)
