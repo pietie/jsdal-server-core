@@ -18,6 +18,7 @@ namespace jsdal_server_core.Hubs
 
         public BackgroundPluginHub()
         {
+
         }
 
         public override Task OnConnectedAsync()
@@ -47,12 +48,13 @@ namespace jsdal_server_core.Hubs
 
             //this.Clients.Group(hubGroupName).SendAsync("update", DateTime.Now);
 
+            
+
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, hubGroupName);
             // TODO: Research if closed connections are auto removed from groups
 
             return null;
         }
-
 
         // listens for progress/status updates on all threads
         public dynamic JoinAdminGroup() // TODO: Do we need to secure endpoints like these?
@@ -96,6 +98,14 @@ namespace jsdal_server_core.Hubs
         {
             try
             {
+                // need to manually add the endpoint prefix here
+                var pluginGeneralGroupName = $"{endpoint}.{jsdal_plugin.BackgroundThreadPlugin.BuildPluginGeneralGroupName(pluginGuid)}";
+                
+                // to be safe remove first before re-adding
+                this.Groups.RemoveFromGroupAsync(this.Context.ConnectionId, pluginGeneralGroupName).Wait();
+                
+                this.Groups.AddToGroupAsync(this.Context.ConnectionId, pluginGeneralGroupName).Wait();
+
                 var ep = Settings.SettingsInstance.Instance.FindEndpoint(endpoint);
 
                 var pluginInstance = BackgroundThreadPluginManager.Instance.FindPluginInstance(ep, pluginGuid);
@@ -122,8 +132,5 @@ namespace jsdal_server_core.Hubs
                 return new { Error = $"Application error occurred. Ref: {exRef}" };
             }
         }
-
-
     }
-
 }
