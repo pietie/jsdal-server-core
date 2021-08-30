@@ -1,11 +1,6 @@
 using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Security.Cryptography;
-using System.Text;
 using Newtonsoft.Json;
+using Microsoft.Data.SqlClient;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {

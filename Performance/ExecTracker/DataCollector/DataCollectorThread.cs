@@ -6,6 +6,7 @@ using jsdal_server_core.Performance.DataCollector.Reports;
 using jsdal_server_core.Settings.ObjectModel;
 using jsdal_server_core.Util;
 using LiteDB;
+using Microsoft.Data.SqlClient;
 
 namespace jsdal_server_core.Performance.DataCollector
 {
@@ -354,7 +355,7 @@ namespace jsdal_server_core.Performance.DataCollector
         {
             var isTimeout = false;
 
-            var sqlEx = ex as System.Data.SqlClient.SqlException;
+            var sqlEx = ex as SqlException;
 
             if (sqlEx != null)
             {

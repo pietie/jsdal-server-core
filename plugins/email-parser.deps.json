@@ -6,13 +6,15 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v5.0": {
-      "token-context-plugin/1.0.0": {
+      "email-parser/1.0.0": {
         "dependencies": {
-          "Microsoft.Data.SqlClient": "3.0.0",
+          "MsgReader": "3.9.4",
+          "ReverseMarkdown": "3.14.0",
+          "System.Text.Encoding.CodePages": "5.0.0",
           "jsdal-plugin": "1.0.0"
         },
         "runtime": {
-          "token-context-plugin.dll": {}
+          "email-parser.dll": {}
         }
       },
       "Azure.Core/1.6.0": {
@@ -49,6 +51,14 @@
           }
         }
       },
+      "HtmlAgilityPack/1.11.24": {
+        "runtime": {
+          "lib/netstandard2.0/HtmlAgilityPack.dll": {
+            "assemblyVersion": "1.11.24.0",
+            "fileVersion": "1.11.24.0"
+          }
+        }
+      },
       "Microsoft.Bcl.AsyncInterfaces/1.0.0": {
         "runtime": {
           "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll": {
@@ -70,7 +80,7 @@
           "System.Diagnostics.DiagnosticSource": "4.7.0",
           "System.Runtime.Caching": "4.7.0",
           "System.Security.Principal.Windows": "4.7.0",
-          "System.Text.Encoding.CodePages": "4.7.0",
+          "System.Text.Encoding.CodePages": "5.0.0",
           "System.Text.Encodings.Web": "4.7.2"
         },
         "runtime": {
@@ -194,7 +204,7 @@
           }
         }
       },
-      "Microsoft.NETCore.Platforms/3.1.0": {},
+      "Microsoft.NETCore.Platforms/5.0.0": {},
       "Microsoft.Win32.Registry/4.7.0": {
         "dependencies": {
           "System.Security.AccessControl": "4.7.0",
@@ -203,7 +213,7 @@
       },
       "Microsoft.Win32.SystemEvents/4.7.0": {
         "dependencies": {
-          "Microsoft.NETCore.Platforms": "3.1.0"
+          "Microsoft.NETCore.Platforms": "5.0.0"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Win32.SystemEvents.dll": {
@@ -220,11 +230,76 @@
           }
         }
       },
+      "MsgReader/3.9.4": {
+        "dependencies": {
+          "OpenMcdf": "2.2.1.9",
+          "System.Drawing.Common": "4.7.0",
+          "System.Security.Cryptography.Pkcs": "4.5.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/MsgReader.dll": {
+            "assemblyVersion": "3.9.4.0",
+            "fileVersion": "3.9.4.0"
+          },
+          "lib/netstandard2.0/RtfPipe.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        },
+        "resources": {
+          "lib/netstandard2.0/da/MsgReader.resources.dll": {
+            "locale": "da"
+          },
+          "lib/netstandard2.0/de/MsgReader.resources.dll": {
+            "locale": "de"
+          },
+          "lib/netstandard2.0/es/MsgReader.resources.dll": {
+            "locale": "es"
+          },
+          "lib/netstandard2.0/fr/MsgReader.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/netstandard2.0/nl/MsgReader.resources.dll": {
+            "locale": "nl"
+          },
+          "lib/netstandard2.0/pt-BR/MsgReader.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "lib/netstandard2.0/pt/MsgReader.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/netstandard2.0/zh-CN/MsgReader.resources.dll": {
+            "locale": "zh-CN"
+          },
+          "lib/netstandard2.0/zh-TW/MsgReader.resources.dll": {
+            "locale": "zh-TW"
+          }
+        }
+      },
       "Newtonsoft.Json/12.0.3": {
         "runtime": {
           "lib/netstandard2.0/Newtonsoft.Json.dll": {
             "assemblyVersion": "12.0.0.0",
             "fileVersion": "12.0.3.23909"
+          }
+        }
+      },
+      "OpenMcdf/2.2.1.9": {
+        "runtime": {
+          "lib/netstandard2.0/OpenMcdf.dll": {
+            "assemblyVersion": "2.2.1.9",
+            "fileVersion": "2.2.1.9"
+          }
+        }
+      },
+      "ReverseMarkdown/3.14.0": {
+        "dependencies": {
+          "HtmlAgilityPack": "1.11.24"
+        },
+        "runtime": {
+          "lib/netstandard2.0/ReverseMarkdown.dll": {
+            "assemblyVersion": "3.14.0.0",
+            "fileVersion": "3.14.0.0"
           }
         }
       },
@@ -244,7 +319,7 @@
       "System.Diagnostics.DiagnosticSource/4.7.0": {},
       "System.Drawing.Common/4.7.0": {
         "dependencies": {
-          "Microsoft.NETCore.Platforms": "3.1.0",
+          "Microsoft.NETCore.Platforms": "5.0.0",
           "Microsoft.Win32.SystemEvents": "4.7.0"
         },
         "runtime": {
@@ -303,11 +378,30 @@
       },
       "System.Security.AccessControl/4.7.0": {
         "dependencies": {
-          "Microsoft.NETCore.Platforms": "3.1.0",
+          "Microsoft.NETCore.Platforms": "5.0.0",
           "System.Security.Principal.Windows": "4.7.0"
         }
       },
       "System.Security.Cryptography.Cng/4.5.0": {},
+      "System.Security.Cryptography.Pkcs/4.5.1": {
+        "dependencies": {
+          "System.Security.Cryptography.Cng": "4.5.0"
+        },
+        "runtime": {
+          "lib/netcoreapp2.1/System.Security.Cryptography.Pkcs.dll": {
+            "assemblyVersion": "4.0.3.1",
+            "fileVersion": "4.6.26919.2"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/netcoreapp2.1/System.Security.Cryptography.Pkcs.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "4.0.3.1",
+            "fileVersion": "4.6.26919.2"
+          }
+        }
+      },
       "System.Security.Cryptography.ProtectedData/4.7.0": {
         "runtime": {
           "lib/netstandard2.0/System.Security.Cryptography.ProtectedData.dll": {
@@ -337,9 +431,9 @@
         }
       },
       "System.Security.Principal.Windows/4.7.0": {},
-      "System.Text.Encoding.CodePages/4.7.0": {
+      "System.Text.Encoding.CodePages/5.0.0": {
         "dependencies": {
-          "Microsoft.NETCore.Platforms": "3.1.0"
+          "Microsoft.NETCore.Platforms": "5.0.0"
         }
       },
       "System.Text.Encodings.Web/4.7.2": {},
@@ -376,7 +470,7 @@
     }
   },
   "libraries": {
-    "token-context-plugin/1.0.0": {
+    "email-parser/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -394,6 +488,13 @@
       "sha512": "sha512-l1SYfZKOFBuUFG7C2SWHmJcrQQaiXgBdVCycx4vcZQkC6efDVt7mzZ5pfJAFEJDBUq7mjRQ0RPq9ZDGdSswqMg==",
       "path": "azure.identity/1.3.0",
       "hashPath": "azure.identity.1.3.0.nupkg.sha512"
+    },
+    "HtmlAgilityPack/1.11.24": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-DLcytINO8EfCdBgMGsaz8Tvdgu2Aewoo2XX7WfZuRG9cBQRtbm8JZ4/sMRtFvzehjdIDqubdlQb8TqNfjRMEWg==",
+      "path": "htmlagilitypack/1.11.24",
+      "hashPath": "htmlagilitypack.1.11.24.nupkg.sha512"
     },
     "Microsoft.Bcl.AsyncInterfaces/1.0.0": {
       "type": "package",
@@ -472,12 +573,12 @@
       "path": "microsoft.identitymodel.tokens/6.8.0",
       "hashPath": "microsoft.identitymodel.tokens.6.8.0.nupkg.sha512"
     },
-    "Microsoft.NETCore.Platforms/3.1.0": {
+    "Microsoft.NETCore.Platforms/5.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-z7aeg8oHln2CuNulfhiLYxCVMPEwBl3rzicjvIX+4sUuCwvXw5oXQEtbiU2c0z4qYL5L3Kmx0mMA/+t/SbY67w==",
-      "path": "microsoft.netcore.platforms/3.1.0",
-      "hashPath": "microsoft.netcore.platforms.3.1.0.nupkg.sha512"
+      "sha512": "sha512-VyPlqzH2wavqquTcYpkIIAQ6WdenuKoFN0BdYBbCWsclXacSOHNQn66Gt4z5NBqEYW0FAPm5rlvki9ZiCij5xQ==",
+      "path": "microsoft.netcore.platforms/5.0.0",
+      "hashPath": "microsoft.netcore.platforms.5.0.0.nupkg.sha512"
     },
     "Microsoft.Win32.Registry/4.7.0": {
       "type": "package",
@@ -493,12 +594,33 @@
       "path": "microsoft.win32.systemevents/4.7.0",
       "hashPath": "microsoft.win32.systemevents.4.7.0.nupkg.sha512"
     },
+    "MsgReader/3.9.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-FvgCGZsWvh7U+TCvAwXrlOJ5sZvb2EfnZVy0Hxw4GEcQT2GGItYZhOrJs5iG5ZyUZ9a3f7e/iWofN7TQvzPo0g==",
+      "path": "msgreader/3.9.4",
+      "hashPath": "msgreader.3.9.4.nupkg.sha512"
+    },
     "Newtonsoft.Json/12.0.3": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-6mgjfnRB4jKMlzHSl+VD+oUc1IebOZabkbyWj2RiTgWwYPPuaK1H97G1sHqGwPlS5npiF5Q0OrxN1wni2n5QWg==",
       "path": "newtonsoft.json/12.0.3",
       "hashPath": "newtonsoft.json.12.0.3.nupkg.sha512"
+    },
+    "OpenMcdf/2.2.1.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4UU23MN32j7b5CqbdKmMm9xss8k2MlUxGwm25Z72EHva+2rCKsCf+/MGRmw+2p5XPYutSrtuVHWpXLRBgBzFRg==",
+      "path": "openmcdf/2.2.1.9",
+      "hashPath": "openmcdf.2.2.1.9.nupkg.sha512"
+    },
+    "ReverseMarkdown/3.14.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XADHg191fYymZ/V3T3XVJ1xVz0LbG54V9Ugx8mMnGaLjqZhlMIfD4Vz3vXtzuEu74cFv3OaHcvmheTvdN5TMIw==",
+      "path": "reversemarkdown/3.14.0",
+      "hashPath": "reversemarkdown.3.14.0.nupkg.sha512"
     },
     "System.Buffers/4.5.0": {
       "type": "package",
@@ -570,6 +692,13 @@
       "path": "system.security.cryptography.cng/4.5.0",
       "hashPath": "system.security.cryptography.cng.4.5.0.nupkg.sha512"
     },
+    "System.Security.Cryptography.Pkcs/4.5.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Eo8piLJTnGBiBy3/VIhhJy2ruBVVP+ks0/u3WQ6jvCfgCiAJxMqSF0ZpK64J92LCZyjmHx5FtyUkSCCUhXn1Bw==",
+      "path": "system.security.cryptography.pkcs/4.5.1",
+      "hashPath": "system.security.cryptography.pkcs.4.5.1.nupkg.sha512"
+    },
     "System.Security.Cryptography.ProtectedData/4.7.0": {
       "type": "package",
       "serviceable": true,
@@ -591,12 +720,12 @@
       "path": "system.security.principal.windows/4.7.0",
       "hashPath": "system.security.principal.windows.4.7.0.nupkg.sha512"
     },
-    "System.Text.Encoding.CodePages/4.7.0": {
+    "System.Text.Encoding.CodePages/5.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-aeu4FlaUTemuT1qOd1MyU4T516QR4Fy+9yDbwWMPHOHy7U8FD6SgTzdZFO7gHcfAPHtECqInbwklVvUK4RHcNg==",
-      "path": "system.text.encoding.codepages/4.7.0",
-      "hashPath": "system.text.encoding.codepages.4.7.0.nupkg.sha512"
+      "sha512": "sha512-NyscU59xX6Uo91qvhOs2Ccho3AR2TnZPomo1Z0K6YpyztBPM/A5VbkzOO19sy3A3i1TtEnTxA7bCe3Us+r5MWg==",
+      "path": "system.text.encoding.codepages/5.0.0",
+      "hashPath": "system.text.encoding.codepages.5.0.0.nupkg.sha512"
     },
     "System.Text.Encodings.Web/4.7.2": {
       "type": "package",

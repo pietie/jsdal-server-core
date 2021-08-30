@@ -6,13 +6,13 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v5.0": {
-      "token-context-plugin/1.0.0": {
+      "exception-sink-plugin/1.0.0": {
         "dependencies": {
           "Microsoft.Data.SqlClient": "3.0.0",
           "jsdal-plugin": "1.0.0"
         },
         "runtime": {
-          "token-context-plugin.dll": {}
+          "exception-sink-plugin.dll": {}
         }
       },
       "Azure.Core/1.6.0": {
@@ -376,7 +376,7 @@
     }
   },
   "libraries": {
-    "token-context-plugin/1.0.0": {
+    "exception-sink-plugin/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

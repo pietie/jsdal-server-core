@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,6 +19,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 using System.Text.RegularExpressions;
 using jsdal_server_core.Performance.DataCollector;
+using Microsoft.Data.SqlClient;
 
 namespace jsdal_server_core.Controllers
 {
@@ -227,6 +227,7 @@ namespace jsdal_server_core.Controllers
 
         [AllowAnonymous]
         [HttpPost("/api/blob")]
+        //[RequestSizeLimit(40000000)]
         public IActionResult PrepareBlob()
         {
             var res = this.Response;

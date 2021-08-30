@@ -10,6 +10,7 @@ using jsdal_plugin;
 using jsdal_server_core.Performance.DataCollector;
 using jsdal_server_core.Settings.ObjectModel;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Data.SqlClient;
 
 namespace jsdal_server_core.PluginManagement
 {
@@ -108,16 +109,16 @@ namespace jsdal_server_core.PluginManagement
                         });
 
 
-                        var openSqlConnectionCallback = new Func<System.Data.SqlClient.SqlConnection>(() =>
+                        var openSqlConnectionCallback = new Func<SqlConnection>(() =>
                         {
                             var execConn = endpoint.GetSqlConnection();
                             if (execConn == null) throw new Exception($"Execution connection not configured on endpoint {endpoint.Pedigree}");
 
-                            var cb = new System.Data.SqlClient.SqlConnectionStringBuilder(execConn.ConnectionStringDecrypted);
+                            var cb = new SqlConnectionStringBuilder(execConn.ConnectionStringDecrypted);
 
                             cb.ApplicationName = $"{this.PluginName}";
 
-                            var sqlCon = new System.Data.SqlClient.SqlConnection(cb.ConnectionString);
+                            var sqlCon = new SqlConnection(cb.ConnectionString);
 
                             sqlCon.Open();
                             return sqlCon;

@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using shortid;
 
 namespace jsdal_server_core
 {
 
-    // See System.Data.SqlClient.TdsEnums https://referencesource.microsoft.com/#System.Data/fx/src/data/System/Data/SqlClient/TdsEnums.cs,0146f11d0456012d
+    // See System.Data.SqlClie nt.TdsEnums https://referencesource.microsoft.com/#System.Data/fx/src/data/System/Data/SqlClient/TdsEnums.cs,0146f11d0456012d
     [Serializable]
     public enum SqlErrorType
     {

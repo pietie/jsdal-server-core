@@ -119,7 +119,7 @@ public class jsDALPlugin
 
     }
 
-    public virtual void OnConnectionOpened(System.Data.SqlClient.SqlConnection con) { }
+    public virtual void OnConnectionOpened(SqlConnection con) { }
 }
 
  */

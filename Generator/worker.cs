@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using jsdal_server_core.Changes;
 using jsdal_server_core.Settings;
 using jsdal_server_core.Settings.ObjectModel;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Serilog;
 using shortid;
@@ -200,7 +201,6 @@ namespace jsdal_server_core
                             continue;
                         }
 
-
                         var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
                         connectionStringRef = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
 
@@ -229,7 +229,7 @@ namespace jsdal_server_core
                                 continue;
                             }
 
-                            Process(con, this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
+                            ProcessAsync(con, this.Endpoint.MetadataConnection.ConnectionStringDecrypted).Wait();
                         } // using connection
 
                         if (isIterationDirty)
@@ -293,9 +293,9 @@ namespace jsdal_server_core
             }
         } // Run
 
-        private void Process(SqlConnection con, string connectionString)
+        private async Task ProcessAsync(SqlConnection con, string connectionString)
         {
-            var changesCount = OrmDAL.GetRoutineListCnt(con, this.MaxRowDate);
+            var changesCount = await OrmDAL.GetRoutineListCntAsync(con, this.MaxRowDate);
 
             if (changesCount > 0)
             {
@@ -305,8 +305,9 @@ namespace jsdal_server_core
                 //this.log.Info($"{ changesCount } change(s) found using row date { this.MaxRowDate }"); 
                 this.Status = $"{ DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} - { changesCount } change(s) found using rowdate { this.MaxRowDate}";
 
-                GetAndProcessRoutineChanges(con, connectionString, changesCount, out var changesList);
+                var changesList = await GetAndProcessRoutineChangesAsync(con, connectionString, changesCount);
 
+                if (changesList?.Count > 0)
                 {
                     // call save for final changes 
                     this.Endpoint.SaveCache();
@@ -348,7 +349,7 @@ namespace jsdal_server_core
 
         } // Process
 
-        private void GetAndProcessRoutineChanges(SqlConnection con, string connectionString, int changesCount, out Dictionary<string, ChangeDescriptor> changesList)
+        private async Task<Dictionary<string, ChangeDescriptor>> GetAndProcessRoutineChangesAsync(SqlConnection con, string connectionString, int changesCount)
         {
             var cmdGetRoutineList = new SqlCommand();
 
@@ -358,11 +359,11 @@ namespace jsdal_server_core
             cmdGetRoutineList.CommandText = "ormv2.GetRoutineList";
             cmdGetRoutineList.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = MaxRowDate ?? 0;
 
-            changesList = new Dictionary<string, ChangeDescriptor>();
+            var changesList = new Dictionary<string, ChangeDescriptor>();
 
-            using (var reader = cmdGetRoutineList.ExecuteReader())
+            using (var reader = await cmdGetRoutineList.ExecuteReaderAsync())
             {
-                if (!this.IsRunning) return;
+                if (!this.IsRunning) return null;
 
                 var columns = new string[] { "CatalogName", "SchemaName", "RoutineName", "RoutineType", "rowver", "IsDeleted", "ObjectId", "LastUpdateByHostName", "JsonMetadata", "ParametersXml", "ParametersHash", "ResultSetXml", "ResultSetHash" };
 
@@ -373,7 +374,7 @@ namespace jsdal_server_core
 
                 DateTime lastSavedDate = DateTime.Now;
 
-                while (reader.Read())
+                while (await reader.ReadAsync())
                 {
                     if (!this.IsRunning) break;
 
@@ -521,6 +522,8 @@ namespace jsdal_server_core
 
                 } // while reader.Read
             }// using reader
+
+            return changesList;
         }
 
         private void GenerateFmtOnlyResultsets(string connectionString, CachedRoutine newCachedRoutine)
@@ -736,7 +739,7 @@ namespace jsdal_server_core
         //     public int? Length { get; set; }
 
         //     public string DefaultValue { get; set; }
-        //     //!public Microsoft.SqlServer.TransactSql.ScriptDom.LiteralType? DefaultValueType { get; set; }
+        //     //!public Microso ft.SqlServer.TransactSql.ScriptDom.LiteralType? DefaultValueType { get; set; }
 
         //     [JsonIgnore]
         //     public bool HasDefault { get { return !string.IsNullOrEmpty(this.DefaultValue); } }

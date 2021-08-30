@@ -1,5 +1,3 @@
-
-using System.Data.SqlClient;
 using System.Collections.Generic;
 using jsdal_server_core.Settings.ObjectModel;
 using System.Data;
@@ -8,22 +6,22 @@ using System.Data.Common;
 using System.Reflection;
 using System.Text;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
 using jsdal_plugin;
 using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Newtonsoft.Json;
 using Microsoft.SqlServer.Types;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
+
 
 namespace jsdal_server_core
 {
     public static class OrmDAL
     {
-        public static int GetRoutineListCnt(SqlConnection con, long? maxRowDate)
+        public static async Task<int> GetRoutineListCntAsync(SqlConnection con, long? maxRowDate)
         {
             using (var cmd = new SqlCommand())
             {
@@ -34,7 +32,7 @@ namespace jsdal_server_core
                 cmd.CommandText = "ormv2.GetRoutineListCnt";
                 cmd.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = maxRowDate ?? 0;
 
-                var scalar = cmd.ExecuteScalar();
+                var scalar = await cmd.ExecuteScalarAsync();
 
                 return (int)scalar;
             }

@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.IO;
-using System.Data.SqlClient;
 using shortid;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
@@ -14,6 +13,7 @@ using System.Reflection;
 using plugin = jsdal_plugin;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -408,7 +408,6 @@ namespace jsdal_server_core.Settings.ObjectModel
         public object _cacheLock = new object();
         public void SaveCache()
         {
-
             lock (_cacheLock)
             {
                 string cachePath = "./cache";
@@ -619,7 +618,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                         if (initMethod != null)
                         {
                             initMethod.Invoke(pluginInstance, new object[] {
-                                new Func<System.Data.SqlClient.SqlConnection>(()=>{
+                                new Func<SqlConnection>(()=>{
                                     if (this.ExecutionConnection != null)
                                     {
                                         var con = new SqlConnection(this.ExecutionConnection.ConnectionStringDecrypted);
@@ -629,7 +628,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                                         return con;
                                     }
 
-                                    return new System.Data.SqlClient.SqlConnection();
+                                    return new SqlConnection();
                                 })
                            });
                         }
