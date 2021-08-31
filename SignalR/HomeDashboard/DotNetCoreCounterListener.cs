@@ -151,6 +151,9 @@ namespace jsdal_server_core.SignalR.HomeDashboard
             providers.Add(CounterHelpers.MakeProvider("System.Runtime", 5));
             providers.Add(CounterHelpers.MakeProvider("Microsoft.AspNetCore.Hosting", 5));
             providers.Add(CounterHelpers.MakeProvider("Microsoft.AspNetCore.Http.Connections", 5));
+            
+            providers.Add(CounterHelpers.MakeProvider("Microsoft.Data.SqlClient.EventSource", 5));
+            
 
             return providers;
         }
