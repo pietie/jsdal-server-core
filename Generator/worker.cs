@@ -462,7 +462,7 @@ namespace jsdal_server_core
                             // generate using legacy FMTONLY way if explicitly requested
                             if ((newCachedRoutine.jsDALMetadata?.jsDAL?.fmtOnlyResultSet ?? false))
                             {
-                                GenerateFmtOnlyResultsets(connectionString, newCachedRoutine);
+                                await GenerateFmtOnlyResultsetsAsync(connectionString, newCachedRoutine);
                             }
                             else
                             {
@@ -526,14 +526,12 @@ namespace jsdal_server_core
             return changesList;
         }
 
-        private void GenerateFmtOnlyResultsets(string connectionString, CachedRoutine newCachedRoutine)
+        private async Task GenerateFmtOnlyResultsetsAsync(string connectionString, CachedRoutine newCachedRoutine)
         {
             try
             {
-                string resultSetError = null;
-
                 // get schema details of all result sets
-                var resultSets = OrmDAL.RoutineGetFmtOnlyResults(connectionString, newCachedRoutine.Schema, newCachedRoutine.Routine, newCachedRoutine.Parameters, out resultSetError);
+                (var resultSets, var resultSetError) = await OrmDAL.RoutineGetFmtOnlyResultsAsync(connectionString, newCachedRoutine.Schema, newCachedRoutine.Routine, newCachedRoutine.Parameters);
 
                 if (resultSets != null)
                 {

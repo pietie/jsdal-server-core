@@ -33,8 +33,7 @@ namespace jsdal_server_core.Hubs
             // _connections.Remove(key, Context.ConnectionId);
             return base.OnDisconnectedAsync(exception);
         }
-
-        public ApiResponse Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, int n, string appTitle, string appVersion)
+        public async Task<ApiResponse> Exec(string endpoint, string schema, string routine, Dictionary<string, string> parameters, int n, string appTitle, string appVersion)
         {
             ExecController.ExecType type = (ExecController.ExecType)n;
             var endpointElems = endpoint.Split('/'); // TODO: error handling
@@ -53,15 +52,16 @@ namespace jsdal_server_core.Hubs
                     inputParameters = parameters
                 };
 
-                (var result, var routineExecutionMetric, var mayAccess) = ExecController.ExecuteRoutine(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null,
-                appTitle, appVersion, out var responseHeaders);
+                //  (var result, var routineExecutionMetric, var mayAccess)
+                //out var responseHeaders
+                var result = await ExecController.ExecuteRoutineAsync(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null/*remoteIPAddress*/, appTitle, appVersion);
 
-                if (mayAccess != null && !mayAccess.IsSuccess)
+                if (!(result?.MayAccess?.IsSuccess ?? false))
                 {
                     throw new Exception("Unauthorised access");
                 }
 
-                return (ApiResponse)result;
+                return (ApiResponse)result.ApiResponse;
             }
             else
             {

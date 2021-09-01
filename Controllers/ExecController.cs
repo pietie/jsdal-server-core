@@ -80,14 +80,14 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
                 execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery };
-                return exec(execOptions);
+                return await execAsync(execOptions);
             }
             catch (Exception ex)
             {
@@ -105,14 +105,14 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
                 execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query };
-                return exec(execOptions);
+                return await execAsync(execOptions);
             }
             catch (Exception ex)
             {
@@ -130,15 +130,14 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public IActionResult Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
                 execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar };
-                return exec(execOptions);
-
+                return await execAsync(execOptions);
             }
             catch (Exception ex)
             {
@@ -319,11 +318,12 @@ namespace jsdal_server_core.Controllers
 
                     var responses = new Dictionary<int, ApiResponse>();
 
-                    using (ManualResetEvent waitToCompleteEvent = new ManualResetEvent(false))
+                    using (var waitToCompleteEvent = new ManualResetEvent(false))
                     {
                         foreach (BatchData batchItem in batchDataCollection)
                         {
-                            ThreadPool.QueueUserWorkItem((state) =>
+                            // TODO: Instead of ThreadPool can we just queue up the awaits and use Task.WaitAll/WaitAny or whatever
+                            ThreadPool.QueueUserWorkItem(async (state) =>
                             {
                                 try
                                 {
@@ -349,7 +349,7 @@ namespace jsdal_server_core.Controllers
                                         }
                                     }
 
-                                    var ret = exec(new ExecOptions()
+                                    var ret = (await execAsync(new ExecOptions()
                                     {
                                         project = batchItem.Routine.project,
                                         application = batchItem.Routine.application,
@@ -359,7 +359,7 @@ namespace jsdal_server_core.Controllers
                                         OverridingInputParameters = inputParameters,
                                         type = ExecType.Query
 
-                                    }) as Microsoft.AspNetCore.Mvc.ObjectResult;
+                                    })) as Microsoft.AspNetCore.Mvc.ObjectResult;
 
                                     if (ret != null)
                                     {
@@ -406,9 +406,8 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-
         public static int ExceutionsInFlight = 0;
-        private IActionResult exec(ExecOptions execOptions)
+        private async Task<IActionResult> execAsync(ExecOptions execOptions)
         {
             try
             {
@@ -460,10 +459,11 @@ namespace jsdal_server_core.Controllers
 
                 if (execOptions.inputParameters == null) execOptions.inputParameters = new Dictionary<string, string>();
 
+                //(var result, var routineExecutionMetric, var mayAccess)
+                // out var responseHeaders
+                var result = await ExecuteRoutineAsync(execOptions, requestHeaders, referer, remoteIpAddress, appTitle, appVersion);
 
-                (var result, var routineExecutionMetric, var mayAccess) = ExecuteRoutine(execOptions, requestHeaders,
-                    referer, remoteIpAddress,
-                    appTitle, appVersion, out var responseHeaders);
+                var responseHeaders = result.ResponseHeaders;
 
                 if (responseHeaders != null && responseHeaders.Count > 0)
                 {
@@ -473,22 +473,22 @@ namespace jsdal_server_core.Controllers
                     }
                 }
 
-                if (mayAccess != null && !mayAccess.IsSuccess)
+                if (!(result?.MayAccess?.IsSuccess ?? false))
                 {
                     res.ContentType = "text/plain";
                     res.StatusCode = 403; // Forbidden
-                    return this.Content(mayAccess.userErrorVal);
+                    return this.Content(result.MayAccess.userErrorVal);
                 }
 
                 // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter/header)
-                if (routineExecutionMetric != null)
+                if (result.RoutineExecutionMetric != null)
                 {
-                    res.Headers.Add("Server-Timing", routineExecutionMetric.GetServerTimeHeader());
+                    res.Headers.Add("Server-Timing", result.RoutineExecutionMetric.GetServerTimeHeader());
                 }
 
                 if (result is IActionResult) return result as IActionResult;
 
-                return Ok(result);
+                return Ok(result.ApiResponse);
             }
             finally
             {
@@ -496,20 +496,35 @@ namespace jsdal_server_core.Controllers
             }
         }
 
-        public static (object/*ApiResponse | IActionResult*/, RoutineExecution, CommonReturnValue) ExecuteRoutine(ExecOptions execOptions,
+        public class ExecuteRoutineAsyncResult
+        {
+            public ExecuteRoutineAsyncResult(object apiResponse, RoutineExecution execMetric, CommonReturnValue mayAccess, Dictionary<string, string> responseHeaders)
+            {
+                this.ApiResponse = apiResponse;
+                this.RoutineExecutionMetric = execMetric;
+                this.MayAccess = mayAccess;
+                this.ResponseHeaders = responseHeaders;
+            }
+            public object ApiResponse { get; set; }
+            public RoutineExecution RoutineExecutionMetric { get; set; }
+            public CommonReturnValue MayAccess { get; set; }
+            public Dictionary<string, string> ResponseHeaders { get; set; }
+        }
+
+        //(object/*ApiResponse | IActionResult*/, RoutineExecution, CommonReturnValue)
+        public static async Task<ExecuteRoutineAsyncResult> ExecuteRoutineAsync(ExecOptions execOptions,
             Dictionary<string, string> requestHeaders,
             string referer,
             string remoteIpAddress,
             string appTitle,
-            string appVersion,
-            out Dictionary<string, string> responseHeaders)
+            string appVersion)
         {
             string debugInfo = null;
 
             Project project = null;
             Application app = null;
             Endpoint endpoint = null;
-            responseHeaders = null;
+            Dictionary<string, string> responseHeaders = null;
 
             List<ExecutionPlugin> pluginList = null;
 
@@ -519,9 +534,10 @@ namespace jsdal_server_core.Controllers
 
             try
             {
-                if (!ControllerHelper.GetProjectAndAppAndEndpoint(execOptions.project, execOptions.application, execOptions.endpoint, out project, out app, out endpoint, out var resp))
+                if (!ControllerHelper.GetProjectAndAppAndEndpoint(execOptions.project, execOptions.application, execOptions.endpoint, out project,
+                                                                    out app, out endpoint, out var resp))
                 {
-                    return (resp, null, null);
+                    return new ExecuteRoutineAsyncResult(resp, null, null, responseHeaders);
                 }
 
                 routineExecutionMetric = new RoutineExecution(endpoint, execOptions.schema, execOptions.routine);
@@ -540,8 +556,7 @@ namespace jsdal_server_core.Controllers
                 // make sure the source domain/IP is allowed access
                 var mayAccess = app.MayAccessDbSource(referer, jsDALApiKey);
 
-                if (!mayAccess.IsSuccess) return (null, null, mayAccess);
-
+                if (!mayAccess.IsSuccess) return new ExecuteRoutineAsyncResult(null, null, mayAccess, responseHeaders);
 
                 Dictionary<string, dynamic> outputParameters;
                 int commandTimeOutInSeconds = 60;
@@ -562,7 +577,7 @@ namespace jsdal_server_core.Controllers
                         if (!plugin.IsAuthenticated(execOptions.schema, execOptions.routine, out var error))
                         {
                             responseHeaders.Add("Plugin-AuthFailed", plugin.Name);
-                            return (new UnauthorizedObjectResult(error), null, null);
+                            return new ExecuteRoutineAsyncResult(new UnauthorizedObjectResult(error), null, null, responseHeaders);
                         }
                     }
                 }
@@ -570,8 +585,6 @@ namespace jsdal_server_core.Controllers
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
                 string dataCollectorEntryShortId = DataCollectorThread.Enqueue(endpoint, execOptions);
-
-                int rowsAffected;
 
                 ///////////////////
                 // Database call
@@ -581,7 +594,7 @@ namespace jsdal_server_core.Controllers
 
                 try
                 {
-                    executionResult = OrmDAL.ExecRoutineQuery(
+                    executionResult = await OrmDAL.ExecRoutineQueryAsync(
                        execOptions.type,
                        execOptions.schema,
                        execOptions.routine,
@@ -591,17 +604,18 @@ namespace jsdal_server_core.Controllers
                        remoteIpAddress,
                        pluginList,
                        commandTimeOutInSeconds,
-                       out outputParameters,
                        execRoutineQueryMetric,
-                       ref responseHeaders,
-                       out rowsAffected
+                       responseHeaders
                    );
+
+                    outputParameters = executionResult.OutputParameterDictionary;
+                    responseHeaders = executionResult.ResponseHeaders;
 
                     execRoutineQueryMetric.End();
 
                     ulong? rows = null;
 
-                    if (rowsAffected >= 0) rows = (ulong)rowsAffected;
+                    if (executionResult?.RowsAffected.HasValue ?? false) rows = (ulong)executionResult.RowsAffected.Value;
 
                     DataCollectorThread.End(dataCollectorEntryShortId, rowsAffected: rows,
                                                                      durationInMS: execRoutineQueryMetric.DurationInMS,
@@ -618,7 +632,7 @@ namespace jsdal_server_core.Controllers
 
                 if (!string.IsNullOrEmpty(executionResult.userError))
                 {
-                    return (ApiResponse.ExclamationModal(executionResult.userError), routineExecutionMetric, mayAccess);
+                    return new ExecuteRoutineAsyncResult(ApiResponse.ExclamationModal(executionResult.userError), routineExecutionMetric, mayAccess, responseHeaders);
                 }
 
                 var retVal = (IDictionary<string, object>)new System.Dynamic.ExpandoObject();
@@ -679,12 +693,12 @@ namespace jsdal_server_core.Controllers
                 }
 
                 prepareResultsMetric.End();
-                routineExecutionMetric.End(rowsAffected);
+                routineExecutionMetric.End(executionResult.RowsAffected ?? 0);
 
                 // enqueue a second time as we now have an End date and rowsAffected
                 RealtimeTrackerThread.Instance.Enqueue(routineExecutionMetric);
 
-                return (ret, routineExecutionMetric, mayAccess);
+                return new ExecuteRoutineAsyncResult(ret, routineExecutionMetric, mayAccess, responseHeaders);
             }
             catch (Exception ex)
             {
@@ -751,7 +765,7 @@ namespace jsdal_server_core.Controllers
                 }
 
                 // return it as "200 (Ok)" because the exception has been handled
-                return (exceptionResponse, routineExecutionMetric, null);
+                return new ExecuteRoutineAsyncResult(exceptionResponse, routineExecutionMetric, null, responseHeaders);
             }
         }
 
@@ -802,7 +816,7 @@ namespace jsdal_server_core.Controllers
                     var plugin = PluginLoader.Instance
                                                 .PluginAssemblies
                                                 .SelectMany(a => a.Plugins)
-                                                .Where(p=>p.Type == PluginType.Execution)
+                                                .Where(p => p.Type == PluginType.Execution)
                                                 .FirstOrDefault(p => p.Guid.ToString().Equals(pluginGuid, StringComparison.OrdinalIgnoreCase));
 
                     if (plugin != null)
@@ -819,7 +833,7 @@ namespace jsdal_server_core.Controllers
                         {
                             SessionLog.Error("Failed to instantiate '{0}' ({1}) on assembly '{2}'", plugin.TypeInfo.FullName, pluginGuid, plugin.Assembly.FullName);
                             SessionLog.Exception(ex);
-                            ExceptionLogger.LogExceptionThrottled(ex,"ExecController::InitPlugins", 2);
+                            ExceptionLogger.LogExceptionThrottled(ex, "ExecController::InitPlugins", 2);
                         }
                     }
                 }

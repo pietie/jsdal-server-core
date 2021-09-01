@@ -7,33 +7,7 @@ using System.Collections.Generic;
 
 namespace jsdal_server_core.Performance.dotnet
 {
-
-    // public class EventPipeEventSource
-    // {
-
-    //     public EventPipeEventSource(object o) { }
-    //     public EventPipeEventSourceDyn Dynamic;
-
-    //     public void Process() { }
-
-
-    // }  // TEMP!!!
-
-    // public class EventPipeEventSourceDyn
-    // {
-    //     public delegate void WhatWhatEvent(TraceEvent data);
-    //     public event WhatWhatEvent All;
-    // }// TEMP
-
-    // public class TraceEvent
-    // {
-    //     public string ProviderName;
-    //     public string EventName;
-    //     public dynamic PayloadValue(int n) { return null; }
-
-    // } // TEMP!!!
-
-
+   
     public class CounterMonitor
     {
         private const ulong EmptySession = 0xffffffff;
@@ -82,13 +56,28 @@ namespace jsdal_server_core.Performance.dotnet
         {
             if (data.EventName.Equals("EventCounters"))
             {
-                IDictionary<string, object> countersPayload = (IDictionary<string, object>)(data.PayloadValue(0));
-                IDictionary<string, object> kvPairs = (IDictionary<string, object>)(countersPayload["Payload"]);
                 // the TraceEvent implementation throws not implemented exception if you try
                 // to get the list of the dictionary keys: it is needed to iterate on the dictionary
                 // and get each key/value pair.
 
+                IDictionary<string, object> countersPayload = null; 
+                IDictionary<string, object> kvPairs = null;
+                object payloadValue = null;
 
+                try
+                {
+                    payloadValue = data.PayloadValue(0);
+                    
+                    countersPayload = (IDictionary<string, object>)payloadValue;
+                    
+                    object x = countersPayload["Payload"];
+                    kvPairs = (IDictionary<string, object>)x;
+                }
+                catch(Exception ex)
+                {
+                    ExceptionLogger.LogExceptionThrottled(ex, "DotNetCounters", 1, $"Casting issue. {payloadValue.ToString()}");
+                    return;
+                }
 
                 var name = string.Intern(kvPairs["Name"].ToString());
                 var displayName = string.Intern(kvPairs["DisplayName"].ToString());

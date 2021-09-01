@@ -38,7 +38,6 @@ namespace jsdal_server_core
             }
         }
 
-
         // ripped from .NET Framework SqlCommandBuilder
         private static string BuildQuotedString(string unQuotedString)
         {
@@ -71,13 +70,13 @@ namespace jsdal_server_core
             return parameter;
         }
 
-        public static DataSet RoutineGetFmtOnlyResults(string connectionString, string schema, string routine, List<RoutineParameterV2> parameterList, out string error)
+        public static async Task<(DataSet, string/*error*/)> RoutineGetFmtOnlyResultsAsync(string connectionString, string schema, string routine, List<RoutineParameterV2> parameterList)
         {
-            error = null;
+            string error = null;
             // we have to open a new connection as there is an open Reader across the main connection
             using (var con = new SqlConnection(connectionString))
             {
-                con.Open();
+                await con.OpenAsync();
 
                 var ds = new DataSet();
 
@@ -100,16 +99,17 @@ namespace jsdal_server_core
 
                 try
                 {
-                    using (var reader = dbCmd.ExecuteReader(CommandBehavior.SchemaOnly))
+                    using (var reader = await dbCmd.ExecuteReaderAsync(CommandBehavior.SchemaOnly))
                     {
-                        var schemaTable = reader.GetSchemaTable();
+                        var schemaTable = await reader.GetSchemaTableAsync();
 
                         while (schemaTable != null)
                         {
                             schemaTable.TableName = "Table" + ds.Tables.Count;
                             ds.Tables.Add(schemaTable);
-                            bool b = reader.NextResult();
-                            schemaTable = reader.GetSchemaTable();
+
+                            bool b = await reader.NextResultAsync();
+                            schemaTable = await reader.GetSchemaTableAsync();
                         }
 
                     }
@@ -123,7 +123,7 @@ namespace jsdal_server_core
                     error = ex.ToString();
                 }
 
-                return ds;
+                return (ds, error);
             }
         }
 
@@ -136,29 +136,48 @@ namespace jsdal_server_core
             // optional stats
             public long? BytesReceived { get; set; }
             public long? NetworkServerTimeInMS { get; set; }
+
+            public int? RowsAffected { get; set; }
+
+            public Dictionary<string, dynamic> OutputParameterDictionary { get;set;}
+            public Dictionary<string, string> ResponseHeaders   {get;set;}
         }
 
-        public static ExecutionResult ExecRoutineQuery(
-               Controllers.ExecController.ExecType type,
-               string schemaName,
-               string routineName,
-               Endpoint endpoint,
-               Dictionary<string, string> inputParameters,
-               Dictionary<string, string> requestHeaders,
-               string remoteIpAddress,
-               List<ExecutionPlugin> plugins,
-               int commandTimeOutInSeconds,
-               out Dictionary<string, dynamic> outputParameterDictionary,
-               ExecutionBase execRoutineQueryMetric,
-               ref Dictionary<string, string> responseHeaders,
-               out int rowsAffected
-           )
+        // public static ExecutionResult ExecRoutineQuery(
+        //        Controllers.ExecController.ExecType type,
+        //        string schemaName,
+        //        string routineName,
+        //        Endpoint endpoint,
+        //        Dictionary<string, string> inputParameters,
+        //        Dictionary<string, string> requestHeaders,
+        //        string remoteIpAddress,
+        //        List<ExecutionPlugin> plugins,
+        //        int commandTimeOutInSeconds,
+        //        out Dictionary<string, dynamic> outputParameterDictionary,
+        //        ExecutionBase execRoutineQueryMetric,
+        //        ref Dictionary<string, string> responseHeaders,
+        //        out int rowsAffected
+        //    )
+
+        public static async Task<ExecutionResult> ExecRoutineQueryAsync(
+                   Controllers.ExecController.ExecType type,
+                   string schemaName,
+                   string routineName,
+                   Endpoint endpoint,
+                   Dictionary<string, string> inputParameters,
+                   Dictionary<string, string> requestHeaders,
+                   string remoteIpAddress,
+                   List<ExecutionPlugin> plugins,
+                   int commandTimeOutInSeconds,
+                   ExecutionBase execRoutineQueryMetric,
+                   Dictionary<string, string> responseHeaders   
+               )
         {
             SqlConnection con = null;
             SqlCommand cmd = null;
 
-            rowsAffected = 0;
-
+            int rowsAffected = 0;
+            Dictionary<string, dynamic> outputParameterDictionary = null;
 
             try
             {
@@ -215,7 +234,7 @@ namespace jsdal_server_core
                     con.StatisticsEnabled = false;
                 }
 
-                con.Open();
+                await con.OpenAsync();
 
                 s3.End();
 
@@ -230,6 +249,7 @@ namespace jsdal_server_core
 
                 cmd = new SqlCommand();
                 cmd.Connection = con;
+                cmd.CommandTimeout = commandTimeOutInSeconds;
 
                 var isTVF = cachedRoutine.Type == "TVF";
 
@@ -274,6 +294,7 @@ namespace jsdal_server_core
 
                         
                          */
+                        // TODO: Possible Parallel.Foreach here?
                         cachedRoutine.Parameters.ForEach(expectedParm =>
                         {
                             if (expectedParm.IsResult) return;
@@ -281,7 +302,6 @@ namespace jsdal_server_core
                             (var sqlType, var udtType) = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
                             object parmValue = null;
 
-                            //??var newSqlParm = cmd.Parameters.Add(p.Name, sqlType, p.MaxLength);
                             var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
 
                             newSqlParm.UdtTypeName = udtType;
@@ -299,7 +319,6 @@ namespace jsdal_server_core
                             var expectedParmName = expectedParm.Name.Substring(1);
 
                             var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
-
 
                             // if the expected parameter was defined in the request or if a plugin provided an override
                             if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
@@ -324,8 +343,8 @@ namespace jsdal_server_core
                                 {
                                     parmValue = DBNull.Value;
                                 }
-                                // TODO: Consider making this 'null' mapping configurable.This is just a nice to have for when the client does not call the API correctly
-                                // convert the string value of 'null' to actual C# null
+                                // TODO: Consider making this 'null' mapping configurable. This is just a nice to have for when the client does not call the API correctly
+                                // convert the string value of 'null' to actual DBNull null
                                 else if (val.ToString().Trim().ToLower().Equals("null"))
                                 {
                                     parmValue = DBNull.Value;
@@ -372,8 +391,6 @@ namespace jsdal_server_core
 
                         var da = new SqlDataAdapter(cmd);
                         ds = new DataSet();
-
-                        cmd.CommandTimeout = commandTimeOutInSeconds;
 
                         var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
 
@@ -428,13 +445,13 @@ namespace jsdal_server_core
 
                         //TODO: Implement Async versions cmd.ExecuteNonQueryAsync()
 
-                        rowsAffected = cmd.ExecuteNonQuery();
+                        rowsAffected = await cmd.ExecuteNonQueryAsync();
                         execStage.End();
                     }
                     else if (type == Controllers.ExecController.ExecType.Scalar)
                     {
                         var execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
-                        scalarVal = cmd.ExecuteScalar();
+                        scalarVal = await cmd.ExecuteScalarAsync();
                         execStage.End();
                     }
                     else
@@ -485,21 +502,23 @@ namespace jsdal_server_core
 
                     //!executionTrackingEndFunction();
 
-                    return new ExecutionResult() { DataSet = ds, ScalarValue = scalarVal, NetworkServerTimeInMS = networkServerTimeMS, BytesReceived = bytesReceived };
+                    return new ExecutionResult()
+                    {
+                        DataSet = ds,
+                        ScalarValue = scalarVal,
+                        NetworkServerTimeInMS = networkServerTimeMS,
+                        BytesReceived = bytesReceived,
+                        RowsAffected = rowsAffected,
+                        OutputParameterDictionary = outputParameterDictionary,
+                        ResponseHeaders = responseHeaders
+                    };
                 }
             }
             finally
             {
-                if (cmd != null)
-                {
-                    cmd.Dispose();
-                }
-                if (con != null)
-                {
-                    con.Close();
-                    con.Dispose();
-                }
-
+                cmd?.Dispose();
+                con?.Close();
+                con?.Dispose();
             }
         } // execRoutine
 
@@ -628,7 +647,7 @@ namespace jsdal_server_core
         private static object ConvertToSqlVarbinary(string value)
         {
             var str = value.ToString();
-            var blobRefPrefix = "blobRef:";
+            const string blobRefPrefix = "blobRef:";
 
             if (str.StartsWith(blobRefPrefix, StringComparison.OrdinalIgnoreCase))
             {
@@ -668,7 +687,10 @@ namespace jsdal_server_core
                 var captchaHeaderVal = requestHeaders.Val("captcha-val");
                 if (captchaHeaderVal != null)
                 {
-                    var capResp = ValidateGoogleRecaptcha(captchaHeaderVal);
+                    var t = ValidateGoogleRecaptchaAsync(captchaHeaderVal);
+
+                    t.Wait();
+                    var capResp = t.Result;
 
                     if (responseHeaders == null) responseHeaders = new Dictionary<string, string>();
 
@@ -682,7 +704,7 @@ namespace jsdal_server_core
             return null;
         }
 
-        private static bool ValidateGoogleRecaptcha(string captcha) /*Promise<{ success: boolean, "error-codes"?: string[]}>*/
+        private static async Task<bool> ValidateGoogleRecaptchaAsync(string captcha) /*Promise<{ success: boolean, "error-codes"?: string[]}>*/
         {
             try
             {
@@ -690,8 +712,8 @@ namespace jsdal_server_core
                 var webClient = new WebClient();
 
                 webClient.Headers["Content-Type"] = "application/x-www-form-urlencoded";
-                //var response = webClient.UploadString("https://www.google.com/recaptcha/api/siteverify", postData);
-                var responseBytes = webClient.UploadData("https://www.google.com/recaptcha/api/siteverify", "POST", System.Text.Encoding.UTF8.GetBytes(postData));
+
+                var responseBytes = await webClient.UploadDataTaskAsync("https://www.google.com/recaptcha/api/siteverify", "POST", System.Text.Encoding.UTF8.GetBytes(postData));
 
                 var response = System.Text.Encoding.UTF8.GetString(responseBytes);
 
@@ -707,7 +729,6 @@ namespace jsdal_server_core
                 {
                     return false;
                 }
-
             }
             catch (Exception ex)
             {

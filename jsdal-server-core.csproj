@@ -133,7 +133,7 @@
 		<PackageReference Include="Terminal.Gui" Version="0.90.3" />
 
 		<!-- Wait for https://github.com/dotnet/sdk/issues/3510 to re-include TraceEvent package -->
-		<PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.62" GeneratePathProperty="true" />
+		<PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.71" GeneratePathProperty="true" />
 
 
 	</ItemGroup>

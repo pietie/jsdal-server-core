@@ -49,6 +49,8 @@ namespace jsdal_server_core.SignalR.HomeDashboard
                 }
                 catch (Exception x)
                 {
+                    SessionLog.Error("DotNet Counter failure");
+                    SessionLog.Exception(x);
                     //   Environment.FailFast("Error while listening to counters", x);
 
                 }
@@ -85,53 +87,6 @@ namespace jsdal_server_core.SignalR.HomeDashboard
             //     _countersValue.Clear();
             // }
         }
-
-        bool isHeaderSaved = false;
-        private void SaveLine()
-        {
-
-            // if (!isHeaderSaved)
-            // {
-            //     File.AppendAllText(_filename, GetHeaderLine());
-            //     isHeaderSaved = true;
-            // }
-
-            // File.AppendAllText(_filename, GetCurrentLine());
-        }
-
-        // private string GetHeaderLine()
-        // {
-        //     StringBuilder buffer = new StringBuilder();
-        //     foreach (var counter in _countersValue)
-        //     {
-        //         buffer.AppendFormat("{0}\t", counter.name);
-        //     }
-
-        //     // remove last tab
-        //     buffer.Remove(buffer.Length - 1, 1);
-
-        //     // add Windows-like new line because will be used in Excel
-        //     buffer.Append("\r\n");
-
-        //     return buffer.ToString();
-        // }
-
-        // private string GetCurrentLine()
-        // {
-        //     StringBuilder buffer = new StringBuilder();
-        //     foreach (var counter in _countersValue)
-        //     {
-        //         buffer.AppendFormat("{0}\t", counter.value.ToString());
-        //     }
-
-        //     // remove last tab
-        //     buffer.Remove(buffer.Length - 1, 1);
-
-        //     // add Windows-like new line because will be used in Excel
-        //     buffer.Append("\r\n");
-
-        //     return buffer.ToString();
-        // }
 
         public void Stop()
         {
