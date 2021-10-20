@@ -48,6 +48,10 @@ namespace jsdal_server_core.Controllers
 
             public Dictionary<string, string> inputParameters { get; set; }
 
+            [JsonIgnore]
+            [LiteDB.BsonIgnore]
+            public CancellationToken CancellationToken { get; set; }
+
             // matches input with various versions of schema + routine
             public bool? MatchRoutine(string input)
             {
@@ -80,14 +84,18 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public async Task<IActionResult> execNonQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> execNonQuery(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
-                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery };
+                execOptions = new ExecOptions() { CancellationToken = cancellationToken, project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.NonQuery };
                 return await execAsync(execOptions);
+            }
+            catch (OperationCancelledByUserException)
+            {
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -105,14 +113,18 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public async Task<IActionResult> execQuery([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> execQuery(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
-                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query };
+                execOptions = new ExecOptions() { CancellationToken = cancellationToken, project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Query };
                 return await execAsync(execOptions);
+            }
+            catch (OperationCancelledByUserException)
+            {
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -130,14 +142,18 @@ namespace jsdal_server_core.Controllers
         [AllowAnonymous]
         [HttpGet("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
-        public async Task<IActionResult> Scalar([FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        public async Task<IActionResult> Scalar(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
             ExecOptions execOptions = null;
 
             try
             {
-                execOptions = new ExecOptions() { project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar };
+                execOptions = new ExecOptions() { CancellationToken = cancellationToken, project = project, application = app, endpoint = endpoint, schema = schema, routine = routine, type = ExecType.Scalar };
                 return await execAsync(execOptions);
+            }
+            catch (OperationCancelledByUserException)
+            {
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -371,6 +387,10 @@ namespace jsdal_server_core.Controllers
                                         }
                                     }
                                 }
+                                catch (OperationCancelledByUserException)
+                                {
+
+                                }
                                 catch (Exception execEx)
                                 {
                                     // TODO: handle by pushing this as the respone?
@@ -473,11 +493,11 @@ namespace jsdal_server_core.Controllers
                     }
                 }
 
-                if (!(result?.MayAccess?.IsSuccess ?? false))
+                if ((result?.MayAccess != null && !result.MayAccess.IsSuccess))
                 {
                     res.ContentType = "text/plain";
                     res.StatusCode = 403; // Forbidden
-                    return this.Content(result.MayAccess.userErrorVal);
+                    return this.Content(result?.MayAccess?.userErrorVal);
                 }
 
                 // TODO: Only output this if "debug mode" is enabled on the jsDALServer Config (so will come through as a debug=1 or something parameter/header)
@@ -595,6 +615,7 @@ namespace jsdal_server_core.Controllers
                 try
                 {
                     executionResult = await OrmDAL.ExecRoutineQueryAsync(
+                       execOptions.CancellationToken,
                        execOptions.type,
                        execOptions.schema,
                        execOptions.routine,
@@ -657,18 +678,33 @@ namespace jsdal_server_core.Controllers
 
                 if (execOptions.type == ExecType.Query)
                 {
-                    var dataSet = executionResult.DataSet;
-                    var dataContainers = dataSet.ToJsonDS();
-
-                    var keys = dataContainers.Keys.ToList();
-
-                    for (var i = 0; i < keys.Count; i++)
+                    if (executionResult.ReaderResults != null)
                     {
-                        retVal.Add(keys[i], dataContainers[keys[i]]);
-                    }
+                        var keys = executionResult.ReaderResults.Keys.ToList();
 
-                    retVal.Add("HasResultSets", keys.Count > 0);
-                    retVal.Add("ResultSetKeys", keys.ToArray());
+                        for (var i = 0; i < keys.Count; i++)
+                        {
+                            retVal.Add(keys[i], executionResult.ReaderResults[keys[i]]);
+                        }
+
+                        retVal.Add("HasResultSets", keys.Count > 0);
+                        retVal.Add("ResultSetKeys", keys.ToArray());
+                    }
+                    else
+                    {
+                        var dataSet = executionResult.DataSet;
+                        var dataContainers = dataSet.ToJsonDS();
+
+                        var keys = dataContainers.Keys.ToList();
+
+                        for (var i = 0; i < keys.Count; i++)
+                        {
+                            retVal.Add(keys[i], dataContainers[keys[i]]);
+                        }
+
+                        retVal.Add("HasResultSets", keys.Count > 0);
+                        retVal.Add("ResultSetKeys", keys.ToArray());
+                    }
                 }
                 else if (execOptions.type == ExecType.NonQuery)
                 {
@@ -700,12 +736,18 @@ namespace jsdal_server_core.Controllers
 
                 return new ExecuteRoutineAsyncResult(ret, routineExecutionMetric, mayAccess, responseHeaders);
             }
+            catch (SqlException ex) when (execOptions.CancellationToken.IsCancellationRequested && ex.Number == 0 && ex.State == 0 && ex.Class == 11)
+            {
+                // if we ended up here with a SqlException and a Cancel has been requested, we are very likely here because of the exception "Operation cancelled by user."
+                // since MS does not provide an easy way (like a specific error code) to detect this scenario we have to guess
+
+                routineExecutionMetric?.Exception(ex);
+
+                throw new OperationCancelledByUserException(ex);
+            }
             catch (Exception ex)
             {
-                if (routineExecutionMetric != null)
-                {
-                    routineExecutionMetric.Exception(ex);
-                }
+                routineExecutionMetric?.Exception(ex);
 
                 Connection dbConn = null;
 
@@ -848,59 +890,67 @@ namespace jsdal_server_core.Controllers
 
             switch (parameterDataType.ToLower())
             {
-                case "date":
+                case Strings.SQL.DATE:
                     return (SqlDbType.Date, defUdtType);
-                case "datetime":
+                case Strings.SQL.DATETIME:
                     return (SqlDbType.DateTime, defUdtType);
-                case "time":
+                case Strings.SQL.TIME:
                     return (SqlDbType.VarChar, defUdtType); // send as a simple string and let SQL take care of it
-                case "smalldatetime":
+                case Strings.SQL.SMALLDATETIME:
                     return (SqlDbType.SmallDateTime, defUdtType);
-                case "int":
+                case Strings.SQL.INT:
                     return (SqlDbType.Int, defUdtType);
-                case "smallint":
+                case Strings.SQL.SMALLINT:
                     return (SqlDbType.SmallInt, defUdtType);
-                case "bigint":
+                case Strings.SQL.BIGINT:
                     return (SqlDbType.BigInt, defUdtType);
-                case "timestamp":
+                case Strings.SQL.TIMESTAMP:
                     return (SqlDbType.Timestamp, defUdtType);
-                case "bit":
+                case Strings.SQL.BIT:
                     return (SqlDbType.Bit, defUdtType);
-                case "nvarchar":
+                case Strings.SQL.NVARCHAR:
                     return (SqlDbType.NVarChar, defUdtType);
-                case "varchar":
+                case Strings.SQL.VARCHAR:
                     return (SqlDbType.VarChar, defUdtType);
-                case "text":
+                case Strings.SQL.TEXT:
                     return (SqlDbType.Text, defUdtType);
-                case "ntext":
+                case Strings.SQL.NTEXT:
                     return (SqlDbType.NText, defUdtType);
-                case "varbinary":
+                case Strings.SQL.VARBINARY:
                     return (SqlDbType.VarBinary, defUdtType);
-                case "decimal":
+                case Strings.SQL.DECIMAL:
                     return (SqlDbType.Decimal, defUdtType);
-                case "uniqueidentifier":
+                case Strings.SQL.UNIQUEIDENTIFIER:
                     return (SqlDbType.UniqueIdentifier, defUdtType);
-                case "money":
+                case Strings.SQL.MONEY:
                     return (SqlDbType.Money, defUdtType);
-                case "char":
+                case Strings.SQL.CHAR:
                     return (SqlDbType.Char, defUdtType);
-                case "nchar":
+                case Strings.SQL.NCHAR:
                     return (SqlDbType.NChar, defUdtType);
-                case "xml":
+                case Strings.SQL.XML:
                     return (SqlDbType.Xml, defUdtType);
-                case "float":
+                case Strings.SQL.FLOAT:
                     return (SqlDbType.Float, defUdtType);
-                case "image":
+                case Strings.SQL.IMAGE:
                     return (SqlDbType.Image, defUdtType);
-                case "tinyint":
+                case Strings.SQL.TINYINT:
                     return (SqlDbType.TinyInt, defUdtType);
-                case "geography":
+                case Strings.SQL.GEOGRAPHY:
                     return (SqlDbType.Udt, "GEOGRAPHY");
-                case "geometry":
+                case Strings.SQL.GEOMETRY:
                     return (SqlDbType.Udt, "GEOMETRY");
                 default:
                     throw new NotSupportedException("GetSqlDbTypeFromParameterType::Unsupported data type: " + parameterDataType);
             }
+        }
+    }
+
+    public class OperationCancelledByUserException : Exception
+    {
+        public OperationCancelledByUserException(Exception exception) : base("SQL operation cancelled by user", exception)
+        {
+
         }
     }
 }

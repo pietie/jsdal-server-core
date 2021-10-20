@@ -34,6 +34,7 @@ using Microsoft.AspNetCore.Http;
 using Serilog;
 using MirrorSharp.AspNetCore;
 using MirrorSharp;
+using System.Threading.Tasks;
 
 namespace jsdal_server_core
 {
@@ -214,6 +215,7 @@ namespace jsdal_server_core
             //app.UseDeveloperExceptionPage();
 
             // force instantiation on singletons
+
             {
                 var pmInst = app.ApplicationServices.GetService<PluginLoader>();
 
@@ -229,6 +231,7 @@ namespace jsdal_server_core
                 DotNetCoreCounterListener.Instance = app.ApplicationServices.GetService<DotNetCoreCounterListener>();
                 DotNetCoreCounterListener.Instance.Start();
 
+
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
 
                     Log.Information("Initialising project object model");
@@ -237,7 +240,7 @@ namespace jsdal_server_core
 
                     Log.Information("Initialising plugin loader");
                     PluginLoader.Instance = pmInst;
-                    PluginLoader.Instance.Init();
+                    PluginLoader.Instance.InitAsync().GetAwaiter().GetResult();
 
                     ServerMethodManager.RebuildCacheForAllApps();
 
@@ -290,7 +293,7 @@ namespace jsdal_server_core
                 {
                     context.Request.Path = "/index.html";
                     context.Response.StatusCode = 200;
-                    
+
                     await next();
                 }
             });

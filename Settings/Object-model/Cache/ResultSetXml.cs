@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 using System.Xml.Serialization;
+using System.Text.Json.Serialization;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -51,7 +51,11 @@ namespace jsdal_server_core.Settings.ObjectModel
     public class ResultSetFieldMetadata
     {
         public string ColumnName { get; set; }
+        
+        [JsonConverter(typeof(InternedStringConverter))]
         public string DataType { get; set; } // C# Type
+        
+        [JsonConverter(typeof(InternedStringConverter))]
         public string DbDataType { get; set; }
         public int ColumnSize { get; set; }
         public int NumericalPrecision { get; set; }

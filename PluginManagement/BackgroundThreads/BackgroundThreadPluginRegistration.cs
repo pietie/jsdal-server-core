@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Dynamic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using jsdal_plugin;
@@ -111,17 +112,26 @@ namespace jsdal_server_core.PluginManagement
 
                         var openSqlConnectionCallback = new Func<SqlConnection>(() =>
                         {
-                            var execConn = endpoint.GetSqlConnection();
-                            if (execConn == null) throw new Exception($"Execution connection not configured on endpoint {endpoint.Pedigree}");
+                            try
+                            {
+                                var execConn = endpoint.GetSqlConnection();
+                                if (execConn == null) throw new Exception($"Execution connection not configured on endpoint {endpoint.Pedigree}");
 
-                            var cb = new SqlConnectionStringBuilder(execConn.ConnectionStringDecrypted);
+                                var cb = new SqlConnectionStringBuilder(execConn.ConnectionStringDecrypted);
 
-                            cb.ApplicationName = $"{this.PluginName}";
+                                cb.ApplicationName = $"{this.PluginName}";
 
-                            var sqlCon = new SqlConnection(cb.ConnectionString);
+                                var sqlCon = new SqlConnection(cb.ConnectionString);
 
-                            sqlCon.Open();
-                            return sqlCon;
+                                sqlCon.Open();
+                                return sqlCon;
+                            }
+                            catch (Exception ex)
+                            {
+                                ExceptionLogger.LogExceptionThrottled(ex ,$"{this.PluginName}-{endpoint.Pedigree}::OpenSqlConnection", 20);
+                                throw;
+                            }
+                            
                         });
 
                         var updateDataCallback = new Func<ExpandoObject, bool>(data =>
@@ -279,6 +289,7 @@ namespace jsdal_server_core.PluginManagement
         }
     }
 
+ 
     public class BackgroundThreadPluginInstance
     {
         public string Id { get; private set; }

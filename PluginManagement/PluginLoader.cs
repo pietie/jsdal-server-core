@@ -9,6 +9,7 @@ using jsdal_server_core.PluginManagement;
 using System.Collections.ObjectModel;
 using jsdal_server_core.Settings.ObjectModel;
 using Newtonsoft.Json;
+using System.Threading.Tasks;
 
 namespace jsdal_server_core
 {
@@ -30,11 +31,34 @@ namespace jsdal_server_core
         }
         private readonly List<PluginAssembly> _pluginAssemblies;
         public ReadOnlyCollection<PluginAssembly> PluginAssemblies { get; private set; }
-        public void Init()
+        public async Task InitAsync()
         {
             // load from plugin directory
             try
             {
+                AppDomain.CurrentDomain.AssemblyResolve += (sender, e) =>
+                {
+                    try
+                    {
+                        var asmName = new AssemblyName(e.Name);
+                        var requestingLocation = e.RequestingAssembly.Location;
+                        var requestingDir = Path.GetDirectoryName(requestingLocation);
+
+                        // look for a dll in the same location as the requesting assembly
+                        var path = Path.Combine(requestingDir, asmName.Name + ".dll");
+
+                        if (!File.Exists(path)) return null;
+
+                        Assembly.LoadFrom(path);
+
+                        return null;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                };
+
                 if (Directory.Exists("./plugins"))
                 {
                     var dllCollection = Directory.EnumerateFiles("plugins", "*.dll", SearchOption.TopDirectoryOnly);
@@ -46,7 +70,11 @@ namespace jsdal_server_core
 
                         try
                         {
+                            //var asmBytes = await File.ReadAllBytesAsync(dllPath);
+                            //var pluginAssembly = Assembly.Load(asmBytes);
                             var pluginAssembly = Assembly.LoadFrom(dllPath);
+
+
 
                             ParseAndLoadPluginAssembly(pluginAssembly, null);
                         }
@@ -73,7 +101,7 @@ namespace jsdal_server_core
 
                     if (File.Exists(sourcePath))
                     {
-                        var code = File.ReadAllText(sourcePath);
+                        var code = await File.ReadAllTextAsync(sourcePath);
                         var assembly = CSharpCompilerHelper.CompileIntoAssembly(inlineEntry.Name, code, out var problems);
 
                         if ((problems != null && problems.Count == 0) && assembly != null)
@@ -452,7 +480,7 @@ namespace jsdal_server_core
                 //existingPluginAssembly.Assembly.
             }
 
-            
+
 
 
             // TODO: Perhaps this can be optimised to run only on apps that are affected by plugin change

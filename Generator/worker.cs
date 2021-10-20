@@ -310,7 +310,7 @@ namespace jsdal_server_core
                 if (changesList?.Count > 0)
                 {
                     // call save for final changes 
-                    this.Endpoint.SaveCache();
+                    await this.Endpoint.SaveCacheAsync();
                     this.GenerateOutputFiles(this.Endpoint, changesList);
                     // save "settings" to persist JsFile version changes
                     SettingsInstance.SaveSettingsToFile();
@@ -371,8 +371,6 @@ namespace jsdal_server_core
                 var ix = columns.Select(s => new { s, Value = reader.GetOrdinal(s) }).ToDictionary(p => p.s, p => p.Value);
 
                 var curRow = 0;
-
-                DateTime lastSavedDate = DateTime.Now;
 
                 while (await reader.ReadAsync())
                 {
@@ -480,7 +478,7 @@ namespace jsdal_server_core
                                     {
                                         newCachedRoutine.ResultSetMetadata = new Dictionary<string, List<ResultSetFieldMetadata>>()
                                         {
-                                            ["Table0"] = resultSetMetdata
+                                            [string.Intern("Table0")] = resultSetMetdata
                                         };
                                     }
                                     else
@@ -506,13 +504,6 @@ namespace jsdal_server_core
                         // TODO: Else update - so last change is what gets through? 
                         // ...  Two things to consider here.. 1. We use changesList to determine if there was a significant change to the metadata so we can generate a new file and notify subscribers
                         //                                    2. ..nothing else actually...? just think about the same sproc changing multiple times ....no sproc can only come back once per iteration!!!!
-                    }
-
-                    // TODO: Make saving gap configurable?
-                    if (DateTime.Now.Subtract(lastSavedDate).TotalSeconds >= 20)
-                    {
-                        lastSavedDate = DateTime.Now;
-                        Endpoint.SaveCache();
                     }
 
                     if (!this.MaxRowDate.HasValue || newCachedRoutine.RowVer > this.MaxRowDate.Value)

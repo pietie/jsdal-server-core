@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+//using Newtonsoft.Json;
 using System.Text;
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -126,6 +127,8 @@ namespace jsdal_server_core.Settings.ObjectModel
     {
         public string Schema;
         public string Routine;
+        
+        [JsonConverter(typeof(InternedStringConverter))]
         public string Type; //e.g. Proc, UDF or Table-valued function
         public long RowVer;
         public string ParametersHash;
@@ -147,11 +150,11 @@ namespace jsdal_server_core.Settings.ObjectModel
         public string PrecalcError { get; set; }
 
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public string FullName { get { return $"[{this.Schema}].[{this.Routine}]"; } }
 
         // TODO:  RuleInstructions require revisting. Don't believe it should live on the CachedRoutine itself. Rather each JsFile should calculate it's own list???
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public Dictionary<JsFile/*If null then DB-level*/, RoutineIncludeExcludeInstruction> RuleInstructions;
 
         public CachedRoutine()

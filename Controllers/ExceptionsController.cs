@@ -79,6 +79,7 @@ namespace jsdal_server_core.Controllers
             }
             catch (Exception ex)
             {
+                SessionLog.Exception(ex);
                 return ApiResponse.Exception(ex);
             }
         }
@@ -176,6 +177,7 @@ namespace jsdal_server_core.Controllers
             }
             catch (Exception ex)
             {
+                SessionLog.Exception(ex);
                 return ApiResponse.Exception(ex);
             }
 
@@ -207,7 +209,15 @@ namespace jsdal_server_core.Controllers
         [HttpGet("/api/exception/app-titles")]
         public ApiResponse GetAppTitlesCbo()
         {
-            return ApiResponse.Payload(ExceptionLogger.AppTitles);
+            try
+            {
+                return ApiResponse.Payload(ExceptionLogger.AppTitles);
+            }
+            catch (Exception ex)
+            {
+                SessionLog.Exception(ex);
+                return ApiResponse.Exception(ex);
+            }
         }
 
 

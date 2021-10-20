@@ -62,7 +62,7 @@ namespace jsdal_server_core
                 {
                     var namespaceKey = "ServerMethods";
                     var namespaceKeyTSD = "ServerMethods";
-                    var jsNamespaceVar = "null"; // null for main ServerMethod namespace
+                    var jsNamespaceVar = Strings.@null; // null for main ServerMethod namespace
 
                     if (!string.IsNullOrEmpty(method.Namespace))
                     {

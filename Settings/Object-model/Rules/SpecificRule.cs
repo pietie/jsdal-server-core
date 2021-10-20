@@ -31,7 +31,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public static SpecificRule FromFullname(string txt)
         {
             var parts = txt.Split('.');
-            var schema = "dbo";
+            var schema = string.Intern("dbo");
             var name = txt;
 
             if (parts.Length > 1)

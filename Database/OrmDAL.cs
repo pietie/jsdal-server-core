@@ -10,12 +10,12 @@ using jsdal_plugin;
 using jsdal_server_core.Performance;
 using Endpoint = jsdal_server_core.Settings.ObjectModel.Endpoint;
 using Newtonsoft.Json;
-using Microsoft.SqlServer.Types;
 using System.Threading.Tasks;
 using System.Net;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
-
+using Microsoft.SqlServer.Types;
+using System.Threading;
 
 namespace jsdal_server_core
 {
@@ -29,7 +29,7 @@ namespace jsdal_server_core
                 cmd.Connection = con;
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.CommandTimeout = 30;
-                cmd.CommandText = "ormv2.GetRoutineListCnt";
+                cmd.CommandText = string.Intern("ormv2.GetRoutineListCnt");
                 cmd.Parameters.Add("maxRowver", System.Data.SqlDbType.BigInt).Value = maxRowDate ?? 0;
 
                 var scalar = await cmd.ExecuteScalarAsync();
@@ -129,6 +129,7 @@ namespace jsdal_server_core
 
         public class ExecutionResult
         {
+            public Dictionary<string/*Table0..N*/, ReaderResult> ReaderResults { get; set; }
             public DataSet DataSet { get; set; }
             public object ScalarValue { get; set; }
             public string userError { get; set; }
@@ -139,8 +140,8 @@ namespace jsdal_server_core
 
             public int? RowsAffected { get; set; }
 
-            public Dictionary<string, dynamic> OutputParameterDictionary { get;set;}
-            public Dictionary<string, string> ResponseHeaders   {get;set;}
+            public Dictionary<string, dynamic> OutputParameterDictionary { get; set; }
+            public Dictionary<string, string> ResponseHeaders { get; set; }
         }
 
         // public static ExecutionResult ExecRoutineQuery(
@@ -160,6 +161,7 @@ namespace jsdal_server_core
         //    )
 
         public static async Task<ExecutionResult> ExecRoutineQueryAsync(
+                CancellationToken cancellationToken,
                    Controllers.ExecController.ExecType type,
                    string schemaName,
                    string routineName,
@@ -170,23 +172,19 @@ namespace jsdal_server_core
                    List<ExecutionPlugin> plugins,
                    int commandTimeOutInSeconds,
                    ExecutionBase execRoutineQueryMetric,
-                   Dictionary<string, string> responseHeaders   
+                   Dictionary<string, string> responseHeaders
                )
         {
             SqlConnection con = null;
             SqlCommand cmd = null;
 
             int rowsAffected = 0;
-            Dictionary<string, dynamic> outputParameterDictionary = null;
 
             try
             {
-                var s1 = execRoutineQueryMetric.BeginChildStage("Lookup cached routine");
+                var s1 = execRoutineQueryMetric.BeginChildStage(string.Intern("Lookup cached routine"));
 
-                var routineCache = endpoint.CachedRoutines;
-                var cachedRoutine = routineCache.FirstOrDefault(r => r.Equals(schemaName, routineName));
-
-                outputParameterDictionary = new Dictionary<string, dynamic>();
+                var cachedRoutine = endpoint.CachedRoutines.FirstOrDefault(r => r.Equals(schemaName, routineName));
 
                 if (cachedRoutine == null)
                 {
@@ -196,22 +194,27 @@ namespace jsdal_server_core
 
                 s1.End();
 
-                var s2 = execRoutineQueryMetric.BeginChildStage("Process metadata");
-
-                string metaResp = null;
-
-                try
+                //
+                // jsDAL METADATA
+                //
                 {
-                    metaResp = ProcessMetadata(requestHeaders, ref responseHeaders, cachedRoutine);
-                }
-                catch (Exception) { /*ignore metadata failures*/ }
+                    var s2 = execRoutineQueryMetric.BeginChildStage("Process metadata");
 
-                if (metaResp != null)
-                {
-                    return new ExecutionResult() { userError = metaResp };
-                }
+                    string metaResp = null;
 
-                s2.End();
+                    try
+                    {
+                        metaResp = ProcessMetadata(requestHeaders, ref responseHeaders, cachedRoutine);
+                    }
+                    catch (Exception) { /*ignore metadata failures*/ }
+
+                    if (metaResp != null)
+                    {
+                        return new ExecutionResult() { userError = metaResp };
+                    }
+
+                    s2.End();
+                }
 
                 var s3 = execRoutineQueryMetric.BeginChildStage("Open connection");
 
@@ -238,281 +241,132 @@ namespace jsdal_server_core
 
                 s3.End();
 
-                var s4 = execRoutineQueryMetric.BeginChildStage("Process plugins");
-
+                //
                 // PLUGINS
+                //
+                var s4 = execRoutineQueryMetric.BeginChildStage("Process plugins");
                 ProcessPlugins(plugins, con);
-
                 s4.End();
 
                 var prepareCmdMetric = execRoutineQueryMetric.BeginChildStage("Prepare command");
 
-                cmd = new SqlCommand();
-                cmd.Connection = con;
-                cmd.CommandTimeout = commandTimeOutInSeconds;
+                //
+                // CREATE SQL COMMAND
+                //
+                cmd = CreateSqlCommand(con, commandTimeOutInSeconds, cachedRoutine, type);
 
-                var isTVF = cachedRoutine.Type == "TVF";
+                //
+                // PARAMETERS
+                //
+                SetupSqlCommandParameters(cmd, cachedRoutine, inputParameters, plugins, remoteIpAddress);
 
-                //   if (cachedRoutine.Type == "PROCEDURE" || isTVF)
+                prepareCmdMetric.End();
+
+                Dictionary<string/*Table0..N*/, ReaderResult> readerResults = null;
+                //DataSet ds = null;
+                object scalarVal = null;
+
+                if (type == Controllers.ExecController.ExecType.Query)
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.CommandText = string.Format("[{0}].[{1}]", schemaName, routineName);
+                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
 
-                    if (isTVF)
-                    {
-                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
+                    readerResults = await ProcessExecQueryAsync(cancellationToken, cmd, inputParameters);
 
-                        cmd.CommandType = CommandType.Text;
-                        cmd.CommandText = string.Format("select * from [{0}].[{1}]({2})", schemaName, routineName, parmCsvList);
-                    }
-                    else if (type == Controllers.ExecController.ExecType.Scalar)
-                    {
-                        string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
+                    // { Old Dataset-based code
 
-                        if (cachedRoutine.Type.Equals("PROCEDURE", StringComparison.CurrentCultureIgnoreCase))
-                        {
-                            cmd.CommandType = CommandType.StoredProcedure;
-                            cmd.CommandText = string.Format("[{0}].[{1}]", schemaName, routineName);
-                        }
-                        else if (cachedRoutine.Type.Equals("FUNCTION", StringComparison.OrdinalIgnoreCase))
-                        {
-                            cmd.CommandType = CommandType.Text;
-                            cmd.CommandText = string.Format("select [{0}].[{1}]({2})", schemaName, routineName, parmCsvList);
-                        }
-                    }
+                    //     var da = new SqlDataAdapter(cmd);
+                    //     ds = new DataSet();
 
-                    if (cachedRoutine.Parameters != null)
-                    {
-                        /*
-                            Parameters
-                            ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
-                                (Parm not specified)    ->  (Has default in sproc def)  -> Add to command with C# null to inherit null value
-                                                            (No default)                -> Don't add to command, should result in SQL Exception
-                                
-                                Parm specified as null  ->  DBNull.Value (regardless of Sproc default value)
-                                $jsDAL$DBNull           ->  Add to command with value as DBNull.Value
+                    //     var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
 
-                        
-                         */
-                        // TODO: Possible Parallel.Foreach here?
-                        cachedRoutine.Parameters.ForEach(expectedParm =>
-                        {
-                            if (expectedParm.IsResult) return;
+                    //     if (ds.Tables.Count > 0)
+                    //     {
+                    //         foreach (DataTable t in ds.Tables)
+                    //         {
+                    //             rowsAffected += t.Rows.Count;
+                    //         }
+                    //     }
 
-                            (var sqlType, var udtType) = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
-                            object parmValue = null;
+                    //     if (inputParameters.ContainsKey("$select") && ds.Tables.Count > 0)
+                    //     {
+                    //         string limitToFieldsCsv = inputParameters["$select"];
 
-                            var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
+                    //         if (!string.IsNullOrEmpty(limitToFieldsCsv))
+                    //         {
+                    //             var listPerTable = limitToFieldsCsv.Split(new char[] { ';' }/*, StringSplitOptions.RemoveEmptyEntries*/);
 
-                            newSqlParm.UdtTypeName = udtType;
+                    //             for (int tableIx = 0; tableIx < listPerTable.Length; tableIx++)
+                    //             {
+                    //                 var fieldsToKeep = listPerTable[tableIx].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToLookup(s => s.Trim());
 
-                            if (!expectedParm.IsOutput)
-                            {
-                                newSqlParm.Direction = ParameterDirection.Input;
-                            }
-                            else
-                            {
-                                newSqlParm.Direction = ParameterDirection.InputOutput;
-                            }
+                    //                 if (fieldsToKeep.Count > 0)
+                    //                 {
+                    //                     var table = ds.Tables[tableIx];
 
-                            // trim leading '@'
-                            var expectedParmName = expectedParm.Name.Substring(1);
+                    //                     for (int i = 0; i < table.Columns.Count; i++)
+                    //                     {
+                    //                         var match = fieldsToKeep.FirstOrDefault((k) => k.Key.Equals(table.Columns[i].ColumnName, StringComparison.OrdinalIgnoreCase));
 
-                            var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
+                    //                         if (match == null)
+                    //                         {
+                    //                             table.Columns.Remove(table.Columns[i]);
+                    //                             i--;
+                    //                         }
+                    //                     }
 
-                            // if the expected parameter was defined in the request or if a plugin provided an override
-                            if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
-                            {
-                                object val = null;
-
-                                // TODO: Should input parameter if specified be able to override any plugin value?
-                                // TODO: For now a plugin value take precendence over an input value - we can perhaps make this a property of the plugin return value (e.g. AllowInputOverride)
-                                if (pluginParamVal != PluginSetParameterValue.DontSet)
-                                {
-                                    val = pluginParamVal.Value;
-                                }
-                                else if (inputParameters.ContainsKey(expectedParmName))
-                                {
-                                    val = inputParameters[expectedParmName];
-                                }
-
-                                // look for special jsDAL Server variables
-                                val = jsDALServerVariables.Parse(remoteIpAddress, val);
-
-                                if (val == null || val == DBNull.Value)
-                                {
-                                    parmValue = DBNull.Value;
-                                }
-                                // TODO: Consider making this 'null' mapping configurable. This is just a nice to have for when the client does not call the API correctly
-                                // convert the string value of 'null' to actual DBNull null
-                                else if (val.ToString().Trim().ToLower().Equals("null"))
-                                {
-                                    parmValue = DBNull.Value;
-                                }
-                                else
-                                {
-                                    parmValue = ConvertParameterValue(expectedParmName, sqlType, val.ToString(), udtType);
-                                }
-
-                                newSqlParm.Value = parmValue;
-
-                                cmd.Parameters.Add(newSqlParm);
-                            }
-                            else
-                            {
-                                // if (expectedParm.HasDefault && !expectedParm.IsOutput/*SQL does not apply default values to OUT parameters so OUT parameters will always be mandatory to define*/)
-                                if (expectedParm.HasDefault || expectedParm.IsOutput)
-                                {
-                                    // TODO: If expectedParm.IsOutput and the expectedParm not specified, refer to Endpoint config on strategy ... either auto specify and make null or let SQL throw
-
-                                    // If no explicit value was specified but the parameter has it's own default...
-                                    // Then DO NOT set newSqlParm.Value so that the DB engine applies the default defined in SQL
-                                    newSqlParm.Value = null;
-                                    cmd.Parameters.Add(newSqlParm);
-                                }
-                                else
-                                {
-                                    // SQL Parameter does not get added to cmd.Parameters and SQL will throw
-                                }
-                            }
-
-                        }); // foreach Parameter 
-
-                    }
-
-                    prepareCmdMetric.End();
-
-                    DataSet ds = null;
-                    object scalarVal = null;
-
-                    if (type == Controllers.ExecController.ExecType.Query)
-                    {
-                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
-
-                        var da = new SqlDataAdapter(cmd);
-                        ds = new DataSet();
-
-                        var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
-
-                        if (ds.Tables.Count > 0)
-                        {
-                            foreach (DataTable t in ds.Tables)
-                            {
-                                rowsAffected += t.Rows.Count;
-                            }
-                        }
-
-                        if (inputParameters.ContainsKey("$select") && ds.Tables.Count > 0)
-                        {
-                            string limitToFieldsCsv = inputParameters["$select"];
-
-                            if (!string.IsNullOrEmpty(limitToFieldsCsv))
-                            {
-                                var listPerTable = limitToFieldsCsv.Split(new char[] { ';' }/*, StringSplitOptions.RemoveEmptyEntries*/);
-
-                                for (int tableIx = 0; tableIx < listPerTable.Length; tableIx++)
-                                {
-                                    var fieldsToKeep = listPerTable[tableIx].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToLookup(s => s.Trim());
-
-                                    if (fieldsToKeep.Count > 0)
-                                    {
-                                        var table = ds.Tables[tableIx];
-
-                                        for (int i = 0; i < table.Columns.Count; i++)
-                                        {
-                                            var match = fieldsToKeep.FirstOrDefault((k) => k.Key.Equals(table.Columns[i].ColumnName, StringComparison.OrdinalIgnoreCase));
-
-                                            if (match == null)
-                                            {
-                                                table.Columns.Remove(table.Columns[i]);
-                                                i--;
-                                            }
-                                        }
-
-                                    }
-                                }
+                    //                 }
+                    //             }
 
 
-                            }
+                    //         }
 
-                        } // $select
+                    //     } // $select
+                    // }
 
-                        execStage.End();
-                    }
-                    else if (type == Controllers.ExecController.ExecType.NonQuery)
-                    {
-                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
-
-                        //TODO: Implement Async versions cmd.ExecuteNonQueryAsync()
-
-                        rowsAffected = await cmd.ExecuteNonQueryAsync();
-                        execStage.End();
-                    }
-                    else if (type == Controllers.ExecController.ExecType.Scalar)
-                    {
-                        var execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
-                        scalarVal = await cmd.ExecuteScalarAsync();
-                        execStage.End();
-                    }
-                    else
-                    {
-                        throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
-                    }
-
-                    long? bytesReceived = null;
-                    long? networkServerTimeMS = null;
-
-                    if (endpoint.CaptureConnectionStats)
-                    {
-                        var conStats = con.RetrieveStatistics();
-
-                        if (conStats != null)
-                        {
-                            if (conStats.Contains("BytesReceived"))
-                            {
-                                bytesReceived = (long)conStats["BytesReceived"];
-                            }
-
-                            if (conStats.Contains("NetworkServerTime"))
-                            {
-                                networkServerTimeMS = (long)conStats["NetworkServerTime"];
-                            }
-                        }
-                    }
-
-                    if (cachedRoutine?.Parameters != null)
-                    {
-                        var outputParmList = (from p in cachedRoutine.Parameters
-                                              where p.IsOutput && !p.IsResult/*IsResult parameters do not have a name so cannot be accessed in loop below*/
-                                              select p).ToList();
-
-
-                        // Retrieve OUT-parameters and their values
-                        foreach (var outParm in outputParmList)
-                        {
-                            object val = null;
-
-                            val = cmd.Parameters[outParm.Name].Value;
-
-                            if (val == DBNull.Value) val = null;
-
-                            outputParameterDictionary.Add(outParm.Name.TrimStart('@'), val);
-                        }
-                    }
-
-                    //!executionTrackingEndFunction();
-
-                    return new ExecutionResult()
-                    {
-                        DataSet = ds,
-                        ScalarValue = scalarVal,
-                        NetworkServerTimeInMS = networkServerTimeMS,
-                        BytesReceived = bytesReceived,
-                        RowsAffected = rowsAffected,
-                        OutputParameterDictionary = outputParameterDictionary,
-                        ResponseHeaders = responseHeaders
-                    };
+                    execStage.End();
                 }
+                else if (type == Controllers.ExecController.ExecType.NonQuery)
+                {
+                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
+
+                    rowsAffected = await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    execStage.End();
+                }
+                else if (type == Controllers.ExecController.ExecType.Scalar)
+                {
+                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
+                    scalarVal = await cmd.ExecuteScalarAsync(cancellationToken);
+                    execStage.End();
+                }
+                else
+                {
+                    throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
+                }
+
+                long? bytesReceived = null;
+                long? networkServerTimeMS = null;
+
+                if (endpoint.CaptureConnectionStats)
+                {
+                    RetrieveConnectionStatistics(con, out bytesReceived, out networkServerTimeMS);
+                }
+
+                var outputParameterDictionary = RetrieveOutputParameterValues(cachedRoutine, cmd);
+
+                //!executionTrackingEndFunction();
+
+                return new ExecutionResult()
+                {
+                    ReaderResults = readerResults,
+                    DataSet = null, // deprecated
+                    ScalarValue = scalarVal,
+                    NetworkServerTimeInMS = networkServerTimeMS,
+                    BytesReceived = bytesReceived,
+                    RowsAffected = rowsAffected,
+                    OutputParameterDictionary = outputParameterDictionary,
+                    ResponseHeaders = responseHeaders
+                };
+
             }
             finally
             {
@@ -522,6 +376,334 @@ namespace jsdal_server_core
             }
         } // execRoutine
 
+        private static SqlCommand CreateSqlCommand(SqlConnection con, int commandTimeOutInSeconds, CachedRoutine cachedRoutine, Controllers.ExecController.ExecType type)
+        {
+            var cmd = new SqlCommand();
+            cmd.Connection = con;
+            cmd.CommandTimeout = commandTimeOutInSeconds;
+
+            var isTVF = cachedRoutine.Type == "TVF";
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = string.Format("[{0}].[{1}]", cachedRoutine.Schema, cachedRoutine.Routine);
+
+            if (isTVF)
+            {
+                string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
+
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandText = string.Format("select * from [{0}].[{1}]({2})", cachedRoutine.Schema, cachedRoutine.Routine, parmCsvList);
+            }
+            else if (type == Controllers.ExecController.ExecType.Scalar)
+            {
+                string parmCsvList = string.Join(",", cachedRoutine.Parameters.Where(p => !p.IsResult).Select(p => p.Name).ToArray());
+
+                if (cachedRoutine.Type.Equals(string.Intern("PROCEDURE"), StringComparison.CurrentCultureIgnoreCase))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.CommandText = string.Format("[{0}].[{1}]", cachedRoutine.Schema, cachedRoutine.Routine);
+                }
+                else if (cachedRoutine.Type.Equals(string.Intern("FUNCTION"), StringComparison.OrdinalIgnoreCase))
+                {
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandText = string.Format("select [{0}].[{1}]({2})", cachedRoutine.Schema, cachedRoutine.Routine, parmCsvList);
+                }
+            }
+
+            return cmd;
+        }
+
+        private static void SetupSqlCommandParameters(SqlCommand cmd, CachedRoutine cachedRoutine, Dictionary<string, string> inputParameters, List<ExecutionPlugin> plugins, string remoteIpAddress)
+        {
+            /*
+                Parameters
+                ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+                    (Parm not specified)    ->  (Has default in sproc def)  -> Add to command with C# null to inherit default value
+                                                (No default)                -> Don't add to command, should result in SQL Exception
+
+                    Parm specified as null  ->  DBNull.Value (regardless of Sproc default value)
+                    $jsDAL$DBNull           ->  Add to command with value as DBNull.Value
+
+
+             */
+            // TODO: Possible Parallel.Foreach here?
+            cachedRoutine?.Parameters?.ForEach(expectedParm =>
+            {
+                if (expectedParm.IsResult) return;
+
+                (var sqlType, var udtType) = Controllers.ExecController.GetSqlDbTypeFromParameterType(expectedParm.SqlDataType);
+                object parmValue = null;
+
+                var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
+
+                newSqlParm.UdtTypeName = udtType;
+
+                if (!expectedParm.IsOutput)
+                {
+                    newSqlParm.Direction = ParameterDirection.Input;
+                }
+                else
+                {
+                    newSqlParm.Direction = ParameterDirection.InputOutput;
+                }
+
+                // trim leading '@'
+                var expectedParmName = expectedParm.Name.Substring(1);
+
+                var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
+
+                // if the expected parameter was defined in the request or if a plugin provided an override
+                if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
+                {
+                    object val = null;
+
+                    // TODO: Should input parameter if specified be able to override any plugin value?
+                    // TODO: For now a plugin value take precendence over an input value - we can perhaps make this a property of the plugin return value (e.g. AllowInputOverride)
+                    if (pluginParamVal != PluginSetParameterValue.DontSet)
+                    {
+                        val = pluginParamVal.Value;
+                    }
+                    else if (inputParameters.ContainsKey(expectedParmName))
+                    {
+                        val = inputParameters[expectedParmName];
+                    }
+
+                    // look for special jsDAL Server variables
+                    val = jsDALServerVariables.Parse(remoteIpAddress, val);
+
+                    if (val == null || val == DBNull.Value)
+                    {
+                        parmValue = DBNull.Value;
+                    }
+                    // TODO: Consider making this 'null' mapping configurable. This is just a nice to have for when the client does not call the API correctly
+                    // convert the string value of 'null' to actual DBNull null
+                    else if (val.ToString().Trim().ToLower().Equals(Strings.@null))
+                    {
+                        parmValue = DBNull.Value;
+                    }
+                    else
+                    {
+                        parmValue = ConvertParameterValue(expectedParmName, sqlType, val.ToString(), udtType);
+                    }
+
+                    newSqlParm.Value = parmValue;
+
+                    cmd.Parameters.Add(newSqlParm);
+                }
+                else
+                {
+                    // if (expectedParm.HasDefault && !expectedParm.IsOutput/*SQL does not apply default values to OUT parameters so OUT parameters will always be mandatory to define*/)
+                    if (expectedParm.HasDefault || expectedParm.IsOutput)
+                    {
+                        // TODO: If expectedParm.IsOutput and the expectedParm not specified, refer to Endpoint config on strategy ... either auto specify and make null or let SQL throw
+
+                        // If no explicit value was specified but the parameter has it's own default...
+                        // Then DO NOT set newSqlParm.Value so that the DB engine applies the default defined in SQL
+                        newSqlParm.Value = null;
+                        cmd.Parameters.Add(newSqlParm);
+                    }
+                    else
+                    {
+                        // SQL Parameter does not get added to cmd.Parameters and SQL will throw
+                    }
+                }
+
+            }); // foreach Parameter 
+
+        }
+
+        private static Dictionary<string, dynamic> RetrieveOutputParameterValues(CachedRoutine cachedRoutine, SqlCommand cmd)
+        {
+            var outputParameterDictionary = new Dictionary<string, dynamic>();
+
+            if (cachedRoutine?.Parameters != null)
+            {
+                var outputParmList = (from p in cachedRoutine.Parameters
+                                      where p.IsOutput && !p.IsResult/*IsResult parameters do not have a name so cannot be accessed in loop below*/
+                                      select p).ToList();
+
+
+                // Retrieve OUT-parameters and their values
+                foreach (var outParm in outputParmList)
+                {
+                    object val = null;
+
+                    val = cmd.Parameters[outParm.Name].Value;
+
+                    if (val == DBNull.Value) val = null;
+
+                    outputParameterDictionary.Add(outParm.Name.TrimStart('@'), val);
+                }
+            }
+
+            return outputParameterDictionary;
+        }
+
+        private static void RetrieveConnectionStatistics(SqlConnection con, out long? bytesReceived, out long? networkServerTimeMS)
+        {
+            bytesReceived = networkServerTimeMS = null;
+            var conStats = con.RetrieveStatistics();
+
+            if (conStats != null)
+            {
+                if (conStats.Contains("BytesReceived"))
+                {
+                    bytesReceived = (long)conStats["BytesReceived"];
+                }
+
+                if (conStats.Contains("NetworkServerTime"))
+                {
+                    networkServerTimeMS = (long)conStats["NetworkServerTime"];
+                }
+            }
+        }
+
+
+        private static Dictionary<int, string[]> ProcssSelectInstruction(Dictionary<string, string> inputParameters)
+        {
+            if (!inputParameters.ContainsKey("$select")) return null;
+
+            string limitToFieldsCsv = inputParameters["$select"];
+
+            if (string.IsNullOrEmpty(limitToFieldsCsv)) return null;
+
+            var ret = new Dictionary<int, string[]>();
+
+            var listPerTable = limitToFieldsCsv.Split(new char[] { ';' }/*, StringSplitOptions.RemoveEmptyEntries*/);
+
+            for (int tableIx = 0; tableIx < listPerTable.Length; tableIx++)
+            {
+                var fieldsToKeep = listPerTable[tableIx].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim().ToUpper()).ToArray();
+
+                if (fieldsToKeep.Length > 0)
+                {
+                    ret.Add(tableIx, fieldsToKeep);
+                }
+            }
+
+            return ret;
+
+        }
+
+        public class ReaderResult
+        {
+            public DataField[] Fields { get; set; }
+            public List<object[]> Data { get; set; }
+        }
+
+        private static async Task<Dictionary<string/*Table0..N*/, ReaderResult>> ProcessExecQueryAsync(CancellationToken cancellationToken, SqlCommand cmd, Dictionary<string, string> inputParameters)
+        {
+            var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+            int resultIx = 0;
+            var allResultSets = new Dictionary<string, ReaderResult>();
+
+            var limitToFields = ProcssSelectInstruction(inputParameters);
+
+            do
+            {
+                var readerResult = new ReaderResult();
+
+                allResultSets.Add($"Table{resultIx}", readerResult);
+
+                var fieldTypes = Enumerable.Range(0, reader.FieldCount).Select(reader.GetFieldType).ToArray();
+
+                //?var hasGeoType = fieldTypes.Contains(typeof(SqlGeography)) || fieldTypes.Contains(typeof(SqlGeometry));
+
+                var allFieldNamesUpper = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).Select(n => n.ToUpper()).ToList();
+
+                int fieldCount = reader.FieldCount;
+
+                var fieldMappingIx = new List<int>();
+
+                // if there exists a select list
+                if (limitToFields?.ContainsKey(resultIx) ?? false)
+                {
+                    foreach (var limit in limitToFields[resultIx])
+                    {
+                        var ix = allFieldNamesUpper.IndexOf(limit);
+
+                        if (ix >= 0) fieldMappingIx.Add(ix);
+                    }
+                }
+                else
+                {
+                    // default to ALL available fields
+                    fieldMappingIx = Enumerable.Range(0, reader.FieldCount).ToList();
+                }
+
+                fieldCount = fieldMappingIx.Count;
+
+                readerResult.Fields = Enumerable.Range(0, fieldCount)
+                    .Select(i => new DataField(reader.GetName(fieldMappingIx[i]), ToJqxType(reader.GetFieldType(fieldMappingIx[i]))))
+                    .ToArray();
+
+                readerResult.Data = new List<object[]>();
+
+
+                while (await reader.ReadAsync())
+                {
+                    // TODO: Cannot use GetValues as SqlGeography types currently throw as .NET Core cannot deserialize it properly. If SqlClient adds support review in future for possible perf benefit - fetch all rows at once instead of one by one. Also just consider the a $select instruction comes through (thus only asking for a subset of the columns)
+                    // TODO: We can also possible split it like the below snippet - only take perf hit if we know a geo type is coming up
+                    // if (!hasGeoType)
+                    // {
+                    //     var fullDataRow = new object[reader.FieldCount];// has to be all fields
+
+                    //     // TODO: Handle $select
+                    //     // TODO: What about Bytes?
+
+                    //     reader.GetValues(fullDataRow);
+                    //     readerResult.Data.Add(fullDataRow);
+                    //     continue;
+                    // }
+
+                    var data = new object[fieldCount];
+
+                    for (var dstIx = 0; dstIx < fieldCount; dstIx++)
+                    {
+                        var srcIx = fieldMappingIx[dstIx];
+                        var isDBNull = await reader.IsDBNullAsync(srcIx, cancellationToken);
+
+                        if (isDBNull) continue;
+
+                        if (fieldTypes[srcIx] == typeof(byte[]))
+                        {
+                            var bytes = reader.GetSqlBytes(srcIx).Value;
+                            data[dstIx] = Convert.ToBase64String(bytes);
+                        }
+                        else if (fieldTypes[srcIx] == typeof(SqlGeography))
+                        {
+                            var geometryReader = new NetTopologySuite.IO.SqlServerBytesReader { IsGeography = true };
+                            var bytes = reader.GetSqlBytes(srcIx).Value;
+                            var geometry = geometryReader.Read(bytes);
+
+                            var point = geometry as NetTopologySuite.Geometries.Point;
+
+                            if (point != null)
+                            {
+                                data[dstIx] = new { lat = point.Y, lng = point.X };
+                            }
+                            else
+                            {
+                                data[dstIx] = geometry.ToString();
+                            }
+                        }
+                        else
+                        {
+                            //var x = reader.GetProviderSpecificValue(colIx);
+                            data[dstIx] = reader.GetValue(srcIx);
+                        }
+
+                    } // for each column
+
+                    readerResult.Data.Add(data);
+                }
+
+                resultIx++;
+            }
+            while (await reader.NextResultAsync());
+
+            return allResultSets;
+        }
         private static PluginSetParameterValue GetParameterValueFromPlugins(CachedRoutine routine, string parameterName, List<ExecutionPlugin> plugins)
         {
             foreach (var plugin in plugins)
@@ -623,7 +805,18 @@ namespace jsdal_server_core
                                 srid = (int)obj.srid;
                             }
 
-                            return SqlGeography.Point((double)obj.lat, (double)obj.lng, srid);
+                            // Use NetTopologySuite until MS adds support for Geography/Geometry in dotcore sql client
+                            // See https://github.com/dotnet/SqlClient/issues/30
+
+
+                            var geometry = new NetTopologySuite.Geometries.Point((double)obj.lng, (double)obj.lat) { SRID = srid };
+
+                            var geometryWriter = new NetTopologySuite.IO.SqlServerBytesWriter { IsGeography = true };
+                            var bytes = geometryWriter.Write(geometry);
+
+                            return new System.Data.SqlTypes.SqlBytes(bytes);
+
+                            //return SqlGeography.Point((double)obj.lat, (double)obj.lng, srid);
                         }
 
                         return value;

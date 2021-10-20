@@ -61,12 +61,9 @@ namespace jsdal_server_core
         {
             base.Shutdown();
 
-            if (_database != null)
-            {
-                _database.Checkpoint();
-                _database.Dispose();
-                _database = null;
-            }
+            _database?.Checkpoint();
+            _database?.Dispose();
+            _database = null;
         }
 
         protected override void ProcessQueueEntries(List<ExceptionWrapper> entryCollection)
@@ -133,45 +130,67 @@ namespace jsdal_server_core
             // look at last (n) exceptions for an exact match
             if (parent == null)
             {
-                parent = exceptionCollection
-                                .Query()
-                                .OrderByDescending(e => e.Id)
-                                .Limit(5)
-                                .ToEnumerable()
-                                .Where(e => e.EndpointKey == ew.EndpointKey)
-                                .Where(e => (e.server == null && ew.server == null) || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
-                                .Where(e => (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase)))
-                                .Where(e => (e.innerException == null && ew.innerException == null) || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
-                                .Where(e => e.created >= DateTime.Now.AddDays(-1)/*limit to last 24 hours*/)
-                                .FirstOrDefault();
+                try
+                {
+
+                    parent = exceptionCollection
+                                    .Query()
+                                    .OrderByDescending(e => e.Id)
+                                    .Limit(5)
+                                    .ToEnumerable()
+                                    .Where(e => e.EndpointKey == ew.EndpointKey)
+                                    .Where(e => (e.server == null && ew.server == null) || (e.server?.Equals(ew.server, StringComparison.OrdinalIgnoreCase) ?? false))
+                                    .Where(e => (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase)))
+                                    .Where(e => (e.innerException == null && ew.innerException == null) || (e.innerException?.message.Equals(ew.innerException?.message, StringComparison.OrdinalIgnoreCase) ?? false))
+                                    .Where(e => e.created >= DateTime.Now.AddDays(-1)/*limit to last 24 hours*/)
+                                    .FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    // TODO: Consider logging to SessionLog
+                }
             }
 
             // look for recent similiar entry, if found just tag it onto that rather than logging a new main entry
             if (parent == null)
             {
                 DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
+                try
+                {
 
-                parent = exceptionCollection.Find(e => e.EndpointKey == ew.EndpointKey
-                                     && (e.created >= thresholdDate)
-                                     && (e.server != null && e.server.Equals(ew.server, StringComparison.OrdinalIgnoreCase))
-                                     && (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
-                )
-                .OrderByDescending(e => e.Id)
-                .FirstOrDefault();
+                    parent = exceptionCollection.Find(e => e.EndpointKey == ew.EndpointKey
+                                         && (e.created >= thresholdDate)
+                                         && (e.server != null && e.server.Equals(ew.server, StringComparison.OrdinalIgnoreCase))
+                                         && (e.message != null && e.message.Equals(ew.message, StringComparison.OrdinalIgnoreCase))
+                    )
+                    .OrderByDescending(e => e.Id)
+                    .FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    // TODO: Consider logging to SessionLog
+                }
             }
 
             // group recent timeouts (to the same server) together under common parent as a bunch of timeouts tend to occur shortly after each other
             if (parent == null && ew.sqlErrorType.HasValue && ew.sqlErrorType.Value == SqlErrorType.Timeout)
             {
                 DateTime thresholdDate = DateTime.Now.AddMinutes(-2.0); // look for last 2mins
+                try
+                {
 
-                parent = exceptionCollection.Find(e => e.EndpointKey == ew.EndpointKey
-                                    && (e.created >= thresholdDate)
-                                    && (e.server != null && e.server.Equals(ew.server, StringComparison.OrdinalIgnoreCase))
-                                    && (e.sqlErrorType.HasValue && e.sqlErrorType.Value == SqlErrorType.Timeout)
-                )
-                .OrderByDescending(e => e.Id)
-                .FirstOrDefault();
+                    parent = exceptionCollection.Find(e => e.EndpointKey == ew.EndpointKey
+                                        && (e.created >= thresholdDate)
+                                        && (e.server != null && e.server.Equals(ew.server, StringComparison.OrdinalIgnoreCase))
+                                        && (e.sqlErrorType.HasValue && e.sqlErrorType.Value == SqlErrorType.Timeout)
+                    )
+                    .OrderByDescending(e => e.Id)
+                    .FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    // TODO: Consider logging to SessionLog
+                }
 
             }
 
@@ -314,7 +333,14 @@ namespace jsdal_server_core
         {
             get
             {
-                return Instance._database.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.EndpointKey).Distinct().OrderBy(k => k).ToList();
+                try
+                {
+                    return Instance?._database?.GetCollection<ExceptionWrapper>("Exceptions").FindAll().Select(e => e.EndpointKey).Distinct().OrderBy(k => k).ToList();
+                }
+                catch (Exception ex)
+                {
+                    return null;
+                }
             }
         }
 

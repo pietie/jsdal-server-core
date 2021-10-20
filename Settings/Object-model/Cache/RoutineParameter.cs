@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using Newtonsoft.Json;
 using System.Xml.Serialization;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -27,6 +27,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int Scale { get; set; }
 
         [XmlAttribute("Type")]
+        [JsonConverter(typeof(InternedStringConverter))]
         public string SqlDataType { get; set; }
 
         [XmlAttribute("DefVal")]
@@ -39,7 +40,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         //private string _userType;
 
         [XmlElement("UserType")]
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public string UserType
         {
             //?get { return _userType; }
@@ -60,7 +61,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
 
         [XmlIgnore]
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public bool HasDefault
         {
             get { return this.DefaultValue != null; }
@@ -78,68 +79,69 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
             var dt = elems[elems.Length - 1];
+
             switch (dt)
             {
-                case "table type":
-                    return "Object";
-                case "time":
-                    return "Date";
-                case "date":
-                    return "Date";
-                case "datetime":
-                    return "Date";
-                case "smalldatetime":
-                    return "Date";
-                case "int":
-                    return "number";
-                case "smallint":
-                    return "number";
-                case "bigint":
-                    return "number";
-                case "real":
-                    return "number";
-                case "bit":
-                    return "boolean";
-                case "nvarchar":
-                    return "string";
-                case "varchar":
-                    return "string";
-                case "text":
-                    return "string";
-                case "ntext":
-                    return "string";
-                case "varbinary":
-                    return "Blob"; // TODO: Not sure about this one...worst case, make it a string
-                case "decimal":
-                    return "number";
-                case "uniqueidentifier":
-                    return "string";
-                case "money":
-                    return "number";
-                case "char":
-                    return "string";
-                case "nchar":
-                    return "string";
-                case "xml":
-                    return "string";
-                case "float":
-                    return "number";
-                case "image":
-                    return "Blob"; // TODO: Not sure about this one...worst case, make it a string
-                case "tinyint":
-                    return "number";
-                case "geography":
-                    return "jsDAL.LatLng";
-                case "sql_variant":
-                    return "string";
-                case "timestamp":
-                    return "string";
-                case "binary":
-                    return "Blob";  // TODO: Not sure about this one...worst case, make it a string                
-                case "numeric":
-                    return "number";
-                case "sysname":
-                    return "any";
+                case Strings.SQL.TABLE_TYPE:
+                    return Strings.TS.OBJECT;
+                case Strings.SQL.TIME:
+                    return Strings.TS.DATE;
+                case Strings.SQL.DATE:
+                    return Strings.TS.DATE;
+                case Strings.SQL.DATETIME:
+                    return Strings.TS.DATE;
+                case Strings.SQL.SMALLDATETIME:
+                    return Strings.TS.DATE;
+                case Strings.SQL.INT:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.SMALLINT:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.BIGINT:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.REAL:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.BIT:
+                    return Strings.TS.BOOLEAN;
+                case Strings.SQL.NVARCHAR:
+                    return Strings.TS.STRING;
+                case Strings.SQL.VARCHAR:
+                    return Strings.TS.STRING;
+                case Strings.SQL.TEXT:
+                    return Strings.TS.STRING;
+                case Strings.SQL.NTEXT:
+                    return Strings.TS.STRING;
+                case Strings.SQL.VARBINARY:
+                    return Strings.TS.BLOB; // TODO: Not sure about this one...worst case, make it a string
+                case Strings.SQL.DECIMAL:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.UNIQUEIDENTIFIER:
+                    return Strings.TS.STRING;
+                case Strings.SQL.MONEY:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.CHAR:
+                    return Strings.TS.STRING;
+                case Strings.SQL.NCHAR:
+                    return Strings.TS.STRING;
+                case Strings.SQL.XML:
+                    return Strings.TS.STRING;
+                case Strings.SQL.FLOAT:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.IMAGE:
+                    return Strings.TS.BLOB; // TODO: Not sure about this one...worst case, make it a string
+                case Strings.SQL.TINYINT:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.GEOGRAPHY:
+                    return Strings.TS.jsDAL_LatLng;
+                case Strings.SQL.SQL_VARIANT:
+                    return Strings.TS.STRING;
+                case Strings.SQL.TIMESTAMP:
+                    return Strings.TS.STRING;
+                case Strings.SQL.BINARY:
+                    return Strings.TS.BLOB; // TODO: Not sure about this one...worst case, make it a string
+                case Strings.SQL.NUMERIC:
+                    return Strings.TS.NUMBER;
+                case Strings.SQL.SYSNAME:
+                    return Strings.TS.ANY;
                 default:
                     {
                         if (customType != null && customType.Keys.Count > 0)
@@ -189,141 +191,140 @@ namespace jsdal_server_core.Settings.ObjectModel
             var dt = elems[elems.Length - 1];
             switch (dt)
             {
-                case "table type":
-                    return typeof(object).FullName;
-                case "time":
-                    return typeof(DateTime).FullName;
-                case "date":
-                    return typeof(DateTime).FullName;
-                case "datetime":
-                    return typeof(DateTime).FullName;
-                case "smalldatetime":
-                    return typeof(DateTime).FullName;
-                case "int":
-                    return typeof(int).FullName;
-                case "smallint":
-                    return typeof(int).FullName;
-                case "bigint":
-                    return typeof(long).FullName;
-                case "bit":
-                    return typeof(bool).FullName;
-                case "nvarchar":
-                    return typeof(string).FullName;
-                case "varchar":
-                    return typeof(string).FullName;
-                case "text":
-                    return typeof(string).FullName;
-                case "ntext":
-                    return typeof(string).FullName;
-                case "varbinary":
-                    return typeof(string).FullName;
-                case "decimal":
-                    return typeof(decimal).FullName;
-                case "uniqueidentifier":
-                    return typeof(Guid).FullName;
-                case "money":
-                    return typeof(double).FullName;
-                case "char":
-                    return typeof(string).FullName;
-                case "nchar":
-                    return typeof(string).FullName;
-                case "xml":
-                    return "XmlString";
-                case "float":
-                    return typeof(double).FullName;
-                case "image":
-                    return typeof(byte[]).FullName;
-                case "tinyint":
-                    return typeof(int).FullName;
-                case "geography":
-                    return typeof(object).FullName;
-                case "sql_variant":
-                    return typeof(string).FullName;
-                case "timestamp":
-                    return typeof(string).FullName;
-                case "numeric":
-                    return typeof(decimal).FullName;
+                case Strings.SQL.TABLE_TYPE:
+                    return Strings.DotNetTypes.Object;
+                case Strings.SQL.TIME:
+                    return Strings.DotNetTypes.DateTime;
+                case Strings.SQL.DATE:
+                    return Strings.DotNetTypes.DateTime;
+                case Strings.SQL.DATETIME:
+                    return Strings.DotNetTypes.DateTime;
+                case Strings.SQL.SMALLDATETIME:
+                    return Strings.DotNetTypes.DateTime;
+                case Strings.SQL.INT:
+                    return Strings.DotNetTypes.Int32;
+                case Strings.SQL.SMALLINT:
+                    return Strings.DotNetTypes.Int32;
+                case Strings.SQL.BIGINT:
+                    return Strings.DotNetTypes.Int64;
+                case Strings.SQL.BIT:
+                    return Strings.DotNetTypes.Boolean;
+                case Strings.SQL.NVARCHAR:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.VARCHAR:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.TEXT:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.NTEXT:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.VARBINARY:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.DECIMAL:
+                    return Strings.DotNetTypes.Decimal;
+                case Strings.SQL.UNIQUEIDENTIFIER:
+                    return Strings.DotNetTypes.Guid;
+                case Strings.SQL.MONEY:
+                    return Strings.DotNetTypes.Double;
+                case Strings.SQL.CHAR:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.NCHAR:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.XML:
+                    return Strings.DotNetTypes.XmlString;
+                case Strings.SQL.FLOAT:
+                    return Strings.DotNetTypes.Double;
+                case Strings.SQL.IMAGE:
+                    return Strings.DotNetTypes.ByteArray;
+                case Strings.SQL.TINYINT:
+                    return Strings.DotNetTypes.Int32;
+                case Strings.SQL.GEOGRAPHY:
+                    return Strings.DotNetTypes.Object;
+                case Strings.SQL.SQL_VARIANT:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.TIMESTAMP:
+                    return Strings.DotNetTypes.String;
+                case Strings.SQL.NUMERIC:
+                    return Strings.DotNetTypes.Decimal;
                 default:
-
                     throw new Exception("GetDataTypeForCSharp::Unsupported data type: " + sqlDataType);
             }
         }
 
-        public static string GetDataTypeForJavaScriptComment(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType)
-        {
-            var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
-            var dt = elems[elems.Length - 1];
-            switch (dt)
-            {
-                case "table type":
-                    return "TableType";
-                case "time":
-                    return "Date";
-                case "date":
-                    return "DateTime";
-                case "datetime":
-                    return "DateTime";
-                case "smalldatetime":
-                    return "DateTime";
-                case "int":
-                    return "int";
-                case "smallint":
-                    return "int";
-                case "bigint":
-                    return "long";
-                case "bit":
-                    return "bool";
-                case "nvarchar":
-                    return "string";
-                case "varchar":
-                    return "string";
-                case "text":
-                    return "string";
-                case "ntext":
-                    return "string";
-                case "varbinary":
-                    return "varbinary";
-                case "binary":
-                    return "binary";
-                case "decimal":
-                    return "float";
-                case "uniqueidentifier":
-                    return "Guid";
-                case "money":
-                    return "float";
-                case "char":
-                    return "string";
-                case "nchar":
-                    return "string";
-                case "xml":
-                    return "XmlString";
-                case "float":
-                    return "float";
-                case "image":
-                    return "byteArray";
-                case "tinyint":
-                    return "int";
-                case "geography":
-                    return "geography";
-                case "sql_variant":
-                    return "string";
-                case "timestamp":
-                    return "string";
-                case "sysname":
-                    return "string";
-                default:
-                    {
-                        if (customType != null)
-                        {
-                            var key = customType.Keys.FirstOrDefault();
+        // public static string GetDataTypeForJavaScriptComment(string sqlType, Dictionary<string, Dictionary<string, RoutineParameterCustomType>> customType)
+        // {
+        //     var elems = sqlType.ToLower().Split('.'); // types like geography could come through as sys.CATALOG.geography
+        //     var dt = elems[elems.Length - 1];
+        //     switch (dt)
+        //     {
+        //         case "table type":
+        //             return "TableType";
+        //         case "time":
+        //             return "Date";
+        //         case "date":
+        //             return "DateTime";
+        //         case "datetime":
+        //             return "DateTime";
+        //         case "smalldatetime":
+        //             return "DateTime";
+        //         case "int":
+        //             return "int";
+        //         case "smallint":
+        //             return "int";
+        //         case "bigint":
+        //             return "long";
+        //         case "bit":
+        //             return "bool";
+        //         case "nvarchar":
+        //             return "string";
+        //         case "varchar":
+        //             return "string";
+        //         case "text":
+        //             return "string";
+        //         case "ntext":
+        //             return "string";
+        //         case "varbinary":
+        //             return "varbinary";
+        //         case "binary":
+        //             return "binary";
+        //         case "decimal":
+        //             return "float";
+        //         case "uniqueidentifier":
+        //             return "Guid";
+        //         case "money":
+        //             return "float";
+        //         case "char":
+        //             return "string";
+        //         case "nchar":
+        //             return "string";
+        //         case "xml":
+        //             return "XmlString";
+        //         case "float":
+        //             return "float";
+        //         case "image":
+        //             return "byteArray";
+        //         case "tinyint":
+        //             return "int";
+        //         case "geography":
+        //             return "geography";
+        //         case "sql_variant":
+        //             return "string";
+        //         case "timestamp":
+        //             return "string";
+        //         case "sysname":
+        //             return "string";
+        //         default:
+        //             {
+        //                 if (customType != null)
+        //                 {
+        //                     var key = customType.Keys.FirstOrDefault();
 
-                            if (key != null) return key;
-                        }
+        //                     if (key != null) return key;
+        //                 }
 
-                        throw new Exception("getDataTypeForJavaScriptComment::Unsupported data type: " + sqlType);
-                    }
-            }
-        }
+        //                 throw new Exception("getDataTypeForJavaScriptComment::Unsupported data type: " + sqlType);
+        //             }
+        //     }
+        // }
     }
 
     [Serializable]

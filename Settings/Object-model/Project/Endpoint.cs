@@ -1,11 +1,9 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 using System.IO;
 using shortid;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 using jsdal_server_core.Changes;
 using System.Text;
 using jsdal_server_core.PluginManagement;
@@ -33,13 +31,13 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         public string PullMetadataFromEndpointId { get; set; }
 
-        [JsonIgnore] private List<CachedRoutine> CachedRoutineList;
+        [Newtonsoft.Json.JsonIgnore] private List<CachedRoutine> CachedRoutineList;
 
-        [JsonIgnore] public Application Application { get; private set; }
+        [Newtonsoft.Json.JsonIgnore] public Application Application { get; private set; }
 
         public bool CaptureConnectionStats = true; // TODO: Default false? Provide way to turon on/off 
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public ConcurrentDictionary<string, string> CustomTypeLookupWithTypeScriptDef
         {
             get; private set;
@@ -348,7 +346,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
             else
             {
-                this.LoadCache();
+                await this.LoadCacheAsync();
             }
 
             if (this.ExecutionConnection != null)
@@ -366,7 +364,7 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         private TaskCompletionSource<List<CachedRoutine>> _cachedRoutinesPromise = new TaskCompletionSource<List<CachedRoutine>>();
 
-        public void LoadCache()
+        public async Task LoadCacheAsync()
         {
             try
             {
@@ -377,9 +375,12 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 this.CachedRoutineList = new List<CachedRoutine>();
 
-                var data = File.ReadAllText(cacheFilePath, System.Text.Encoding.UTF8);
+                var data = await File.ReadAllTextAsync(cacheFilePath, System.Text.Encoding.UTF8);
 
-                var allCacheEntries = JsonConvert.DeserializeObject<List<CachedRoutine>>(data/*, new BoolJsonConverter()*/);
+                var allCacheEntries = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CachedRoutine>>(data/*, new BoolJsonConverter()*/);
+
+                //var options = new System.Text.Json.JsonSerializerOptions() { IncludeFields = true/*, Converters = { new InternedStringConverter() }*/ };
+                //var allCacheEntries = System.Text.Json.JsonSerializer.Deserialize<List<CachedRoutine>>(data, options);
 
                 this.CachedRoutineList = allCacheEntries;
 
@@ -404,11 +405,11 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        [JsonIgnore]
-        public object _cacheLock = new object();
-        public void SaveCache()
+        //[Newtonsoft.Json.JsonIgnore]
+       // public object _cacheLock = new object();
+        public async Task SaveCacheAsync()
         {
-            lock (_cacheLock)
+            //lock (_cacheLock)
             {
                 string cachePath = "./cache";
 
@@ -425,13 +426,13 @@ namespace jsdal_server_core.Settings.ObjectModel
                 }
 
                 var cacheFilePath = Path.Combine(cachePath, this.CacheFilename);
-                var json = JsonConvert.SerializeObject(this.CachedRoutineList);
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(this.CachedRoutineList);
 
-                File.WriteAllText(cacheFilePath, json, System.Text.Encoding.UTF8);
+                await File.WriteAllTextAsync(cacheFilePath, json, System.Text.Encoding.UTF8);
             }
         }
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public List<CachedRoutine> CachedRoutines { get { return this.CachedRoutineList; } }
 
         public bool ClearCache()
@@ -472,7 +473,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             return this.ExecutionConnection;
         }
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public string OutputDir
         {
             get
@@ -517,7 +518,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             };
         }
 
-        [JsonIgnore]
+        [Newtonsoft.Json.JsonIgnore]
         public string Pedigree
         {
             get
@@ -683,13 +684,30 @@ namespace jsdal_server_core.Settings.ObjectModel
 
     }
 
-    public class BoolJsonConverter : JsonConverter
+    public class InternedStringConverter : System.Text.Json.Serialization.JsonConverter<string>
+    {
+        public override string Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        {
+            var s = reader.GetString();
+
+            if (s != null) return string.Intern(s);
+            else return null;
+        }
+
+        public override void Write(System.Text.Json.Utf8JsonWriter writer, string value, System.Text.Json.JsonSerializerOptions options)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+    public class BoolJsonConverter : Newtonsoft.Json.JsonConverter
     {
         public BoolJsonConverter()
         {
         }
 
-        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        public override void WriteJson(Newtonsoft.Json.JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer)
         {
             throw new NotImplementedException("!!");
             // JToken t = JToken.FromObject(value);
@@ -709,7 +727,7 @@ namespace jsdal_server_core.Settings.ObjectModel
             // }
         }
 
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        public override object ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, object existingValue, Newtonsoft.Json.JsonSerializer serializer)
         {
             if (objectType == typeof(bool)) { return (bool)existingValue; }
             else if (objectType == typeof(string))

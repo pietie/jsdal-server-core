@@ -131,7 +131,7 @@ namespace jsdal_server_core.Controllers
                                 o = Type.Missing;
                             }
                         }
-                        else if (p.Value == null || p.Value.Equals("null", StringComparison.Ordinal))
+                        else if (p.Value == null || p.Value.Equals(Strings.@null, StringComparison.Ordinal))
                         {
                             // if null was passed it's null
                             o = null;
