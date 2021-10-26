@@ -34,13 +34,18 @@ namespace jsdal_server_core
 
             try
             {
-                MetadataReference[] all = { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                var all = new List<MetadataReference> { MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Linq.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Core.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Runtime.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Collections.dll")),
                                         MetadataReference.CreateFromFile(Path.Combine(assemblyBasePath, "System.Data.dll")),
+                                        MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(System.ComponentModel.TypeConverter).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(IServiceProvider).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(System.Xml.XmlReader).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(System.Xml.XmlElement).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(System.Data.Common.DbConnection).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(Microsoft.Data.SqlClient.SqlConnection).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.IActionResult).Assembly.Location),
@@ -50,7 +55,17 @@ namespace jsdal_server_core
                                         Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
             };
 
-                return all;
+                {
+                    var xmlReaderWriter = Assembly.Load("System.Xml.ReaderWriter");
+
+                    if (xmlReaderWriter != null)
+                    {
+                        all.Add(MetadataReference.CreateFromFile(xmlReaderWriter.Location));
+                    }
+
+                }
+
+                return all.ToArray();
             }
             catch (Exception ex)
             {
