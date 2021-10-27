@@ -287,6 +287,7 @@ namespace jsdal_server_core.PluginManagement
 
             this._endpointInstances.Clear();
         }
+
     }
 
  

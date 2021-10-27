@@ -30,6 +30,8 @@ namespace jsdal_server_core.PluginManagement
         {
             try
             {
+                if (pluginInfo.Type != PluginType.BackgroundThread) throw new ArgumentException("Plugin must be a BackgroundThread type", nameof(pluginInfo));
+
                 var existing = _registrations.FirstOrDefault(r => r.PluginGuid.Equals(pluginInfo.Guid.ToString(), StringComparison.OrdinalIgnoreCase));
 
                 if (existing == null)
@@ -69,10 +71,22 @@ namespace jsdal_server_core.PluginManagement
 
             app.Endpoints.ForEach(ep => reg.KillInstance(ep));
 
-
             var list = Hubs.BackgroundPluginHub.BgPluginsList();
 
             _hubContext.Clients.Group(Hubs.BackgroundPluginHub.ADMIN_GROUP_NAME).SendAsync("updateList", list);
+        }
+
+        // called when an inline assembly is updated
+        public void StopAll(List<PluginInfo> pluginList)
+        {
+            var guidsToStop = pluginList.Select(p => p.Guid.ToString().ToUpper()).ToList();
+            var allRegistrations = _registrations.Where(reg => guidsToStop.Contains(reg.PluginGuid.ToString().ToUpper())).ToList();
+
+            allRegistrations.ForEach(reg =>
+            {
+                reg.Shutdown();
+                _registrations.Remove(reg);
+            });
         }
 
         public void Shutdown()

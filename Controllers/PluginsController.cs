@@ -55,9 +55,11 @@ namespace jsdal_server_core.Controllers
                     if (string.IsNullOrWhiteSpace(code)) code = null;
                 }
 
-                var assembly = CSharpCompilerHelper.CompileIntoAssembly(name, code, out var codeProblems);
 
-                if (codeProblems.Count == 0)
+                // TODO: We need to a PARSE Code only option!
+                var assemblyBytes = CSharpCompilerHelper.CompileIntoAssembly(name, code, out var codeProblems);
+
+                if (codeProblems?.Count == 0)
                 {
                     InlineModuleManifestEntry existingEntry = null;
 
@@ -71,8 +73,7 @@ namespace jsdal_server_core.Controllers
                             return ApiResponse.ExclamationModal($"Inline module with id {id} not found");
                         }
 
-                        PluginLoader.Instance.LoadOrUpdateInlineAssembly(existingEntry.Id, assembly, out codeProblems);
-
+                        PluginLoader.Instance.LoadOrUpdateInlineAssembly(existingEntry, code, out codeProblems);
                     }
                 }
                 else
@@ -80,7 +81,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.Payload(new { id = id, CompilationError = codeProblems });
                 }
 
-                if (codeProblems.Count == 0/* || saveAnyway*/)
+                if ((codeProblems?.Count ?? 0) == 0/* || saveAnyway*/)
                 {
                     InlineModuleManifest.Instance.AddUpdateSource(id, name, description, code);
                 }
@@ -113,6 +114,41 @@ namespace jsdal_server_core.Controllers
                 {
                     return ApiResponse.ExclamationModal(ret.userErrorVal);
                 }
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse.Exception(ex);
+            }
+        }
+
+        [HttpGet("/inline-assemblies")]
+        public ApiResponse GetInlineAssemblies()
+        {
+            try
+            {
+                var apps = SettingsInstance.Instance.ProjectList.SelectMany(p => p.Applications);
+
+                var q = from asm in PluginLoader.Instance.PluginAssemblies
+                        where asm.IsInline == true
+                        select new
+                        {
+                            asm.InstanceId,
+                            asm.InlineEntryId,
+                            asm.Assembly.FullName,
+                            asm.Assembly.GetName().Name,
+                            Plugins = (from p in asm.Plugins
+                                       select new
+                                       {
+                                           p.Name,
+                                           p.Description,
+                                           p.Guid,
+                                           Type = p.Type.ToString(),
+                                           EnabledOnAppsCnt = apps.Where(a => a.IsPluginIncluded(p.Guid.ToString())).Count(),
+                                           EnabledOnApps = string.Join("\r\n", (from app in apps where app.IsPluginIncluded(p.Guid.ToString()) select $"{app.Project.Name}/{app.Name}").OrderBy(n => n))
+                                       })
+                        };
+
+                return ApiResponse.Payload(q);
             }
             catch (Exception ex)
             {

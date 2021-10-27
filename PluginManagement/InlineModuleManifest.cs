@@ -32,11 +32,6 @@ namespace jsdal_server_core
 
         public void Init()
         {
-            this.Load();
-        }
-
-        private void Load()
-        {
             try
             {
                 if (File.Exists(InlinePluginManifestPath))
@@ -70,7 +65,7 @@ namespace jsdal_server_core
             }
         }
 
-        private object _saveLock = new object();
+         private object _saveLock = new object();
         private void Save()
         {
             lock (_saveLock)

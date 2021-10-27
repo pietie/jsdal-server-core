@@ -14,7 +14,7 @@ using jsdal_server_core.Settings.ObjectModel.Plugins;
 using Microsoft.CodeAnalysis.Emit;
 using System.Reflection;
 using Serilog;
-
+using System.Runtime.Loader;
 
 namespace jsdal_server_core
 {
@@ -109,7 +109,7 @@ namespace jsdal_server_core
         //     return (isValid, problems, parsedPluginCollection);
         // }
 
-        public static Assembly CompileIntoAssembly(string assemblyName, string source, out List<string> problems)
+        public static byte[] CompileIntoAssembly(string assemblyName, string source, out List<string> problems)
         {
             problems = new List<string>();
 
@@ -177,9 +177,14 @@ namespace jsdal_server_core
                     {
                         ms.Seek(0, SeekOrigin.Begin);
 
-                        Assembly assembly = Assembly.Load(ms.ToArray());
+                        //?AssemblyLoadContext.Default.LoadFromStream  
 
-                        return assembly;
+                        
+
+                        //Assembly assembly = Assembly.Load(ms.ToArray());
+
+                        //?var assembly = asmCtx.LoadFromStream(ms);
+                        return ms.ToArray();
                         //ParseAndLoadPluginAssembly(assembly);
                     }
                 }

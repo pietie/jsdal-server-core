@@ -272,7 +272,11 @@ namespace jsdal_server_core.Controllers
                             Name = asm.Assembly.GetName().Name,
                             IsValid = true, //TODO: Still relevant?
                             asm.IsInline,
-                            Plugins = asm.Plugins.Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod).Select(p => new { p.Name, p.Description })
+                            Plugins = asm.Plugins
+                             // .Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod)
+                            // dont have anywhere else to display other INLINE plugins
+                            .Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod || asm.IsInline)
+                            .Select(p => new { p.Name, p.Description })
                         };
 
                 return ApiResponse.Payload(q.Where(mod => mod.Plugins != null && mod.Plugins.Count() > 0));

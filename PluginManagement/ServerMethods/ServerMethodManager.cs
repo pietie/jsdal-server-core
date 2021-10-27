@@ -90,8 +90,6 @@ namespace jsdal_server_core.PluginManagement
             {
                 if (GlobalRegistrations.ContainsKey(pluginAssemblyInstanceId))
                 {
-                    ///GlobalConverterLookup.
-
                     GlobalRegistrations[pluginAssemblyInstanceId].Clear();
                 }
                 else
