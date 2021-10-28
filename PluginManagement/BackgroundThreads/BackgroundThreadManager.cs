@@ -13,10 +13,11 @@ namespace jsdal_server_core.PluginManagement
     public class BackgroundThreadPluginManager
     {
         private readonly IHubContext<Hubs.BackgroundPluginHub> _hubContext;
+
         private readonly List<BackgroundThreadPluginRegistration> _registrations;
 
         public BackgroundThreadPluginManager(IHubContext<Hubs.BackgroundPluginHub> ctx)
-        {
+        {          
             _hubContext = ctx;
             _registrations = new List<BackgroundThreadPluginRegistration>();
             this.Registrations = _registrations.AsReadOnly();

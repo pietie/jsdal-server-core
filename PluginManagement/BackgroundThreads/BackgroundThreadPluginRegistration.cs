@@ -49,6 +49,7 @@ namespace jsdal_server_core.PluginManagement
         {
             IHubClients hubClients = hub.Clients;
 
+
             // TODO: Need to look at EP Creation Event and EP stopped & deleted event. 
 
             var apps = Settings.SettingsInstance.Instance
@@ -89,6 +90,7 @@ namespace jsdal_server_core.PluginManagement
 
                     var pluginInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName);
                     var initMethod = typeof(BackgroundThreadPlugin).GetMethod("Init", BindingFlags.Instance | BindingFlags.NonPublic);
+              //      var initMethod = typeof(BackgroundThreadPlugin).GetMethod("Init", BindingFlags.Instance | BindingFlags.NonPublic);
 
                     if (initMethod != null)
                     {
@@ -108,7 +110,6 @@ namespace jsdal_server_core.PluginManagement
 
                             }, additionalInfo, $"BG PLUGIN - {this.PluginName}", endpoint.Pedigree);
                         });
-
 
                         var openSqlConnectionCallback = new Func<SqlConnection>(() =>
                         {
@@ -145,7 +146,6 @@ namespace jsdal_server_core.PluginManagement
 
                             return true;
                         });
-
 
                         var browserConsoleSendCallback = new Func<string, string, bool>((method, line) =>
                         {
@@ -295,7 +295,7 @@ namespace jsdal_server_core.PluginManagement
     {
         public string Id { get; private set; }
 
-        public BackgroundThreadPlugin Plugin { get; private set; }
+        public BackgroundThreadPlugin   Plugin { get; private set; }
         public Endpoint Endpoint { get; private set; }
         public BackgroundThreadPluginInstance(Endpoint endpoint, BackgroundThreadPlugin pluginInstance)
         {

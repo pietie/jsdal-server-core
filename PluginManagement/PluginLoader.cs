@@ -81,7 +81,7 @@ namespace jsdal_server_core
                             var ctxName = $"Plugin Context {++_asmCtxCounter}";
                             var asmCtx = new PluginAssemblyLoadContext(pluginPath, ctxName, true/*enable unloading*/);
                             ASM_CTXES.Add(asmCtx);
-                            SessionLog.Info($"Created {ctxName} for {dllPath}");
+                            SessionLog.Info($"Created {ctxName} for {dllPath}".PadRight(35));
 
 
                             var dllFullPath = Path.GetFullPath(dllPath);
@@ -151,7 +151,7 @@ namespace jsdal_server_core
 
             ASM_CTXES.Add(asmCtx);
 
-            SessionLog.Info($"Created {ctxName} for {inlineEntry.Name}");
+            SessionLog.Info($"Created {ctxName} for {inlineEntry.Name}".PadRight(35));
 
             var assemblyBytes = CSharpCompilerHelper.CompileIntoAssembly(inlineEntry.Name, code, out var problems);
 

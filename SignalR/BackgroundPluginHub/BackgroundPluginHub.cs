@@ -11,14 +11,26 @@ using Serilog;
 
 namespace jsdal_server_core.Hubs
 {
-    public class BackgroundPluginHub : Hub
+    // public interface IBackgroundPluginHub
+    // {
+    //     Task JoinBrowserDebugGroup();
+    //     string JoinGroup(string projectName, string appName, string endpointName, string pluginGuid, string groupName);
+    //     object InvokePluginMethod(Guid pluginGuid, string endpoint, string methodName, Dictionary<string, string> inputParameters);
+    // }
+    public class BackgroundPluginHub : Hub//<IBackgroundPluginHub>
     {
         public static readonly string ADMIN_GROUP_NAME = "BackgroundPluginHub.Admin";
         public static readonly string BROWSER_CONSOLE_GROUP_NAME = "Browser.Console";
 
+        private static readonly System.Reflection.MethodInfo PluginOnDisconnectedFromHubMethod;
+
+        static BackgroundPluginHub()
+        {
+            PluginOnDisconnectedFromHubMethod = typeof(jsdal_plugin.BackgroundThreadPlugin).GetMethod("OnDisconnectedFromHub", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        }
+
         public BackgroundPluginHub()
         {
-
         }
 
         public override Task OnConnectedAsync()
@@ -28,6 +40,32 @@ namespace jsdal_server_core.Hubs
 
         public override Task OnDisconnectedAsync(Exception exception)
         {
+            try
+            {
+                // we don't know which instances care, so let all running instances know
+                var pluginInstances = BackgroundThreadPluginManager.Instance.Registrations
+                              .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
+                              .ToList();
+
+                Parallel.ForEach(pluginInstances, pi =>
+                {
+                    try
+                    {
+                        PluginOnDisconnectedFromHubMethod?.Invoke(pi.Instance.Plugin, new object[] { Context.ConnectionId, exception });
+                    }
+                    catch (System.Exception ee)
+                    {
+                        ExceptionLogger.LogExceptionThrottled(ee, $"BackgroundPluginHub::OnDisconnectedAsync - failed to invoke Plugin's OnDisconnected method. ${pi.Reg.PluginName} (${pi.Reg.PluginGuid})", 5);
+                    }
+                });
+
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.LogExceptionThrottled(ex, "BackgroundPluginHub::OnDisconnectedAsync", 5);
+            }
+
+
             return base.OnDisconnectedAsync(exception);
         }
 
@@ -48,10 +86,17 @@ namespace jsdal_server_core.Hubs
 
             //this.Clients.Group(hubGroupName).SendAsync("update", DateTime.Now);
 
-            
 
             this.Groups.AddToGroupAsync(this.Context.ConnectionId, hubGroupName);
             // TODO: Research if closed connections are auto removed from groups
+
+            // look for relevant Plugin instances
+            // var pluginInstances = BackgroundThreadPluginManager.Instance.Registrations
+            //                   .SelectMany(reg => reg.GetLoadedInstances(), (reg, inst) => new { Reg = reg, Instance = inst })
+            //                   .Where(reg=>reg.Instance.Endpoint == endpoint && reg.Reg.PluginGuid.Equals(pluginGuid, StringComparison.OrdinalIgnoreCase))
+            //                   .ToList();
+
+
 
             return null;
         }
@@ -100,10 +145,10 @@ namespace jsdal_server_core.Hubs
             {
                 // need to manually add the endpoint prefix here
                 var pluginGeneralGroupName = $"{endpoint}.{jsdal_plugin.BackgroundThreadPlugin.BuildPluginGeneralGroupName(pluginGuid)}";
-                
+
                 // to be safe remove first before re-adding
                 this.Groups.RemoveFromGroupAsync(this.Context.ConnectionId, pluginGeneralGroupName).Wait();
-                
+
                 this.Groups.AddToGroupAsync(this.Context.ConnectionId, pluginGeneralGroupName).Wait();
 
                 var ep = Settings.SettingsInstance.Instance.FindEndpoint(endpoint);
