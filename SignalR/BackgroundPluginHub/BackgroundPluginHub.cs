@@ -159,6 +159,18 @@ namespace jsdal_server_core.Hubs
 
                 var mi = PluginHelper.FindBestMethodMatch(pluginInstance.Plugin, methodName, inputParameters);
 
+                if (mi == null)
+                {
+                    string inputParametersSignature = null;
+
+                    if (inputParameters != null)
+                    {
+                        inputParametersSignature = string.Join(",", inputParameters.Select(kv => $"{kv.Key}"));
+                    }
+
+                    throw new Exception($"Failed to find a suitable method with the expected signature. Check spelling, number of parameters and their types. Also check for unexpected nulls. MethodName: {methodName}({inputParametersSignature})");
+                }
+
                 (var result, var outputParams, var error) = PluginHelper.InvokeMethod(pluginInstance.Plugin, methodName, mi, inputParameters);
 
                 if (!string.IsNullOrWhiteSpace(error))

@@ -89,6 +89,12 @@ namespace jsdal_server_core.Controllers
         {
             try
             {
+                if (jsdal_server_core.Program.IsShuttingDown)
+                {
+                   // await Task.Delay(1800);
+                    return Ok(new { Worker = new { Running = false, Status = "jsDAL Server shutting down" }, HasJsChanges = false, HasSMChanges = false });
+                }
+
                 Hubs.MainStats.IncreaseSubWatchers();
 
                 if (SettingsInstance.Instance.ProjectList == null) return NotFound();
@@ -153,7 +159,7 @@ namespace jsdal_server_core.Controllers
                 int watchForSeconds = 12;
                 int tickCountEnd = Environment.TickCount + (watchForSeconds * 1000);
 
-                while (!hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
+                while (!jsdal_server_core.Program.IsShuttingDown && !hasJsChanges && !hasSMChanges && Environment.TickCount <= tickCountEnd)
                 {
                     if (!worker.IsRunning)
                     {

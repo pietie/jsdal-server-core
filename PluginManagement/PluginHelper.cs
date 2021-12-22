@@ -18,26 +18,38 @@ namespace jsdal_server_core
 
             if (inputParameters == null) inputParameters = new Dictionary<string, string>();
 
-            // match up input parameters with expected parameters and order according to MethodInfo expectation
-            var invokeParameters = (from methodParam in assemblyMethodInfo.GetParameters()
+            var asmParameters = assemblyMethodInfo.GetParameters();
+
+            IEnumerable<InvokeParameterRecord> invokeParameters;
+
+            try
+            {
+
+                // match up input parameters with expected parameters and order according to MethodInfo expectation
+                invokeParameters = (from methodParam in asmParameters
                                     join inputParam in inputParameters on methodParam.Name equals inputParam.Key into grp
                                     from parm in grp.DefaultIfEmpty()
                                     orderby methodParam.Position
-                                    select new
-                                    {
-                                        Name = methodParam.Name,
-                                        Type = methodParam.ParameterType,
-                                        HasDefault = methodParam.HasDefaultValue,
-                                        IsOptional = methodParam.IsOptional, // compiler dependent
-                                        IsOut = methodParam.IsOut,
-                                        IsByRef = methodParam.ParameterType.IsByRef,
-                                        DefaultValue = methodParam.RawDefaultValue,
-                                        Value = parm.Value,
-                                        Position = methodParam.Position,
-                                        IsParamMatched = parm.Key != null,
-                                        IsArray = methodParam.ParameterType.IsArray
-                                    })
-                    ;
+                                    select new InvokeParameterRecord(
+                                        methodParam.Name,
+                                        methodParam.ParameterType,
+                                        methodParam.HasDefaultValue,
+                                        methodParam.IsOptional, // compiler dependent
+                                        methodParam.IsOut,
+                                        methodParam.ParameterType.IsByRef,
+                                        methodParam.RawDefaultValue,
+                                        parm.Value,
+                                        methodParam.Position,
+                                        parm.Key != null,
+                                        methodParam.ParameterType.IsArray
+                                    )).ToList()
+                        ;
+            }
+            catch (Exception ex)
+            {
+                var wrappedEx = new Exception($"Failed to calculate invokeParameters. asmParameters.Length = {(asmParameters?.Length ?? -1)}", ex);
+                throw wrappedEx;
+            }
 
             var invokeParametersConverted = new List<object>();
             var parameterConvertErrors = new List<string>();
@@ -245,4 +257,16 @@ namespace jsdal_server_core
             return matchedRegMethod;
         }
     }
+
+    internal record InvokeParameterRecord(string Name,
+                        Type Type,
+                        bool HasDefault,
+                        bool IsOptional,
+                        bool IsOut,
+                        bool IsByRef,
+                        object DefaultValue,
+                        string Value,
+                        int Position,
+                        bool IsParamMatched,
+                        bool IsArray);
 }

@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<AssemblyName>jsdal-server</AssemblyName>
-		<TargetFramework>net5.0</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
 
@@ -45,7 +45,8 @@
 
 
 	<ItemGroup>
-		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
+		<!-- <Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" /> -->
+		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" ExcludeFromSingleFile="true" />
 		<Content Include=".\cache\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 		<Content Include=".\data\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 		<Content Include=".\generated\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />

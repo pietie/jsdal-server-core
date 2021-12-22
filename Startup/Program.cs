@@ -17,6 +17,7 @@ using Serilog;
 using Serilog.Events;
 using jsdal_server_core.Performance.DataCollector;
 using jsdal_server_core.Performance;
+using System.Threading;
 
 namespace jsdal_server_core
 {
@@ -34,8 +35,9 @@ namespace jsdal_server_core
 
         public static bool IsShuttingDown { get; private set; }
 
-
         static System.Collections.Concurrent.ConcurrentDictionary<string, string> dict = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+
+        public static CancellationTokenSource CTS {get; private set; }
 
         public static void Main(string[] args)
         {
@@ -64,6 +66,7 @@ namespace jsdal_server_core
 
             try
             {
+                CTS = new CancellationTokenSource();
 
                 var isService = args.Length == 1 && args[0].Equals("--service", StringComparison.OrdinalIgnoreCase);
                 var justRun = args.Length == 1 && args[0].Equals("--run", StringComparison.OrdinalIgnoreCase);
@@ -120,6 +123,9 @@ namespace jsdal_server_core
                     Log.Error(ex, "Failed to read appsettings.json");
                 }
 
+                _startDate = DateTime.Now;
+
+                var _ = UptimeLogger.LogServerUptimeAsync();
 
                 Log.Information($"Application started with process id {System.Diagnostics.Process.GetCurrentProcess().Id}.");
 
@@ -163,7 +169,6 @@ namespace jsdal_server_core
                 Log.Information("Initialising inline module manifest");
                 InlineModuleManifest.Instance.Init();
 
-                _startDate = DateTime.Now;
 
                 Log.Information("Configuring global culture");
                 var globalCulture = new System.Globalization.CultureInfo("en-US");
@@ -213,9 +218,12 @@ namespace jsdal_server_core
             }
         }
 
+      
+
         public static void ShutdownAllBackgroundThreads()
         {
             IsShuttingDown = true;
+            CTS.Cancel();
 
             SessionLog.Info("Shutting down");
 

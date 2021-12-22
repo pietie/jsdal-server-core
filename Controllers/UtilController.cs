@@ -147,5 +147,19 @@ namespace jsdal_server_core.Controllers
             return Guid.NewGuid().ToString().ToUpper();
         }
 
+        [HttpGet("/api/util/uptime")]
+        public ApiResponse GetUptimeHistory()
+        {
+           try
+           {
+               var history = UptimeLogger.GetRecentHistory();
+                return ApiResponse.Payload(history);
+           }
+           catch (Exception ex)
+           {
+               return ApiResponse.Exception(ex);
+           }
+        }
+
     }
 }
