@@ -85,7 +85,7 @@ namespace jsdal_server_core
 
             using (var fs = File.Open(FullFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                var startPos = fs.Position - (RECORD_LENGTH * numOfRecords);
+                var startPos = fs.Length - (RECORD_LENGTH * numOfRecords);
 
                 if (startPos < 0) startPos = 0;
 
