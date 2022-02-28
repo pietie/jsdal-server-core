@@ -3,7 +3,7 @@ namespace jsdal_server_core.Settings.ObjectModel
     public class CommonSettings
     {
         public string GoogleRecaptchaSecret;
-        public int DbSource_CheckForChangesInMilliseconds = 200;
+        public int DbSource_CheckForChangesInMilliseconds = 800;
         public WebServerSettings WebServer;
 
         /*public static createFromJson(rawJson: any): Settings {
