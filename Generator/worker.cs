@@ -205,7 +205,7 @@ namespace jsdal_server_core
 
                         connectionStringRefForLog = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
 
-                        var appName = $"jsdal-server {this.Endpoint.Pedigree} {System.Environment.MachineName}";
+                        var appName = $"jsdal-server worker {this.Endpoint.Pedigree} {System.Environment.MachineName}";
 
                         csb.ApplicationName = appName.Left(128);
 
