@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Http.Features;
 using System.Text.RegularExpressions;
 using jsdal_server_core.Performance.DataCollector;
 using Microsoft.Data.SqlClient;
+using System.Diagnostics;
 
 namespace jsdal_server_core.Controllers
 {
@@ -646,7 +647,31 @@ namespace jsdal_server_core.Controllers
                 catch (Exception execEx)
                 {
                     DataCollectorThread.End(dataCollectorEntryShortId, ex: execEx);
+
+                    //                     if (execOptions != null && endpoint != null)
+                    //                     {
+                    //                         var wrapEx = new Exception($"Failed to execute {endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}", execEx);
+
+                    //                         // create a fake frame to include the exec detail - this way any logger logging the StackTrace will always include the relevant execution detail
+                    //                         StackFrame sf = new($"{execOptions.type} {endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}", 0);
+
+                    //                         StackTrace st = new(sf);
+
+                    //                         //?wrapEx.SetStackTrace(st);
+
+                    // var allFields = wrapEx.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+
+                    // var fffff =string.Join("\r\n", allFields.Select(f=>f.Name).ToArray());
+
+                    //                         var fi = wrapEx.GetType().GetField("_stackTraceString", BindingFlags.NonPublic | BindingFlags.Instance);
+
+                    //                         fi.SetValue(wrapEx, $"{endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}");
+
+                    //                         throw wrapEx;
+                    //                     }
+                    //                     else throw;
                     throw; // rethrow
+
                 }
 
                 var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
