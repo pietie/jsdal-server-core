@@ -227,19 +227,19 @@ namespace jsdal_server_core.Settings.ObjectModel
             return true;
         }
 
-        public CommonReturnValueWithApplication UpdateMetadataConnection(string dataSource, string catalog, string username, string password, int port)
+        public CommonReturnValueWithApplication UpdateMetadataConnection(string dataSource, string catalog, string username, string password, int port, string applicationName, bool encrypt)
         {
             if (this.MetadataConnection == null) this.MetadataConnection = new Connection();
 
-            this.MetadataConnection.Update(this, "metadata", dataSource, catalog, username, password, port, null);
+            this.MetadataConnection.Update(this, "metadata", dataSource, catalog, username, password, port, null/*instanceName*/, applicationName, encrypt);
 
             return CommonReturnValueWithApplication.success(null);
         }
-        public CommonReturnValueWithApplication UpdateExecConnection(string dataSource, string catalog, string username, string password, int port)
+        public CommonReturnValueWithApplication UpdateExecConnection(string dataSource, string catalog, string username, string password, int port, string applicationName, bool encrypt)
         {
             if (this.ExecutionConnection == null) this.ExecutionConnection = new Connection();
 
-            this.ExecutionConnection.Update(this, "execution", dataSource, catalog, username, password, port, null);
+            this.ExecutionConnection.Update(this, "execution", dataSource, catalog, username, password, port, null/*instanceName*/, applicationName, encrypt);
 
             return CommonReturnValueWithApplication.success(null);
         }

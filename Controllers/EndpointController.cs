@@ -186,7 +186,8 @@ namespace jsdal_server_core.Controllers
                         DataSource = endpoint.MetadataConnection?.DataSource,
                         UserID = endpoint.MetadataConnection?.UserID,
                         IntegratedSecurity = endpoint.MetadataConnection?.IntegratedSecurity,
-                        Port = endpoint.MetadataConnection?.Port
+                        Port = endpoint.MetadataConnection?.Port,
+                        Encrypt = endpoint.MetadataConnection?.Encrypt
                     },
                     ExecutionConnection = new
                     {
@@ -194,7 +195,8 @@ namespace jsdal_server_core.Controllers
                         DataSource = endpoint.ExecutionConnection?.DataSource,
                         UserID = endpoint.ExecutionConnection?.UserID,
                         IntegratedSecurity = endpoint.ExecutionConnection?.IntegratedSecurity,
-                        Port = endpoint.ExecutionConnection?.Port
+                        Port = endpoint.ExecutionConnection?.Port,
+                        Encrypt = endpoint.ExecutionConnection?.Encrypt
                     }
                 });
             }
@@ -503,6 +505,7 @@ namespace jsdal_server_core.Controllers
                 string password = json["password"].ToString();
                 int? port = json["port"].ToObject(typeof(int?)) as int?;
                 bool integratedSecurity = json["authType"].ToString() == "100";
+                bool encrypt = json["encrypt"].ToString() == "1";
 
                 if (integratedSecurity)
                 {
@@ -523,8 +526,8 @@ namespace jsdal_server_core.Controllers
 
                 CommonReturnValueWithApplication ret = null;
 
-                if (isMetadata) ret = ep.UpdateMetadataConnection(dataSource, catalog, username, password, port.Value);
-                else ret = ep.UpdateExecConnection(dataSource, catalog, username, password, port.Value);
+                if (isMetadata) ret = ep.UpdateMetadataConnection(dataSource, catalog, username, password, port.Value, null, encrypt);
+                else ret = ep.UpdateExecConnection(dataSource, catalog, username, password, port.Value, null, encrypt);
 
                 if (!ret.IsSuccess)
                 {

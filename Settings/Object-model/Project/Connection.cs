@@ -74,6 +74,16 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         [JsonIgnore]
+        public bool Encrypt
+        {
+            get
+            {
+                if (this._connectionStringBuilder == null) this._connectionStringBuilder = new SqlConnectionStringBuilder(this.ConnectionStringDecrypted);
+                return this._connectionStringBuilder.Encrypt;
+            }
+        }
+
+        [JsonIgnore]
         public int Port
         {
             get
@@ -142,9 +152,9 @@ namespace jsdal_server_core.Settings.ObjectModel
             }
         }
 
-        public void Update(Endpoint endpoint, string type, string dataSource, string catalog, string username, string password, int port, string instanceName)
+        public void Update(Endpoint endpoint, string type, string dataSource, string catalog, string username, string password, int port, string instanceName, string applicationName, bool encrypt)
         {
-            string connectionString = BuildConnectionString(username, password, dataSource, catalog, port, instanceName);
+            string connectionString = BuildConnectionString(username, password, dataSource, catalog, port, instanceName, applicationName, encrypt);
 
             this._descryptedConnectionString = null;
             this._connectionStringBuilder = null;
@@ -155,11 +165,12 @@ namespace jsdal_server_core.Settings.ObjectModel
             this.Type = type;
         }
 
-        private string BuildConnectionString(string username, string password, string dataSource, string catalog, int port, string instanceName, string applicationName = null)
+        private string BuildConnectionString(string username, string password, string dataSource, string catalog, int port, string instanceName, string applicationName = null, bool encrypt = false)
         {
             string connectionString = null;
 
             var hasInstanceName = dataSource.Contains("\\");
+            var enc  = encrypt? "true":"false";
 
             if (string.IsNullOrWhiteSpace(applicationName))
             {
@@ -176,11 +187,11 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 if (hasInstanceName)
                 {// including a port will cause the instance name to be ignored so don't include a port
-                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}";
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}; Encrypt={enc}";
                 }
                 else
                 {
-                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}";
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info = False; User ID={ username }; Password={ password }; Application Name={applicationName}; Encrypt={enc}";
                 }
 
             }
@@ -188,11 +199,11 @@ namespace jsdal_server_core.Settings.ObjectModel
             {// use windows auth
                 if (hasInstanceName)
                 {
-                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}";
+                    connectionString = $"Data Source={ dataSource }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}; Encrypt={enc}";
                 }
                 else
                 {
-                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}";
+                    connectionString = $"Data Source={ dataSource },{ port }; Initial Catalog={ catalog }; Persist Security Info=False; Integrated Security=sspi; Application Name={applicationName}; Encrypt={enc}";
                 }
             }
 
