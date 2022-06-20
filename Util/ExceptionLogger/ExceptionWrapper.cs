@@ -53,12 +53,12 @@ namespace jsdal_server_core
 
         public string type { get; set; } // Exception Object class TypeName
 
-        public List<ExceptionWrapper> related { get; set; }
+        public List<ExceptionWrapper> _related { get; set; }
 
         public ExceptionWrapper GetRelated(string sId)
         {
-            if (this.related == null) return null;
-            return related.FirstOrDefault(e => e.sId == sId);
+            if (this._related == null) return null;
+            return _related.FirstOrDefault(e => e.sId == sId);
         }
 
         public ExceptionWrapper()
@@ -122,14 +122,14 @@ namespace jsdal_server_core
 
         public bool AddRelated(ExceptionWrapper ew)
         {
-            if (related == null) related = new List<ExceptionWrapper>();
+            if (_related == null) _related = new List<ExceptionWrapper>();
 
-            // cap related items to 50 max
-            if (related.Count >= 50) return false;
+            // cap related items to 20 max
+            if (_related.Count >= 20) return false;
 
-            lock (related)
+            lock (_related)
             {
-                related.Add(ew);
+                _related.Add(ew);
 
                 return true;
             }

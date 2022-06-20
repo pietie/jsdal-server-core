@@ -284,6 +284,7 @@ namespace jsdal_server_core
 
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
         public static IWebHostBuilder BuildWebHost(string pathToContentRoot, string[] args)
         {
             var webServerSettings = SettingsInstance.Instance.Settings.WebServer;
@@ -319,7 +320,6 @@ namespace jsdal_server_core
                   //     config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
                   //         //.AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
                   //   })
-
                   .UseHttpSys(options =>
                   {
                       options.Authentication.Schemes = AuthenticationSchemes.None;

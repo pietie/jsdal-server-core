@@ -96,7 +96,7 @@ namespace jsdal_server_core.Controllers
                     return ApiResponse.ExclamationModal($"An exception with id \"{id}\" could not be found.");
                 }
 
-                var ret = (from exception in ex.related
+                var ret = (from exception in ex._related
                            select new
                            {
                                id = exception.sId,
@@ -105,7 +105,7 @@ namespace jsdal_server_core.Controllers
                                exception.procedure,
                                exception.appTitle,
                                exception.appVersion,
-                               relatedCount = exception.related?.Count ?? 0
+                               relatedCount = exception._related?.Count ?? 0
                            }
                 );
 
@@ -165,7 +165,7 @@ namespace jsdal_server_core.Controllers
                               exception.procedure,
                               exception.appTitle,
                               exception.appVersion,
-                              relatedCount = exception.related?.Count ?? 0
+                              relatedCount = exception._related?.Count ?? 0
                           }
                           ;
 

@@ -15,15 +15,17 @@ namespace jsdal_server_core
 
     public class ExceptionLogger : QueueThread<ExceptionWrapper>
     {
-        private readonly int MAX_ENTRIES_PER_ENDPOINT = 1000;
+        private readonly int MAX_ENTRIES_PER_ENDPOINT = 300;
         private LiteDatabase _database;
-        //private static ConcurrentQueue<ExceptionWrapper> _exceptionQueue;
+        
 
         private Dictionary<string, List<DateTime>> _throttleTracker;
 
         private object _throttleTrackerLock = new object();
 
         public static ExceptionLogger Instance { get; private set; }
+
+        private DateTime? _lastRebuild;
 
         static ExceptionLogger()
         {
@@ -41,7 +43,12 @@ namespace jsdal_server_core
             {
                 _throttleTracker = new Dictionary<string, List<DateTime>>();
 
-                _database = new LiteDB.LiteDatabase("data/exceptions.db");
+                _database = new LiteDB.LiteDatabase("Filename=data/exceptions.db;Connection=direct");
+
+                _database.Checkpoint();
+                _database.Rebuild();
+
+                _lastRebuild = DateTime.Now;
 
                 var exceptionCollection = _database.GetCollection<ExceptionWrapper>("Exceptions");
 
@@ -90,6 +97,15 @@ namespace jsdal_server_core
                         }
                     }
                 }
+
+                if (_lastRebuild.HasValue && DateTime.Now.Subtract(_lastRebuild.Value).TotalMinutes >= 10)
+                {
+                    _lastRebuild = DateTime.Now;
+
+                    _database.Checkpoint();
+                    _database.Rebuild();
+                    
+                }
             }
             catch (Exception ex)
             {
@@ -104,7 +120,7 @@ namespace jsdal_server_core
             _database.BeginTrans();
 
             var exceptionCollection = _database.GetCollection<ExceptionWrapper>("Exceptions");
-
+            
             if (ew.EndpointKey != null)
             {
                 // cull from the front
@@ -123,6 +139,11 @@ namespace jsdal_server_core
                 }
             }
 
+            if (string.IsNullOrWhiteSpace(ew.server))
+            {
+                ew.server = null;
+            }
+
             ExceptionWrapper parent = null;
 
             // TODO: think of other ways to find "related". Message might not match 100% so apply "like" search of match on ErrorType(e.g. group Timeouts)
@@ -132,7 +153,9 @@ namespace jsdal_server_core
             {
                 try
                 {
-
+//                    var x = exceptionCollection.Query().Where(e => e.sId == "wcTflhL").FirstOrDefault();
+//                    var x2 = exceptionCollection.Query().Where(e => e.sId == "gzzGKN3").FirstOrDefault();
+                    
                     parent = exceptionCollection
                                     .Query()
                                     .OrderByDescending(e => e.Id)
