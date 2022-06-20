@@ -189,7 +189,7 @@ namespace jsdal_server_core
                 if (cachedRoutine == null)
                 {
                     // TODO: Return 404 rather?
-                    throw new Exception($"The routine [{ schemaName }].[{routineName}] was not found.");
+                    throw new Exception($"The routine [{schemaName}].[{routineName}] was not found.");
                 }
 
                 s1.End();
@@ -222,10 +222,16 @@ namespace jsdal_server_core
 
                 if (cs == null)
                 {
-                    throw new Exception($"Execution connection not found on endpoint '{endpoint.Pedigree}'({ endpoint.Id }).");
+                    throw new Exception($"Execution connection not found on endpoint '{endpoint.Pedigree}'({endpoint.Id}).");
                 }
 
-                con = new SqlConnection(cs.ConnectionStringDecrypted);
+                var csb = new SqlConnectionStringBuilder(cs.ConnectionStringDecrypted);
+
+
+                // {schemaName}.{routineName} -- including schema.routine will create too many unique connection pools
+                csb.ApplicationName = $"jsdal-server EXEC {endpoint.Pedigree}".Left(128);
+
+                con = new SqlConnection(csb.ToString());
 
                 if (endpoint.CaptureConnectionStats)
                 {

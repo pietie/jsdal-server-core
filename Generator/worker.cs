@@ -123,7 +123,7 @@ namespace jsdal_server_core
                 this.IsRunning = true;
                 this.IsOutputFilesDirty = false;
 
-                DateTime lastSavedDate = DateTime.Now;
+                //DateTime lastSavedDate = DateTime.Now;
 
                 var cache = this.Endpoint.CachedRoutines;
 
@@ -167,7 +167,7 @@ namespace jsdal_server_core
 
                     isIterationDirty = false;
 
-                    string connectionStringRef = null;
+                    string connectionStringRefForLog = null;
 
                     try
                     {
@@ -202,9 +202,14 @@ namespace jsdal_server_core
                         }
 
                         var csb = new SqlConnectionStringBuilder(this.Endpoint.MetadataConnection.ConnectionStringDecrypted);
-                        connectionStringRef = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
 
-                        var connectionStringDecrypted = this.Endpoint.MetadataConnection.ConnectionStringDecrypted;
+                        connectionStringRefForLog = $"Data Source={csb.DataSource}; UserId={csb.UserID}; Catalog={csb.InitialCatalog}";
+
+                        var appName = $"jsdal-server worker {this.Endpoint.Pedigree} {System.Environment.MachineName}";
+
+                        csb.ApplicationName = appName.Left(128);
+
+                        var  connectionStringDecrypted = csb.ToString();
 
                         using (var con = new SqlConnection(connectionStringDecrypted))
                         {
@@ -216,7 +221,7 @@ namespace jsdal_server_core
                             catch (Exception oex)
                             {
                                 this.Status = "Failed to open connection to database: " + oex.Message;
-                                this.log.Exception(oex, connectionStringRef);
+                                this.log.Exception(oex, connectionStringRefForLog);
                                 connectionOpenErrorCnt++;
 
                                 int waitMS = Math.Min(3000 + (connectionOpenErrorCnt * 3000), 300000/*Max 5mins between tries*/);
@@ -229,7 +234,7 @@ namespace jsdal_server_core
                                 continue;
                             }
 
-                            ProcessAsync(con, this.Endpoint.MetadataConnection.ConnectionStringDecrypted).Wait();
+                            ProcessAsync(con, connectionStringDecrypted).Wait();
                         } // using connection
 
                         if (isIterationDirty)
@@ -460,6 +465,7 @@ namespace jsdal_server_core
                             // generate using legacy FMTONLY way if explicitly requested
                             if ((newCachedRoutine.jsDALMetadata?.jsDAL?.fmtOnlyResultSet ?? false))
                             {
+                                // can't use the same connection
                                 await GenerateFmtOnlyResultsetsAsync(connectionString, newCachedRoutine);
                             }
                             else

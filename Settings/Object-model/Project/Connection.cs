@@ -177,6 +177,11 @@ namespace jsdal_server_core.Settings.ObjectModel
                 applicationName = "jsdal-server";
             }
 
+            if (applicationName.Length > 128)
+            {
+                applicationName = applicationName.Substring(0, 128);
+            }
+
             if (!string.IsNullOrWhiteSpace(username))
             {
                 // retain current password if no new one was specified
