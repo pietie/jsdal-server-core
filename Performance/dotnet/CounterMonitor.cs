@@ -103,16 +103,22 @@ namespace jsdal_server_core.Performance.dotnet
         {
             double value = double.Parse(kvPairs["Increment"].ToString());
 
-            // send the information to your metrics pipeline
-            CounterUpdate(new CounterEventArgs(providerName, name, displayName, CounterType.Sum, value));
+            if (CounterUpdate != null)
+            {
+                // send the information to your metrics pipeline
+                CounterUpdate(new CounterEventArgs(providerName, name, displayName, CounterType.Sum, value));
+            }
         }
 
         private void OnMeanCounter(string providerName, string name, string displayName, IDictionary<string, object> kvPairs)
         {
             double value = double.Parse(kvPairs["Mean"].ToString());
 
-            // send the information to your metrics pipeline
-            CounterUpdate(new CounterEventArgs(providerName, name, displayName, CounterType.Mean, value));
+            if (CounterUpdate != null)
+            {
+                // send the information to your metrics pipeline
+                CounterUpdate(new CounterEventArgs(providerName, name, displayName, CounterType.Mean, value));
+            }
         }
 
 

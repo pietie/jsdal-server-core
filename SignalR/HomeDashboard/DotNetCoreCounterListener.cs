@@ -92,6 +92,7 @@ namespace jsdal_server_core.SignalR.HomeDashboard
         {
             if (_counterMonitor != null)
             {
+                _counterMonitor.CounterUpdate -= OnCounterUpdate;
                 _counterMonitor.Stop();
                 _counterMonitor = null;
             }

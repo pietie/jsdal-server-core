@@ -248,7 +248,7 @@ namespace jsdal_server_core
                     WorkSpawner.Start();
                 }
             }
-
+            
             applicationLifetime.ApplicationStopped.Register(() =>
             {
                 Log.Information("Application stopped");

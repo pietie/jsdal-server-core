@@ -169,6 +169,7 @@ namespace jsdal_server_core.Performance
 
         public static List<StatsRoutineExecution> GetTotalCountsTopN(int topN)
         {
+            if (_database == null) return null;
             var totalCounts = _database.GetCollection<StatsRoutineExecution>("TotalCount");
 
             if (topN == 0)

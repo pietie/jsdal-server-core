@@ -10,13 +10,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Hosting;
 
 namespace jsdal_server_core.Controllers
 {
     [Authorize(Roles = "admin")]
     public class UtilController : Controller
     {
-
+        
         [HttpGet("/api/util/listdbs")]
         public ApiResponse ListDBs([FromQuery] string datasource, [FromQuery] string u, [FromQuery] string p, [FromQuery] int port, [FromQuery] string instanceName)
         {
@@ -160,6 +161,8 @@ namespace jsdal_server_core.Controllers
                return ApiResponse.Exception(ex);
            }
         }
+
+        
 
     }
 }

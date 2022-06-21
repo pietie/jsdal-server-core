@@ -129,6 +129,8 @@ namespace jsdal_server_core.Performance
 
         private IEnumerable<jsDALHealthDbEntry> BuildBaseQuery(DateTime fromDate, DateTime toDate)
         {
+            if (_database == null) return null;
+
             var collection = _database.GetCollection<jsDALHealthDbEntry>($"HealthData");
 
             var baseQuery = collection

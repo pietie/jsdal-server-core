@@ -15,12 +15,20 @@ using Newtonsoft.Json;
 using Serilog;
 using jsdal_server_core.Performance;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 
 namespace jsdal_server_core.Controllers
 {
     [AllowAnonymous]
     public class PublicController : Controller
     {
+        private readonly IHostApplicationLifetime _lifeTime;
+
+        public PublicController(IHostApplicationLifetime lifeTime)
+        {
+            _lifeTime = lifeTime;
+        }
+
         [HttpGet("/api/jsdal/ping")]
         public string Ping()
         {
@@ -672,6 +680,30 @@ namespace jsdal_server_core.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/tmp/stop-application")]
+        public bool StopApplication()
+        {
+            _lifeTime.StopApplication();
+            return true;
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/tmp/stop-counters")]
+        public bool StopDotnetCounters()
+        {
+            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Stop();
+            return true;
+        }
+
+        [AllowAnonymous]
+        [HttpGet("/api/tmp/start-counters")]
+        public bool StartDotnetCounters()
+        {
+            SignalR.HomeDashboard.DotNetCoreCounterListener.Instance?.Start();
+            return true;
         }
 
     }
