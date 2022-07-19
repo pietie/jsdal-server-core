@@ -6,6 +6,8 @@ namespace jsdal_server_core.Settings.ObjectModel
         public int DbSource_CheckForChangesInMilliseconds = 800;
         public WebServerSettings WebServer;
 
+        public bool AutoStartTraceCounters { get; set; }
+
         /*public static createFromJson(rawJson: any): Settings {
             if (!rawJson) return null;
             let settings = new Settings();

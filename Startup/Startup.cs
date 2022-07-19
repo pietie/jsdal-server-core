@@ -229,7 +229,11 @@ namespace jsdal_server_core
                 ConnectionStringSecurity.Instance = app.ApplicationServices.GetService<ConnectionStringSecurity>();
 
                 DotNetCoreCounterListener.Instance = app.ApplicationServices.GetService<DotNetCoreCounterListener>();
-                DotNetCoreCounterListener.Instance.Start();
+
+                if (Settings.SettingsInstance.Instance.Settings.AutoStartTraceCounters)
+                {
+                    DotNetCoreCounterListener.Instance.Start();
+                }
 
 
                 {// More app startup stuff...but have a dependency on the singleton objects above. Can we move this somewhere else?
@@ -248,7 +252,7 @@ namespace jsdal_server_core
                     WorkSpawner.Start();
                 }
             }
-            
+
             applicationLifetime.ApplicationStopped.Register(() =>
             {
                 Log.Information("Application stopped");
@@ -433,6 +437,7 @@ namespace jsdal_server_core
             }
             else
             {
+                //TODO: Only if SSL is enabled
                 app.UseHsts();
 
                 // unhandled exceptions
