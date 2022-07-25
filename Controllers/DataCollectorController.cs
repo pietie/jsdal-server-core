@@ -44,10 +44,18 @@ namespace jsdal_server_core.Controllers
            [DateTimeModelBinder(DateFormat = "yyyyMMddHHmm"), FromQuery(Name = "to")] DateTime? toDate,
            [FromQuery] string[] endpoints)
         {
-            if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
-            if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
+            try
+            {
+                if (!fromDate.HasValue) return BadRequest("The parameter 'from' is mandatory");
+                if (!toDate.HasValue) return BadRequest("The parameter 'to' is mandatory");
 
-            return Ok(DataCollectorThread.Instance.AllStatsList(topN, fromDate.Value, toDate.Value, endpoints));
+                return Ok(DataCollectorThread.Instance.AllStatsList(topN, fromDate.Value, toDate.Value, endpoints));
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.LogException(ex);
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet("/api/data-collector/routine-totals")]

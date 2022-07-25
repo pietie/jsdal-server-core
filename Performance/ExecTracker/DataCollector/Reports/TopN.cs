@@ -22,7 +22,6 @@ namespace jsdal_server_core.Performance.DataCollector.Reports
                           });
 
             var query = (from e in totals
-                             //where e.TotalExecutions > 0
                          select new
                          {
                              e.Routine,
@@ -31,16 +30,16 @@ namespace jsdal_server_core.Performance.DataCollector.Reports
                              TotalDurationInMins = Math.Round(e.SumDurationInMS / 60000M, 2),
                              AvgDurationInMS = e.TotalExecutions == 0 ? 0 : (int)((e.SumDurationInMS / e.TotalExecutions) + 0.5M),
 
-                             TotalNetworkServerTimeInMins = Math.Round(e.SumNetworkServerTimeInMS / 60000M,2),
+                             TotalNetworkServerTimeInMins = Math.Round(e.SumNetworkServerTimeInMS / 60000M, 2),
                              AvgSumNetworkServerTimeInMS = e.TotalExecutions == 0 ? 0 : (int)((e.SumNetworkServerTimeInMS / e.TotalExecutions) + 0.5M),
 
-                             TotalMBReceived = Math.Round(e.SumKBReceived / 1024M,2),
-                             AvgKBReceived = (int)((e.SumKBReceived / e.TotalExecutions) + 0.5M),
+                             TotalMBReceived = Math.Round(e.SumKBReceived / 1024M, 2),
+                             AvgKBReceived = e.TotalExecutions == 0 ? 0 : (int)((e.SumKBReceived / e.TotalExecutions) + 0.5M),
 
                              e.TotalExceptions,
                              e.TotalTimeouts
                          })
-            .OrderByDescending(x => x.TotalExecutions)
+            .OrderByDescending(x => x.TotalExecutions) // TODO: Make order by configurable?
             .Take(topN)
             ;
 

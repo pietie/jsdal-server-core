@@ -9,7 +9,7 @@ namespace jsdal_server_core.Performance.DataCollector.Reports
         public static dynamic TotalVitals(IEnumerable<DataCollectorDataAgg> baseQuery, DateTime from, DateTime to, string schema = null, string routine = null)
         {
             var totals = (from e in baseQuery
-                          where schema == null || (e.Schema.Equals(schema, StringComparison.InvariantCultureIgnoreCase) && e.Routine.Equals(routine, StringComparison.InvariantCultureIgnoreCase))
+                          where schema == null || (e.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) && e.Routine.Equals(routine, StringComparison.OrdinalIgnoreCase))
                           group e by e.Bracket into g
                           select new
                           {
