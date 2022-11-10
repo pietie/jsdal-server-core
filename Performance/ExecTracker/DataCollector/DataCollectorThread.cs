@@ -357,6 +357,11 @@ namespace jsdal_server_core.Performance.DataCollector
 
             var sqlEx = ex as SqlException;
 
+            if (sqlEx == null)
+            {
+                sqlEx = ex?.InnerException as SqlException;
+            }
+
             if (sqlEx != null)
             {
                 if (sqlEx.Number == -2/*Timeout*/)

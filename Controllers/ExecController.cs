@@ -98,6 +98,10 @@ namespace jsdal_server_core.Controllers
             {
                 return Ok();
             }
+            catch (TaskCanceledException)
+            {
+                return Ok();
+            }
             catch (Exception ex)
             {
                 var requestHeaders = this.Request.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -127,6 +131,10 @@ namespace jsdal_server_core.Controllers
             {
                 return Ok();
             }
+            catch (TaskCanceledException)
+            {
+                return Ok();
+            }
             catch (Exception ex)
             {
                 var requestHeaders = this.Request.Headers.Select(kv => new { kv.Key, Value = kv.Value.FirstOrDefault() }).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -153,6 +161,10 @@ namespace jsdal_server_core.Controllers
                 return await execAsync(execOptions);
             }
             catch (OperationCancelledByUserException)
+            {
+                return Ok();
+            }
+            catch (TaskCanceledException)
             {
                 return Ok();
             }
@@ -603,6 +615,9 @@ namespace jsdal_server_core.Controllers
                     }
                 }
 
+                // TODO: Determine ExecPolicy here
+                // TODO: Allow for ExecutionPolicy to be overridden with query string parameter or request header?
+
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
                 string dataCollectorEntryShortId = DataCollectorThread.Enqueue(endpoint, execOptions);
@@ -647,31 +662,7 @@ namespace jsdal_server_core.Controllers
                 catch (Exception execEx)
                 {
                     DataCollectorThread.End(dataCollectorEntryShortId, ex: execEx);
-
-                    //                     if (execOptions != null && endpoint != null)
-                    //                     {
-                    //                         var wrapEx = new Exception($"Failed to execute {endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}", execEx);
-
-                    //                         // create a fake frame to include the exec detail - this way any logger logging the StackTrace will always include the relevant execution detail
-                    //                         StackFrame sf = new($"{execOptions.type} {endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}", 0);
-
-                    //                         StackTrace st = new(sf);
-
-                    //                         //?wrapEx.SetStackTrace(st);
-
-                    // var allFields = wrapEx.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
-
-                    // var fffff =string.Join("\r\n", allFields.Select(f=>f.Name).ToArray());
-
-                    //                         var fi = wrapEx.GetType().GetField("_stackTraceString", BindingFlags.NonPublic | BindingFlags.Instance);
-
-                    //                         fi.SetValue(wrapEx, $"{endpoint?.Pedigree}/{execOptions?.schema}/{execOptions?.routine}");
-
-                    //                         throw wrapEx;
-                    //                     }
-                    //                     else throw;
-                    throw; // rethrow
-
+                    throw;
                 }
 
                 var prepareResultsMetric = routineExecutionMetric.BeginChildStage("Prepare results");
@@ -737,7 +728,6 @@ namespace jsdal_server_core.Controllers
                 }
                 else if (execOptions.type == ExecType.Scalar)
                 {
-
                     if (executionResult.ScalarValue is DateTime)
                     {
                         var dt = (DateTime)executionResult.ScalarValue;
@@ -761,18 +751,32 @@ namespace jsdal_server_core.Controllers
 
                 return new ExecuteRoutineAsyncResult(ret, routineExecutionMetric, mayAccess, responseHeaders);
             }
-            catch (SqlException ex) when (execOptions.CancellationToken.IsCancellationRequested && ex.Number == 0 && ex.State == 0 && ex.Class == 11)
+            // catch (SqlException ex) when (execOptions.CancellationToken.IsCancellationRequested && ex.Number == 0 && ex.State == 0 && ex.Class == 11)
+            // {
+            //     // if we ended up here with a SqlException and a Cancel has been requested, we are very likely here because of the exception "Operation cancelled by user."
+            //     // since MS does not provide an easy way (like a specific error code) to detect this scenario we have to guess
+
+            //     routineExecutionMetric?.Exception(ex);
+
+            //     throw new OperationCancelledByUserException(ex);
+            // }
+            catch (TaskCanceledException)
             {
+                throw;
+            }
+            catch (JsDALExecutionException re) when (re.InnerException is SqlException se && execOptions.CancellationToken.IsCancellationRequested && se.Number == 0 && se.State == 0 && se.Class == 11)
+            {
+
                 // if we ended up here with a SqlException and a Cancel has been requested, we are very likely here because of the exception "Operation cancelled by user."
                 // since MS does not provide an easy way (like a specific error code) to detect this scenario we have to guess
 
-                routineExecutionMetric?.Exception(ex);
+                routineExecutionMetric?.Exception(re);
 
-                throw new OperationCancelledByUserException(ex);
+                throw new OperationCancelledByUserException(re);
             }
-            catch (Exception ex)
+            catch (JsDALExecutionException execEx)
             {
-                routineExecutionMetric?.Exception(ex);
+                routineExecutionMetric?.Exception(execEx);
 
                 Connection dbConn = null;
 
@@ -780,21 +784,9 @@ namespace jsdal_server_core.Controllers
                 {
                     // TODO: Fix!
                     dbConn = endpoint.GetSqlConnection();
-
-                    // if (debugInfo == null) debugInfo = "";
-
-                    // if (dbConn != null)
-                    // {
-                    //     debugInfo = $"{ endpoint.Pedigree } - { dbConn.InitialCatalog } - { debugInfo }";
-                    // }
-                    // else
-                    // {
-                    //     debugInfo = $"{ endpoint.Pedigree } - (no connection) - { debugInfo }";
-                    // }
-
                 }
 
-                var exceptionResponse = ApiResponse.ExecException(ex, execOptions, out var exceptionId, debugInfo, appTitle, appVersion);
+                var exceptionResponse = ApiResponse.ExecException(execEx, execOptions, out var exceptionId, debugInfo, appTitle, appVersion);
 
                 if (debugInfo == null) debugInfo = "";
                 debugInfo = exceptionId + " " + debugInfo;
@@ -819,7 +811,7 @@ namespace jsdal_server_core.Controllers
                                 }
 
                                 con.Open();
-                                ProcessPluginExecutionExceptionHandlers(pluginList, con, ex, additionalInfo, appTitle, appVersion, out externalRef);
+                                ProcessPluginExecutionExceptionHandlers(pluginList, con, execEx, additionalInfo, appTitle, appVersion, out externalRef);
                                 ((dynamic)exceptionResponse.Data).ExternalRef = externalRef;
                             }
                             catch (Exception e)

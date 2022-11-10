@@ -39,7 +39,7 @@ namespace jsdal_server_core.Controllers
 
                 if (existing != null)
                 {
-                    return ApiResponse.ExclamationModal($"The application \"{ name }\" already exists on project \" { project }\".");
+                    return ApiResponse.ExclamationModal($"The application \"{name}\" already exists on project \" {project}\".");
                 }
 
                 var ret = proj.AddApplication(name, jsNamespace, defaultRuleMode.Value);
@@ -71,7 +71,7 @@ namespace jsdal_server_core.Controllers
 
                 if (anotherExisting != null)
                 {
-                    return ApiResponse.ExclamationModal($"The application \"{ name }\" already exists on project \" { project }\".");
+                    return ApiResponse.ExclamationModal($"The application \"{name}\" already exists on project \" {project}\".");
                 }
 
                 var ret = app.Update(name, jsNamespace, defaultRuleMode);
@@ -304,6 +304,110 @@ namespace jsdal_server_core.Controllers
                 SettingsInstance.SaveSettingsToFile();
 
                 return ApiResponse.Success();
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpGet("/api/app/{name}/exec-policy")]
+        public ApiResponse GetExecutionPolicies([FromQuery] string project, [FromRoute] string name)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
+                {
+                    return resp;
+                }
+
+                return ApiResponse.Payload(app.ExecutionPolicies);
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpPost("/api/app/{name}/exec-policy")]
+        [HttpPut("/api/app/{name}/exec-policy")]
+        public ApiResponse AddUpdateExecutionPolicy([FromQuery] string project, [FromRoute] string name, [FromBody] ExecutionPolicy execPolicy)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
+                {
+                    return resp;
+                }
+
+                var ret = app.AddUpdateExecutionPolicy(execPolicy);
+
+                if (ret.IsSuccess)
+                {
+                     SettingsInstance.SaveSettingsToFile();
+                     return ApiResponse.Success();
+                }
+                else
+                {
+                    return ApiResponse.ExclamationModal(ret.userErrorVal);
+                }
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpPost("/api/app/{name}/exec-policy/set-default")]
+        [HttpPut("/api/app/{name}/exec-policy/set-default")]
+        public ApiResponse SetExecutionPolicyDefault([FromQuery] string project, [FromRoute] string name, [FromQuery] string id)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
+                {
+                    return resp;
+                }
+
+                var ret = app.SetDefaultExecutionPolicy(id);
+
+                if (ret.IsSuccess)
+                {
+                     SettingsInstance.SaveSettingsToFile();
+                     return ApiResponse.Success();
+                }
+                else
+                {
+                    return ApiResponse.ExclamationModal(ret.userErrorVal);
+                }
+            }
+            catch (Exception e)
+            {
+                return ApiResponse.Exception(e);
+            }
+        }
+
+        [HttpDelete("/api/app/{name}/exec-policy")]
+        public ApiResponse DeleteExecutionPolicy([FromQuery] string project, [FromRoute] string name, [FromQuery] string id)
+        {
+            try
+            {
+                if (!ControllerHelper.GetProjectAndApp(project, name, out var proj, out var app, out var resp))
+                {
+                    return resp;
+                }
+
+                var ret = app.DeleteExecutionPolicy(id);
+
+                if (ret.IsSuccess)
+                {
+                     SettingsInstance.SaveSettingsToFile();
+                     return ApiResponse.Success();
+                }
+                else
+                {
+                    return ApiResponse.ExclamationModal(ret.userErrorVal);
+                }
             }
             catch (Exception e)
             {

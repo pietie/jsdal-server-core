@@ -172,11 +172,13 @@ namespace jsdal_server_core
                    List<ExecutionPlugin> plugins,
                    int commandTimeOutInSeconds,
                    ExecutionBase execRoutineQueryMetric,
-                   Dictionary<string, string> responseHeaders
+                   Dictionary<string, string> responseHeaders,
+                   ExecutionPolicy executionPolicy = null
                )
         {
             SqlConnection con = null;
             SqlCommand cmd = null;
+            ExecutionBase execStage = null;
 
             int rowsAffected = 0;
 
@@ -261,6 +263,11 @@ namespace jsdal_server_core
                 //
                 cmd = CreateSqlCommand(con, commandTimeOutInSeconds, cachedRoutine, type);
 
+                if (executionPolicy != null)
+                {
+                    cmd.CommandTimeout = (int)executionPolicy.CommandTimeoutInSeconds;
+                }
+
                 //
                 // PARAMETERS
                 //
@@ -269,78 +276,29 @@ namespace jsdal_server_core
                 prepareCmdMetric.End();
 
                 Dictionary<string/*Table0..N*/, ReaderResult> readerResults = null;
-                //DataSet ds = null;
+
                 object scalarVal = null;
+
+                // TODO: Wrap retry here?
 
                 if (type == Controllers.ExecController.ExecType.Query)
                 {
-                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
+                    execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
 
                     readerResults = await ProcessExecQueryAsync(cancellationToken, cmd, inputParameters);
-
-                    // { Old Dataset-based code
-
-                    //     var da = new SqlDataAdapter(cmd);
-                    //     ds = new DataSet();
-
-                    //     var firstTableRowsAffected = da.Fill(ds); // Fill only returns rows affected on first Table
-
-                    //     if (ds.Tables.Count > 0)
-                    //     {
-                    //         foreach (DataTable t in ds.Tables)
-                    //         {
-                    //             rowsAffected += t.Rows.Count;
-                    //         }
-                    //     }
-
-                    //     if (inputParameters.ContainsKey("$select") && ds.Tables.Count > 0)
-                    //     {
-                    //         string limitToFieldsCsv = inputParameters["$select"];
-
-                    //         if (!string.IsNullOrEmpty(limitToFieldsCsv))
-                    //         {
-                    //             var listPerTable = limitToFieldsCsv.Split(new char[] { ';' }/*, StringSplitOptions.RemoveEmptyEntries*/);
-
-                    //             for (int tableIx = 0; tableIx < listPerTable.Length; tableIx++)
-                    //             {
-                    //                 var fieldsToKeep = listPerTable[tableIx].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToLookup(s => s.Trim());
-
-                    //                 if (fieldsToKeep.Count > 0)
-                    //                 {
-                    //                     var table = ds.Tables[tableIx];
-
-                    //                     for (int i = 0; i < table.Columns.Count; i++)
-                    //                     {
-                    //                         var match = fieldsToKeep.FirstOrDefault((k) => k.Key.Equals(table.Columns[i].ColumnName, StringComparison.OrdinalIgnoreCase));
-
-                    //                         if (match == null)
-                    //                         {
-                    //                             table.Columns.Remove(table.Columns[i]);
-                    //                             i--;
-                    //                         }
-                    //                     }
-
-                    //                 }
-                    //             }
-
-
-                    //         }
-
-                    //     } // $select
-                    // }
 
                     execStage.End();
                 }
                 else if (type == Controllers.ExecController.ExecType.NonQuery)
                 {
-                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
+                    execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
 
                     rowsAffected = await cmd.ExecuteNonQueryAsync(cancellationToken);
                     execStage.End();
                 }
                 else if (type == Controllers.ExecController.ExecType.Scalar)
                 {
-                    var execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
+                    execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
                     scalarVal = await cmd.ExecuteScalarAsync(cancellationToken);
                     execStage.End();
                 }
@@ -359,8 +317,6 @@ namespace jsdal_server_core
 
                 var outputParameterDictionary = RetrieveOutputParameterValues(cachedRoutine, cmd);
 
-                //!executionTrackingEndFunction();
-
                 return new ExecutionResult()
                 {
                     ReaderResults = readerResults,
@@ -373,6 +329,45 @@ namespace jsdal_server_core
                     ResponseHeaders = responseHeaders
                 };
 
+            }
+            catch (TaskCanceledException)
+            {
+                throw;
+            }
+            catch (SqlException se)
+            {
+                // TODO: Implement a retry for transactions that fail because of deadlocks
+                if (se.Number == 1205/*Deadlock*/)
+                {
+
+                }
+
+                string after = "";
+                if (execStage != null)
+                {
+                    execStage.End();
+
+                    if (execStage.DurationInMS.HasValue)
+                    {
+                        after = $" after {(decimal)execStage.DurationInMS.Value / 1000.0M:0.00} seconds";
+                    }
+                }
+
+                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", se, schemaName, routineName, endpoint.Pedigree);
+            }
+            catch (Exception ex)
+            {
+                string after = "";
+                if (execStage != null)
+                {
+                    execStage.End();
+
+                    if (execStage.DurationInMS.HasValue)
+                    {
+                        after = $" after {(decimal)execStage.DurationInMS.Value / 1000.0M:0.00} seconds";
+                    }
+                }
+                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", ex, schemaName, routineName, endpoint.Pedigree);
             }
             finally
             {
@@ -646,7 +641,7 @@ namespace jsdal_server_core
                 readerResult.Data = new List<object[]>();
 
 
-                while (await reader.ReadAsync())
+                while (await reader.ReadAsync(cancellationToken))
                 {
                     // TODO: Cannot use GetValues as SqlGeography types currently throw as .NET Core cannot deserialize it properly. If SqlClient adds support review in future for possible perf benefit - fetch all rows at once instead of one by one. Also just consider the a $select instruction comes through (thus only asking for a subset of the columns)
                     // TODO: We can also possible split it like the below snippet - only take perf hit if we know a geo type is coming up
@@ -706,7 +701,7 @@ namespace jsdal_server_core
 
                 resultIx++;
             }
-            while (await reader.NextResultAsync());
+            while (await reader.NextResultAsync(cancellationToken));
 
             return allResultSets;
         }

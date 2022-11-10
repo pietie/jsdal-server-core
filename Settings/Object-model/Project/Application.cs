@@ -35,11 +35,14 @@ namespace jsdal_server_core.Settings.ObjectModel
 
         [JsonIgnore] public Project Project { get; private set; }
 
+        public List<ExecutionPolicy> ExecutionPolicies;
+
         public Application()
         {
             this.Endpoints = new List<Endpoint>();
             this.JsFiles = new List<JsFile>();
             this.Rules = new List<BaseRule>();
+            this.ExecutionPolicies = new List<ExecutionPolicy>();
         }
 
         public void AfterDeserializationInit()
@@ -219,6 +222,86 @@ namespace jsdal_server_core.Settings.ObjectModel
             return this.Plugins.FirstOrDefault(g => g.Equals(guid, StringComparison.OrdinalIgnoreCase)) != null;
         }
 
+        public CommonReturnValue AddUpdateExecutionPolicy(ExecutionPolicy policy)
+        {
+            if (policy == null) throw new ArgumentException("Value cannot be null", nameof(policy));
+            if (string.IsNullOrWhiteSpace(policy.Name))
+            {
+                return CommonReturnValue.UserError("Invalid or no Name specified");
+            }
+
+            // validate Name uniqueness
+            var nameClash = this.ExecutionPolicies.FirstOrDefault(e => e.Name.Equals(policy.Name, StringComparison.OrdinalIgnoreCase) && !e.Id.Equals(policy.Id));
+
+            if (nameClash != null)
+            {
+                return CommonReturnValue.UserError($"A policy with the name '{policy.Name}' already exists");
+            }
+
+            var existing = this.ExecutionPolicies.FirstOrDefault(e => e.Id.Equals(policy.Id));
+
+            if (existing != null)
+            {
+                existing.UpdateFrom(policy);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(policy.Id))
+                {
+                    policy.Id = ShortId.Generate(true, false, 6);
+                }
+
+                if (this.ExecutionPolicies.Count == 0) policy.Default = true;
+
+                this.ExecutionPolicies.Add(policy);
+            }
+
+            return CommonReturnValue.Success();
+        }
+
+        public CommonReturnValue SetDefaultExecutionPolicy(string id)
+        {
+            var existing = this.ExecutionPolicies.FirstOrDefault(e => e.Id.Equals(id));
+
+            if (existing == null)
+            {
+                return CommonReturnValue.UserError("Specified execution policy not found.");
+            }
+
+            var existingDefault = this.ExecutionPolicies.FirstOrDefault(e => e.Default);
+
+            if (existingDefault != null) existingDefault.Default = false;
+
+            existing.Default = true;
+
+            return CommonReturnValue.Success();
+        }
+
+        public CommonReturnValue DeleteExecutionPolicy(string id)
+        {
+            var existing = this.ExecutionPolicies.FirstOrDefault(e => e.Id.Equals(id));
+
+            if (existing == null)
+            {
+                return CommonReturnValue.UserError("Specified execution policy not found.");
+            }
+
+            this.ExecutionPolicies.Remove(existing);
+
+            // if the default was deleted, make the first item (if there is one) the new default
+            if (existing.Default)
+            {
+                var first = this.ExecutionPolicies.FirstOrDefault();
+
+                if (first != null)
+                {
+                    first.Default = true;
+                }
+            }
+
+            return CommonReturnValue.Success();
+        }
+
         public CommonReturnValue AddJsFile(string name)
         {
             if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
@@ -275,7 +358,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                     rule = new RegexRule(txt);
                     break;
                 default:
-                    throw new Exception($"Unsupported rule type:${ ruleType}");
+                    throw new Exception($"Unsupported rule type:${ruleType}");
             }
 
             rule.Id = ShortId.Generate(useNumbers: true, useSpecial: true, length: 6);
@@ -390,7 +473,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                 }
             }
 
-            return CommonReturnValue.UserError($"The host ({ referer }) is not allowed to access this resource.");
+            return CommonReturnValue.UserError($"The host ({referer}) is not allowed to access this resource.");
         }
 
         // gets a distinct list of all routines across all endpoint cache's
