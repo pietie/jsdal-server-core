@@ -51,6 +51,9 @@ namespace jsdal_server_core
                                         MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.IActionResult).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Mvc.FileContentResult).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(Microsoft.Net.Http.Headers.MediaTypeHeaderValue).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Http.HttpResponse).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Http.IHeaderDictionary).Assembly.Location),
+                                        MetadataReference.CreateFromFile(typeof(Microsoft.Extensions.Primitives.StringValues).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(System.ComponentModel.IComponent).Assembly.Location),
                                         Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
             };

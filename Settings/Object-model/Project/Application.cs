@@ -277,6 +277,16 @@ namespace jsdal_server_core.Settings.ObjectModel
             return CommonReturnValue.Success();
         }
 
+        public ExecutionPolicy GetDefaultExecutionPolicy()
+        {
+            return this.ExecutionPolicies?.FirstOrDefault(e=>e.Default);
+        }
+
+        public ExecutionPolicy GetExecutionPolicyByName(string name)
+        {
+            return this.ExecutionPolicies?.FirstOrDefault(e=>e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
         public CommonReturnValue DeleteExecutionPolicy(string id)
         {
             var existing = this.ExecutionPolicies.FirstOrDefault(e => e.Id.Equals(id));

@@ -116,7 +116,6 @@ namespace jsdal_server_core.Controllers
 
                 if (jsFile == null) return NotFound();
 
-
                 dynamic workerState = null;
 
                 Worker worker = null;
@@ -176,8 +175,8 @@ namespace jsdal_server_core.Controllers
                     }
 
                     hasJsChanges = jsFile.ETag != currentJsEtag;
+                    hasSMChanges = application.ServerMethodJsEtag != null && application.ServerMethodJsEtag != currentServerMethodEtag;
 
-                    //hasSMChanges = jsFile.ETag != jsEtag;
                     await Task.Delay(200);
                 }
 

@@ -615,8 +615,27 @@ namespace jsdal_server_core.Controllers
                     }
                 }
 
-                // TODO: Determine ExecPolicy here
-                // TODO: Allow for ExecutionPolicy to be overridden with query string parameter or request header?
+                ////////////////////
+                // Execution Policy
+                ////////////////////
+
+                ExecutionPolicy executionPolicy = null;
+
+                executionPolicy = app.GetDefaultExecutionPolicy();
+
+                if (requestHeaders.ContainsKey("exec-policy"))
+                {
+                    var pol = app.GetExecutionPolicyByName(requestHeaders["exec-policy"]);
+
+                    if (pol != null)
+                    {
+                        executionPolicy = pol;
+                    }
+                    else
+                    {
+                        responseHeaders.Add("exec-policy-error", $"Policy '{requestHeaders["exec-policy"]}' not found");
+                    }
+                }
 
                 var execRoutineQueryMetric = routineExecutionMetric.BeginChildStage("execRoutineQuery");
 
@@ -642,7 +661,8 @@ namespace jsdal_server_core.Controllers
                        pluginList,
                        commandTimeOutInSeconds,
                        execRoutineQueryMetric,
-                       responseHeaders
+                       responseHeaders,
+                       executionPolicy
                    );
 
                     outputParameters = executionResult.OutputParameterDictionary;

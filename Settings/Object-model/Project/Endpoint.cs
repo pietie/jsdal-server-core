@@ -12,6 +12,7 @@ using plugin = jsdal_plugin;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Http;
 
 namespace jsdal_server_core.Settings.ObjectModel
 {
@@ -406,7 +407,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         }
 
         //[Newtonsoft.Json.JsonIgnore]
-       // public object _cacheLock = new object();
+        // public object _cacheLock = new object();
         public async Task SaveCacheAsync()
         {
             //lock (_cacheLock)
@@ -467,7 +468,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             if (this.ExecutionConnection == null)
             {
-                SessionLog.Error($"Execution connection not found on endpoint '{this.Name}'({ this.Id }).");
+                SessionLog.Error($"Execution connection not found on endpoint '{this.Name}'({this.Id}).");
             }
 
             return this.ExecutionConnection;
@@ -478,7 +479,7 @@ namespace jsdal_server_core.Settings.ObjectModel
         {
             get
             {
-                return Path.GetFullPath($"./generated/{ this.Application.Project.Name }/{ this.Application.Name }/{this.Name}");
+                return Path.GetFullPath($"./generated/{this.Application.Project.Name}/{this.Application.Name}/{this.Name}");
             }
         }
 
@@ -571,8 +572,10 @@ namespace jsdal_server_core.Settings.ObjectModel
                                  where (p.Param.IsOut || p.Param.IsOptional || p.Param.ParameterType.IsByRef) && !p.HasMatch
                                  select 1.0M).Sum();
 
+                // same with parameters that requested injection
+                var toBeInjectedParameters = methodParameters.Where(p=>p.GetCustomAttributes(typeof(jsdal_plugin.InjectParamAttribute), false).Count() > 0).ToList();
 
-                if (matchedCnt == expectedCnt || matchedCnt + outRefSum == expectedCnt)
+                if (matchedCnt == expectedCnt || matchedCnt + outRefSum + toBeInjectedParameters.Count == expectedCnt)
                 {
                     weightedMethodList.Add((matchedCnt, null, regMethod));
                 }
@@ -630,8 +633,7 @@ namespace jsdal_server_core.Settings.ObjectModel
                                     }
 
                                     return new SqlConnection();
-                                })
-                           });
+                                })});
                         }
                         else
                         {

@@ -70,6 +70,7 @@ namespace jsdal_server_core.Controllers
                 // TODO: Use application to find applicable plugin method based on method name ... pass endpoint in for context?
                 //application.
 
+                // GET/CREATE plugin instance
                 (var pluginInstance, var method, var notFoundError) = ep.GetServerMethodPluginInstance(nameSpace, methodName, inputParameters);
 
                 if (!string.IsNullOrWhiteSpace(notFoundError))
@@ -80,6 +81,27 @@ namespace jsdal_server_core.Controllers
                 {
                     return BadRequest("Failed to find or create a plugin instance. Check your server logs. Also make sure the expected plugin is enabled on the Application.");
                 }
+
+
+                ///////////////////////////
+                // INJECTED PARAMETERS
+                ///////////////////////////
+                //{
+                    // get items requesting Injection and add them to input params automatically (if they don't aleady exist)
+
+                    var expectedParameters = method.AssemblyMethodInfo.GetParameters();
+
+                    var toBeInjectedParameters = expectedParameters.Where(p => p.GetCustomAttributes(typeof(jsdal_plugin.InjectParamAttribute), false).Count() > 0).ToList();
+
+                    foreach (var toInject in toBeInjectedParameters)
+                    {
+                        if (!inputParameters.ContainsKey(toInject.Name))
+                        {
+                            inputParameters.Add(toInject.Name, null);
+                        }
+                    }
+
+                //}
 
                 // match up input parameters with expected parameters and order according to MethodInfo expectation
                 var invokeParameters = (from methodParam in method.AssemblyMethodInfo.GetParameters()
@@ -99,8 +121,7 @@ namespace jsdal_server_core.Controllers
                                             Position = methodParam.Position,
                                             IsParamMatched = parm.Key != null,
                                             IsArray = methodParam.ParameterType.IsArray
-                                        })
-                        ;
+                                        }).ToList();
 
                 var invokeParametersConverted = new List<object>();
                 var parameterConvertErrors = new List<string>();
@@ -110,6 +131,8 @@ namespace jsdal_server_core.Controllers
                 {
                     try
                     {
+                        var needsInjection = toBeInjectedParameters.FirstOrDefault(i=>i.Name.Equals(p.Name, StringComparison.OrdinalIgnoreCase)) != null;
+
                         object o = null;
                         Type expectedType = p.Type;
 
@@ -131,7 +154,7 @@ namespace jsdal_server_core.Controllers
                                 o = Type.Missing;
                             }
                         }
-                        else if (p.Value == null || p.Value.Equals(Strings.@null, StringComparison.Ordinal))
+                        else if (!needsInjection && (p.Value == null || p.Value.Equals(Strings.@null, StringComparison.Ordinal)))
                         {
                             // if null was passed it's null
                             o = null;
@@ -157,6 +180,14 @@ namespace jsdal_server_core.Controllers
                         else if (expectedType.IsGenericType && expectedType.GetGenericTypeDefinition() == typeof(List<>))
                         {
                             o = JsonConvert.DeserializeObject(p.Value, expectedType);
+                        }
+                        else if (needsInjection && expectedType == typeof(Microsoft.AspNetCore.Http.HttpRequest))
+                        {
+                            o = req;
+                        }
+                        else if (needsInjection && expectedType == typeof(Microsoft.AspNetCore.Http.HttpResponse))
+                        {
+                            o = res;
                         }
                         else if (expectedType == typeof(System.Byte))
                         {
@@ -203,6 +234,7 @@ namespace jsdal_server_core.Controllers
 
                 var inputParamArray = invokeParametersConverted.ToArray();
 
+                // INVOKE ServerMerthod
                 var invokeResult = method.AssemblyMethodInfo.Invoke(pluginInstance, inputParamArray);
 
                 var isVoidResult = method.AssemblyMethodInfo.ReturnType.FullName.Equals("System.Void", StringComparison.Ordinal);
@@ -273,7 +305,7 @@ namespace jsdal_server_core.Controllers
                             IsValid = true, //TODO: Still relevant?
                             asm.IsInline,
                             Plugins = asm.Plugins
-                             // .Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod)
+                            // .Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod)
                             // dont have anywhere else to display other INLINE plugins
                             .Where(p => p.Type == Settings.ObjectModel.PluginType.ServerMethod || asm.IsInline)
                             .Select(p => new { p.Name, p.Description })

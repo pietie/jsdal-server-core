@@ -262,17 +262,17 @@ namespace jsdal_server_core.Performance
 
         }
 
-        private long CalculateEstSizeInBytes(object o)
-        {
-            using (var ms = new MemoryStream())
-            {
-                var bf = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+        // private long CalculateEstSizeInBytes(object o)
+        // {
+        //     using (var ms = new MemoryStream())
+        //     {
+        //         var bf = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
 
-                bf.Serialize(ms, o);
+        //         bf.Serialize(ms, o);
 
-                return ms.Length;
-            }
-        }
+        //         return ms.Length;
+        //     }
+        // }
 
         public void Shutdown()
         {

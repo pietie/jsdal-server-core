@@ -279,37 +279,68 @@ namespace jsdal_server_core
 
                 object scalarVal = null;
 
-                // TODO: Wrap retry here?
+                int deadlockRetryNum = 0;
 
-                if (type == Controllers.ExecController.ExecType.Query)
+            RetryDbCall:
+
+                try
                 {
-                    execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
+                    if (type == Controllers.ExecController.ExecType.Query)
+                    {
+                        execStage = execRoutineQueryMetric.BeginChildStage("Execute Query");
 
-                    readerResults = await ProcessExecQueryAsync(cancellationToken, cmd, inputParameters);
+                        readerResults = await ProcessExecQueryAsync(cancellationToken, cmd, inputParameters);
 
-                    execStage.End();
+                        execStage.End();
+                    }
+                    else if (type == Controllers.ExecController.ExecType.NonQuery)
+                    {
+                        execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
+
+                        rowsAffected = await cmd.ExecuteNonQueryAsync(cancellationToken);
+                        execStage.End();
+                    }
+                    else if (type == Controllers.ExecController.ExecType.Scalar)
+                    {
+                        execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
+                        scalarVal = await cmd.ExecuteScalarAsync(cancellationToken);
+                        execStage.End();
+                    }
+                    else
+                    {
+                        throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
+                    }
                 }
-                else if (type == Controllers.ExecController.ExecType.NonQuery)
+                catch (SqlException dl) when (dl.Number == 1205/*Deadlock*/ && (executionPolicy?.DeadlockRetry?.Enabled ?? false))
                 {
-                    execStage = execRoutineQueryMetric.BeginChildStage("Execute NonQuery");
+                    deadlockRetryNum++;
 
-                    rowsAffected = await cmd.ExecuteNonQueryAsync(cancellationToken);
-                    execStage.End();
-                }
-                else if (type == Controllers.ExecController.ExecType.Scalar)
-                {
-                    execStage = execRoutineQueryMetric.BeginChildStage("Execute Scalar");
-                    scalarVal = await cmd.ExecuteScalarAsync(cancellationToken);
-                    execStage.End();
-                }
-                else
-                {
-                    throw new NotSupportedException($"ExecType \"{type.ToString()}\" not supported");
+                    if (deadlockRetryNum > executionPolicy.DeadlockRetry.MaxRetries)
+                    {
+                        throw;
+                    }
+                    else
+                    {
+                        int delayInSeconds = 3;
+
+                        if (executionPolicy.DeadlockRetry.Type.Equals("Linear", StringComparison.OrdinalIgnoreCase))
+                        {
+                            delayInSeconds = (int)((executionPolicy.DeadlockRetry.Value * deadlockRetryNum) + 0.5M);
+                        }
+                        else if (executionPolicy.DeadlockRetry.Type.Equals("Exponential", StringComparison.OrdinalIgnoreCase))
+                        {
+                            delayInSeconds = (int)((Math.Pow((double)executionPolicy.DeadlockRetry.Value, deadlockRetryNum)) + 0.5);
+                        }
+
+                        await Task.Delay(delayInSeconds * 1000);
+                        // don't tell anyone
+                        goto RetryDbCall;
+                    }
                 }
 
                 long? bytesReceived = null;
                 long? networkServerTimeMS = null;
-
+                // TODO: Consider moving CaptureConnectionStats to Execution Policy
                 if (endpoint.CaptureConnectionStats)
                 {
                     RetrieveConnectionStatistics(con, out bytesReceived, out networkServerTimeMS);
@@ -353,7 +384,7 @@ namespace jsdal_server_core
                     }
                 }
 
-                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", se, schemaName, routineName, endpoint.Pedigree);
+                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", se, schemaName, routineName, endpoint.Pedigree, executionPolicy);
             }
             catch (Exception ex)
             {
@@ -367,7 +398,7 @@ namespace jsdal_server_core
                         after = $" after {(decimal)execStage.DurationInMS.Value / 1000.0M:0.00} seconds";
                     }
                 }
-                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", ex, schemaName, routineName, endpoint.Pedigree);
+                throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", ex, schemaName, routineName, endpoint.Pedigree, executionPolicy);
             }
             finally
             {
@@ -436,6 +467,16 @@ namespace jsdal_server_core
 
                 var newSqlParm = new SqlParameter(expectedParm.Name, sqlType, expectedParm.MaxLength);
 
+                if (expectedParm.Scale > 0)
+                {
+                    newSqlParm.Scale = (byte)expectedParm.Scale;
+                }
+
+                if (expectedParm.Precision > 0)
+                {
+                    newSqlParm.Precision = (byte)expectedParm.Precision;
+                }
+                
                 newSqlParm.UdtTypeName = udtType;
 
                 if (!expectedParm.IsOutput)
@@ -452,8 +493,11 @@ namespace jsdal_server_core
 
                 var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
 
+                var matchingKey = inputParameters.Keys.FirstOrDefault(k=>k.Equals(expectedParmName, StringComparison.OrdinalIgnoreCase));
+
                 // if the expected parameter was defined in the request or if a plugin provided an override
-                if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
+               // if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
+               if (matchingKey != null || pluginParamVal != PluginSetParameterValue.DontSet)
                 {
                     object val = null;
 
@@ -463,9 +507,9 @@ namespace jsdal_server_core
                     {
                         val = pluginParamVal.Value;
                     }
-                    else if (inputParameters.ContainsKey(expectedParmName))
+                    else if (inputParameters.ContainsKey(matchingKey))
                     {
-                        val = inputParameters[expectedParmName];
+                        val = inputParameters[matchingKey];
                     }
 
                     // look for special jsDAL Server variables
