@@ -246,7 +246,7 @@ namespace jsdal_server_core
             Log.Information("Shutting down data collector...");
             DataCollectorThread.Instance.Shutdown();
 
-            Log.Information("Shutting jsDAL health monitor...");
+            Log.Information("Shutting down jsDAL health monitor...");
             jsDALHealthMonitorThread.Instance.Shutdown();
 
             Log.Information("Shutting down session log...");

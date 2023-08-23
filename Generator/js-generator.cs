@@ -168,7 +168,7 @@ namespace jsdal_server_core
                 finalSB.Replace("<<DATE>>", DateTime.Now.ToString("dd MMM yyyy, HH:mm"))
                     .Replace("<<FILE_VERSION>>", jsFile.Version.ToString())
                     .Replace("<<SERVER_NAME>>", Environment.MachineName)
-                    .Replace("<<ENDPOINT>>", endpoint.Pedigree)
+                    .Replace("<<FILENAME>>", jsFile.Filename)
                     .Replace("<<UNIQUE_SCHEMAS>>", string.Join(',', uniqueSchemas.Select(k => $"'{k}'")))
                     .Replace("<<Catalog>>", jsSafeNamespace)
                     .Replace("<<ROUTINES>>", schemaAndRoutineDefs)
