@@ -219,11 +219,12 @@ namespace jsdal_server_core.Controllers
 
                 var blobData = BlobStore.Get(blobRef);
 
+                // TODO: DO NOT create new HttpClient each time
                 var client = new System.Net.Http.HttpClient();
 
                 using (var content = new System.Net.Http.ByteArrayContent(blobData.Data))
                 {
-                    var barcodeServiceUrl = this.config["AppSettings:BarcodeService.URL"].TrimEnd('/');
+                    var barcodeServiceUrl = this.config["AppSettings:BarcodeService.URL"]?.TrimEnd('/');
                     var postUrl = $"{barcodeServiceUrl}/scan/pdf417?raw={raw}&veh={veh}&drv={drv}";
 
                     var response = await client.PostAsync(postUrl, content);
@@ -234,7 +235,7 @@ namespace jsdal_server_core.Controllers
                     {
                         var json = JsonConvert.DeserializeObject(responseText);
 
-                        return Ok(ApiResponse.Payload(json));
+                        return Ok(ApiResponse.Payload(json!));
                     }
                     else
                     {
@@ -552,16 +553,16 @@ namespace jsdal_server_core.Controllers
             string appTitle,
             string appVersion)
         {
-            string debugInfo = null;
+            string? debugInfo = null;
 
-            Project project = null;
-            Application app = null;
-            Endpoint endpoint = null;
-            Dictionary<string, string> responseHeaders = null;
+            Project? project = null;
+            Application? app = null;
+            Endpoint? endpoint = null;
+            Dictionary<string, string>? responseHeaders = null;
 
-            List<ExecutionPlugin> pluginList = null;
+            List<ExecutionPlugin>? pluginList = null;
 
-            RoutineExecution routineExecutionMetric = null;
+            RoutineExecution? routineExecutionMetric = null;
 
             responseHeaders = new Dictionary<string, string>();
 
@@ -591,7 +592,7 @@ namespace jsdal_server_core.Controllers
 
                 if (!mayAccess.IsSuccess) return new ExecuteRoutineAsyncResult(null, null, mayAccess, responseHeaders);
 
-                Dictionary<string, dynamic> outputParameters;
+                Dictionary<string, dynamic>? outputParameters;
                 int commandTimeOutInSeconds = 60;
 
                 // PLUGINS
@@ -619,7 +620,7 @@ namespace jsdal_server_core.Controllers
                 // Execution Policy
                 ////////////////////
 
-                ExecutionPolicy executionPolicy = null;
+                ExecutionPolicy? executionPolicy = null;
 
                 executionPolicy = app.GetDefaultExecutionPolicy();
 
@@ -645,7 +646,7 @@ namespace jsdal_server_core.Controllers
                 // Database call
                 ///////////////////
 
-                OrmDAL.ExecutionResult executionResult = null;
+                OrmDAL.ExecutionResult? executionResult = null;
 
                 try
                 {
@@ -692,10 +693,13 @@ namespace jsdal_server_core.Controllers
                     return new ExecuteRoutineAsyncResult(ApiResponse.ExclamationModal(executionResult.userError), routineExecutionMetric, mayAccess, responseHeaders);
                 }
 
-                var retVal = (IDictionary<string, object>)new System.Dynamic.ExpandoObject();
+                var retVal = (IDictionary<string, object>)new System.Dynamic.ExpandoObject()!;
                 var ret = ApiResponse.Payload(retVal);
 
-                retVal.Add("OutputParms", outputParameters);
+                if (outputParameters != null)
+                {
+                    retVal.Add("OutputParms", outputParameters);
+                }
 
                 if (outputParameters != null)
                 { // TODO: Consider making this a plugin

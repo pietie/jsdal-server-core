@@ -129,10 +129,10 @@ namespace jsdal_server_core
 
         public class ExecutionResult
         {
-            public Dictionary<string/*Table0..N*/, ReaderResult> ReaderResults { get; set; }
-            public DataSet DataSet { get; set; }
-            public object ScalarValue { get; set; }
-            public string userError { get; set; }
+            public Dictionary<string/*Table0..N*/, ReaderResult>? ReaderResults { get; set; }
+            public DataSet? DataSet { get; set; }
+            public object? ScalarValue { get; set; }
+            public string? userError { get; set; }
 
             // optional stats
             public long? BytesReceived { get; set; }
@@ -140,8 +140,8 @@ namespace jsdal_server_core
 
             public int? RowsAffected { get; set; }
 
-            public Dictionary<string, dynamic> OutputParameterDictionary { get; set; }
-            public Dictionary<string, string> ResponseHeaders { get; set; }
+            public Dictionary<string, dynamic>? OutputParameterDictionary { get; set; }
+            public Dictionary<string, string>? ResponseHeaders { get; set; }
         }
 
         // public static ExecutionResult ExecRoutineQuery(
