@@ -52,8 +52,8 @@ namespace jsdal_server_core.Hubs
                     inputParameters = parameters
                 };
 
-                //  (var result, var routineExecutionMetric, var mayAccess)
-                //out var responseHeaders
+                // TODO: Add support for CommandTimeOut when calling through websockets
+
                 var result = await ExecController.ExecuteRoutineAsync(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null/*remoteIPAddress*/, appTitle, appVersion);
 
                 if (!(result?.MayAccess?.IsSuccess ?? false))

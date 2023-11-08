@@ -40,8 +40,14 @@ namespace jsdal_server_core
             return s.Length * sizeof(char) + sizeof(int)/*Length parameter*/;
         }
 
-        public static V Val<T, V>(this Dictionary<T, V> dict, T key)
+        public static V Val<T, V>(this Dictionary<T, V> dict, T key)  where T : notnull
         {
+            // fallback to case-insensitive key lookup if necessary
+            if (!dict.ContainsKey(key) && typeof(T) == typeof(string))
+            {
+                key = dict.Keys.FirstOrDefault(k=>k!.ToString()!.Equals(key.ToString(), StringComparison.OrdinalIgnoreCase));
+                if (key == null) return default;
+            }
             if (!dict.ContainsKey(key)) return default;
 
             return dict[key];

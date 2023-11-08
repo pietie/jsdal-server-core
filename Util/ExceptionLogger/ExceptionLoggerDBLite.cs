@@ -273,7 +273,7 @@ namespace jsdal_server_core
             return Instance.QueueException("Global", ex, null, additionalInfo, appTitle, appVersion);
         }
 
-        public static string LogException(Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
+        public static string LogException(Exception ex, Controllers.ExecController.ExecOptions? execOptions, string additionalInfo = null, string appTitle = null, string appVersion = null)
         {
             string endpointKey = "Global";
 
@@ -285,7 +285,7 @@ namespace jsdal_server_core
             return Instance.QueueException(endpointKey, ex, execOptions, additionalInfo, appTitle, appVersion);
         }
 
-        private string QueueException(string endpointKey, Exception ex, Controllers.ExecController.ExecOptions execOptions, string additionalInfo, string appTitle, string appVersion = null)
+        private string QueueException(string endpointKey, Exception ex, Controllers.ExecController.ExecOptions? execOptions, string additionalInfo, string appTitle, string appVersion = null)
         {
             var ew = new ExceptionWrapper(ex, execOptions, additionalInfo, appTitle, appVersion) { EndpointKey = endpointKey };
 

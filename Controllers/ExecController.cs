@@ -44,10 +44,12 @@ namespace jsdal_server_core.Controllers
             public string routine { get; set; }
             public ExecType type { get; set; }
 
+            public int? CommandTimeoutInSecs { get;set;} = null;
+
             [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
 
-            public Dictionary<string, string> inputParameters { get; set; }
+            public Dictionary<string, string>? inputParameters { get; set; }
 
             [JsonIgnore]
             [LiteDB.BsonIgnore]
@@ -87,7 +89,7 @@ namespace jsdal_server_core.Controllers
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         public async Task<IActionResult> execNonQuery(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
         {
-            ExecOptions execOptions = null;
+            ExecOptions? execOptions = null;
 
             try
             {
@@ -450,7 +452,7 @@ namespace jsdal_server_core.Controllers
                 var res = this.Response;
                 var req = this.Request;
 
-                string body = null;
+                string? body = null;
 
                 // always start off not caching whatever we send back
                 res.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0";
@@ -469,6 +471,11 @@ namespace jsdal_server_core.Controllers
                 var referer = requestHeaders.Val("Referer");
                 var appTitle = requestHeaders.Val("app-title");
                 var appVersion = requestHeaders.Val("app-ver");
+
+                if (int.TryParse(requestHeaders.Val("cmdtimeoutsecs"), out var n))
+                {
+                    execOptions.CommandTimeoutInSecs = n;
+                }
 
                 var isPOST = req.Method.Equals("POST", StringComparison.OrdinalIgnoreCase);
 
@@ -495,6 +502,7 @@ namespace jsdal_server_core.Controllers
 
                 //(var result, var routineExecutionMetric, var mayAccess)
                 // out var responseHeaders
+
                 var result = await ExecuteRoutineAsync(execOptions, requestHeaders, referer, remoteIpAddress, appTitle, appVersion);
 
                 var responseHeaders = result.ResponseHeaders;
@@ -594,6 +602,13 @@ namespace jsdal_server_core.Controllers
 
                 Dictionary<string, dynamic>? outputParameters;
                 int commandTimeOutInSeconds = 60;
+                bool hasExplictCmdTimeout = false;
+
+                if (execOptions.CommandTimeoutInSecs != null)
+                {
+                    commandTimeOutInSeconds = execOptions.CommandTimeoutInSecs.Value;
+                    hasExplictCmdTimeout = true;
+                }
 
                 // PLUGINS
                 var pluginsInitMetric = routineExecutionMetric.BeginChildStage("Init plugins");
@@ -663,7 +678,8 @@ namespace jsdal_server_core.Controllers
                        commandTimeOutInSeconds,
                        execRoutineQueryMetric,
                        responseHeaders,
-                       executionPolicy
+                       executionPolicy,
+                       hasExplictCmdTimeout
                    );
 
                     outputParameters = executionResult.OutputParameterDictionary;

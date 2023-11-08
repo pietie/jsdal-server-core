@@ -173,12 +173,13 @@ namespace jsdal_server_core
                    int commandTimeOutInSeconds,
                    ExecutionBase execRoutineQueryMetric,
                    Dictionary<string, string> responseHeaders,
-                   ExecutionPolicy executionPolicy = null
+                   ExecutionPolicy? executionPolicy = null,
+                   bool hasExplictCmdTimeout = false
                )
         {
-            SqlConnection con = null;
-            SqlCommand cmd = null;
-            ExecutionBase execStage = null;
+            SqlConnection? con = null;
+            SqlCommand? cmd = null;
+            ExecutionBase? execStage = null;
 
             int rowsAffected = 0;
 
@@ -263,7 +264,7 @@ namespace jsdal_server_core
                 //
                 cmd = CreateSqlCommand(con, commandTimeOutInSeconds, cachedRoutine, type);
 
-                if (executionPolicy != null)
+                if (!hasExplictCmdTimeout && executionPolicy != null)
                 {
                     cmd.CommandTimeout = (int)executionPolicy.CommandTimeoutInSeconds;
                 }
