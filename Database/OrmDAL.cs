@@ -276,9 +276,9 @@ namespace jsdal_server_core
 
                 prepareCmdMetric.End();
 
-                Dictionary<string/*Table0..N*/, ReaderResult> readerResults = null;
+                Dictionary<string/*Table0..N*/, ReaderResult>? readerResults = null;
 
-                object scalarVal = null;
+                object? scalarVal = null;
 
                 int deadlockRetryNum = 0;
 
@@ -368,12 +368,6 @@ namespace jsdal_server_core
             }
             catch (SqlException se)
             {
-                // TODO: Implement a retry for transactions that fail because of deadlocks
-                if (se.Number == 1205/*Deadlock*/)
-                {
-
-                }
-
                 string after = "";
                 if (execStage != null)
                 {
