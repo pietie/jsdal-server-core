@@ -37,7 +37,7 @@ namespace jsdal_server_core
 
         static System.Collections.Concurrent.ConcurrentDictionary<string, string> dict = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
 
-        public static CancellationTokenSource CTS {get; private set; }
+        public static CancellationTokenSource CTS { get; private set; }
 
         public static void Main(string[] args)
         {
@@ -218,7 +218,7 @@ namespace jsdal_server_core
             }
         }
 
-      
+
 
         public static void ShutdownAllBackgroundThreads()
         {
@@ -322,7 +322,13 @@ namespace jsdal_server_core
                   //   })
                   .UseHttpSys(options =>
                   {
-                      options.Authentication.Schemes = AuthenticationSchemes.None;
+                      //!options.Authentication.Schemes = AuthenticationSchemes.None;
+
+                      options.Authentication.Schemes =
+                                     AuthenticationSchemes.NTLM |
+                                     AuthenticationSchemes.Negotiate;
+                      //options.Authentication.AllowAnonymous = false;
+
                       options.Authentication.AllowAnonymous = true;
                       options.MaxConnections = null;
                       options.MaxRequestBodySize = 30000000; //~30MB

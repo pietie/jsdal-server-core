@@ -31,7 +31,8 @@ namespace jsdal_server_core.Settings.ObjectModel
     [Serializable]
     public class jsDALSecurity
     {
-        public bool requiresCaptcha { get; set; }
+        public bool? requiresCaptcha { get; set; }
+        public bool? requiresWindowAuth { get; set; }
     }
     [Serializable]
     public class jsDALCache

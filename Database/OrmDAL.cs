@@ -174,7 +174,8 @@ namespace jsdal_server_core
                    ExecutionBase execRoutineQueryMetric,
                    Dictionary<string, string> responseHeaders,
                    ExecutionPolicy? executionPolicy = null,
-                   bool hasExplictCmdTimeout = false
+                   bool hasExplictCmdTimeout = false,
+                   Microsoft.AspNetCore.Http.HttpContext httpContext = null
                )
         {
             SqlConnection? con = null;
@@ -207,8 +208,9 @@ namespace jsdal_server_core
 
                     try
                     {
-                        metaResp = ProcessMetadata(requestHeaders, ref responseHeaders, cachedRoutine);
+                        metaResp = ProcessMetadata(requestHeaders, ref responseHeaders, cachedRoutine, httpContext);
                     }
+                    catch (RoutineAccessSecurityException) { throw; }
                     catch (Exception) { /*ignore metadata failures*/ }
 
                     if (metaResp != null)
@@ -272,7 +274,7 @@ namespace jsdal_server_core
                 //
                 // PARAMETERS
                 //
-                SetupSqlCommandParameters(cmd, cachedRoutine, inputParameters, plugins, remoteIpAddress);
+                SetupSqlCommandParameters(cmd, cachedRoutine, inputParameters, plugins, remoteIpAddress, httpContext);
 
                 prepareCmdMetric.End();
 
@@ -381,6 +383,10 @@ namespace jsdal_server_core
 
                 throw new JsDALExecutionException($"[{schemaName}].[{routineName}] failed on {endpoint?.Pedigree}{after}", se, schemaName, routineName, endpoint.Pedigree, executionPolicy);
             }
+            catch(RoutineAccessSecurityException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 string after = "";
@@ -439,7 +445,8 @@ namespace jsdal_server_core
             return cmd;
         }
 
-        private static void SetupSqlCommandParameters(SqlCommand cmd, CachedRoutine cachedRoutine, Dictionary<string, string> inputParameters, List<ExecutionPlugin> plugins, string remoteIpAddress)
+        private static void SetupSqlCommandParameters(SqlCommand cmd, CachedRoutine cachedRoutine, Dictionary<string, string> inputParameters, List<ExecutionPlugin> plugins,
+        string remoteIpAddress, Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
             /*
                 Parameters
@@ -471,7 +478,7 @@ namespace jsdal_server_core
                 {
                     newSqlParm.Precision = (byte)expectedParm.Precision;
                 }
-                
+
                 newSqlParm.UdtTypeName = udtType;
 
                 if (!expectedParm.IsOutput)
@@ -488,11 +495,11 @@ namespace jsdal_server_core
 
                 var pluginParamVal = GetParameterValueFromPlugins(cachedRoutine, expectedParmName, plugins);
 
-                var matchingKey = inputParameters.Keys.FirstOrDefault(k=>k.Equals(expectedParmName, StringComparison.OrdinalIgnoreCase));
+                var matchingKey = inputParameters.Keys.FirstOrDefault(k => k.Equals(expectedParmName, StringComparison.OrdinalIgnoreCase));
 
                 // if the expected parameter was defined in the request or if a plugin provided an override
-               // if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
-               if (matchingKey != null || pluginParamVal != PluginSetParameterValue.DontSet)
+                // if (inputParameters.ContainsKey(expectedParmName) || pluginParamVal != PluginSetParameterValue.DontSet)
+                if (matchingKey != null || pluginParamVal != PluginSetParameterValue.DontSet)
                 {
                     object val = null;
 
@@ -508,7 +515,7 @@ namespace jsdal_server_core
                     }
 
                     // look for special jsDAL Server variables
-                    val = jsDALServerVariables.Parse(remoteIpAddress, val);
+                    val = jsDALServerVariables.Parse(remoteIpAddress, val, httpContext);
 
                     if (val == null || val == DBNull.Value)
                     {
@@ -901,7 +908,7 @@ namespace jsdal_server_core
         }
 
 
-        private static string ProcessMetadata(Dictionary<string, string> requestHeaders, ref Dictionary<string, string> responseHeaders, CachedRoutine cachedRoutine)
+        private static string ProcessMetadata(Dictionary<string, string> requestHeaders, ref Dictionary<string, string> responseHeaders, CachedRoutine cachedRoutine, Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
             if (cachedRoutine?.jsDALMetadata?.jsDAL?.security?.requiresCaptcha ?? false)
             {
@@ -932,6 +939,11 @@ namespace jsdal_server_core
                     if (capResp) return null;
                     else return "Captcha failed.";
                 }
+            }
+            else if (cachedRoutine?.jsDALMetadata?.jsDAL?.security?.requiresWindowAuth ?? false)
+            {
+                if (!(httpContext?.User?.Identity?.IsAuthenticated ?? false))
+                    throw new RoutineAccessSecurityException($"{cachedRoutine.FullName} is configured (jsDAL metadata) to require Windows Authentication. No identity found.");
             }
 
             return null;
@@ -1139,6 +1151,16 @@ namespace jsdal_server_core
         }
 
 
+    }
+
+    public class RoutineAccessSecurityException : Exception
+    {
+        public RoutineAccessSecurityException() : base()
+        {
+
+        }
+
+        public RoutineAccessSecurityException(string message) : base(message) { }
     }
 }
 

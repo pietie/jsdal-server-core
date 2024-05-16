@@ -17,6 +17,10 @@ interface IDALConfig {
     UseWebSockets?: boolean;
     AsyncExecution?: boolean;
     ParameterNull?: string;
+    endpointKey?: string;
+    ExecutionPolicy?: string;
+    abortSignal?: AbortSignal;
+    UseWindowsAuth?: boolean;
 }
 
 interface IDALServerMethodConfig {

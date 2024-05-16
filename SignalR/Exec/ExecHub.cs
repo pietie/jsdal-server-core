@@ -5,6 +5,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using jsdal_server_core.Controllers;
 using jsdal_server_core.Performance;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 
 namespace jsdal_server_core.Hubs
@@ -54,7 +55,7 @@ namespace jsdal_server_core.Hubs
 
                 // TODO: Add support for CommandTimeOut when calling through websockets
 
-                var result = await ExecController.ExecuteRoutineAsync(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null/*remoteIPAddress*/, appTitle, appVersion);
+                var result = await ExecController.ExecuteRoutineAsync(execOptions, null/*requestHeaders*/, "$WEB SOCKETS$", null/*remoteIPAddress*/, appTitle, appVersion, null);
 
                 if (!(result?.MayAccess?.IsSuccess ?? false))
                 {

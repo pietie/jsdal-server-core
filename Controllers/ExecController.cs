@@ -44,7 +44,7 @@ namespace jsdal_server_core.Controllers
             public string routine { get; set; }
             public ExecType type { get; set; }
 
-            public int? CommandTimeoutInSecs { get;set;} = null;
+            public int? CommandTimeoutInSecs { get; set; } = null;
 
             [JsonIgnore]
             public Dictionary<string, string> OverridingInputParameters { get; set; }
@@ -84,6 +84,14 @@ namespace jsdal_server_core.Controllers
             BackgroundThread = 20
         }
 
+        [Authorize]
+        [HttpGet("/api/execnq-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execnq-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public async Task<IActionResult> execNonQueryWinAuth(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return await execNonQuery(cancellationToken, project, app, endpoint, schema, routine);
+        }
+
         [AllowAnonymous]
         [HttpGet("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execnq/{project}/{app}/{endpoint}/{schema}/{routine}")]
@@ -117,6 +125,13 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("/api/exec-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/exec-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public async Task<IActionResult> execQueryWinAuth(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return await execQuery(cancellationToken, project, app, endpoint, schema, routine);
+        }
         [AllowAnonymous]
         [HttpGet("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/exec/{project}/{app}/{endpoint}/{schema}/{routine}")]
@@ -150,6 +165,14 @@ namespace jsdal_server_core.Controllers
             }
         }
 
+
+        [Authorize]
+        [HttpGet("/api/execScalar-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        [HttpPost("/api/execScalar-winauth/{project}/{app}/{endpoint}/{schema}/{routine}")]
+        public async Task<IActionResult> ScalarWinAuth(CancellationToken cancellationToken, [FromRoute] string project, [FromRoute] string app, [FromRoute] string endpoint, [FromRoute] string schema, [FromRoute] string routine)
+        {
+            return await Scalar(cancellationToken, project, app, endpoint, schema, routine);
+        }
         [AllowAnonymous]
         [HttpGet("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
         [HttpPost("/api/execScalar/{project}/{app}/{endpoint}/{schema}/{routine}")]
@@ -461,7 +484,7 @@ namespace jsdal_server_core.Controllers
                 res.Headers["Expires"] = "-1";
 
                 // TODO: log remote IP with exception and associate with request itself?
-                var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress.ToString();
+                var remoteIpAddress = this.HttpContext.Features.Get<IHttpConnectionFeature>()?.RemoteIpAddress?.ToString();
 
                 //   var remoteIpAddress2 = req.HttpContext.Connection?.RemoteIpAddress?.ToString() ?? "";
 
@@ -503,7 +526,7 @@ namespace jsdal_server_core.Controllers
                 //(var result, var routineExecutionMetric, var mayAccess)
                 // out var responseHeaders
 
-                var result = await ExecuteRoutineAsync(execOptions, requestHeaders, referer, remoteIpAddress, appTitle, appVersion);
+                var result = await ExecuteRoutineAsync(execOptions, requestHeaders, referer, remoteIpAddress, appTitle, appVersion, HttpContext);
 
                 var responseHeaders = result.ResponseHeaders;
 
@@ -532,6 +555,10 @@ namespace jsdal_server_core.Controllers
 
                 return Ok(result.ApiResponse);
             }
+            catch (RoutineAccessSecurityException se)
+            {
+                return Unauthorized(se.Message);
+            }
             finally
             {
                 Interlocked.Decrement(ref ExceutionsInFlight);
@@ -559,7 +586,9 @@ namespace jsdal_server_core.Controllers
             string referer,
             string remoteIpAddress,
             string appTitle,
-            string appVersion)
+            string appVersion,
+            Microsoft.AspNetCore.Http.HttpContext httpContext
+            )
         {
             string? debugInfo = null;
 
@@ -679,7 +708,8 @@ namespace jsdal_server_core.Controllers
                        execRoutineQueryMetric,
                        responseHeaders,
                        executionPolicy,
-                       hasExplictCmdTimeout
+                       hasExplictCmdTimeout,
+                       httpContext
                    );
 
                     outputParameters = executionResult.OutputParameterDictionary;
@@ -791,6 +821,7 @@ namespace jsdal_server_core.Controllers
 
                 return new ExecuteRoutineAsyncResult(ret, routineExecutionMetric, mayAccess, responseHeaders);
             }
+            catch (RoutineAccessSecurityException) { throw; }
             // catch (SqlException ex) when (execOptions.CancellationToken.IsCancellationRequested && ex.Number == 0 && ex.State == 0 && ex.Class == 11)
             // {
             //     // if we ended up here with a SqlException and a Cancel has been requested, we are very likely here because of the exception "Operation cancelled by user."

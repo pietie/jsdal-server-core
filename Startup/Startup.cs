@@ -35,6 +35,9 @@ using Serilog;
 using MirrorSharp.AspNetCore;
 using MirrorSharp;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.Net.Http.Headers;
 
 namespace jsdal_server_core
 {
@@ -109,7 +112,19 @@ namespace jsdal_server_core
                         IssuerSigningKey = symKey
                     };
 
-                });
+                })
+                // .AddPolicyScheme("WinAuthOnDemand", "WinAuthOnDemand", options =>
+                // {
+                //     options.ForwardDefaultSelector = context =>
+                //     {
+                //         string authorization = context.Request.Headers[HeaderNames.Authorization]!;
+
+                //         return null;
+
+                //     };
+
+                // })
+                ;
 
             var settings = new JsonSerializerSettings();
             settings.ContractResolver = new DefaultContractResolver();
@@ -147,6 +162,18 @@ namespace jsdal_server_core
 
                     //!?options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver();
                 });
+
+            // WINDOWS AUTH
+            {
+                services.AddAuthentication(HttpSysDefaults.AuthenticationScheme);
+
+                // services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
+
+                // services.AddAuthorization(options =>
+                // {
+                //     options.FallbackPolicy = options.DefaultPolicy;
+                // });
+            }
 
             services.AddMvc(options => { options.EnableEndpointRouting = false; })
                 .AddNewtonsoftJson(options =>
@@ -352,6 +379,11 @@ namespace jsdal_server_core
 
             app.UseRouting();
 
+            // WINDOWS AUTH
+            {
+                // app.UseAuthentication();
+                // app.UseAuthorization();
+            }
 
             MetadataReference[] allMetadataReferences = null;
 
