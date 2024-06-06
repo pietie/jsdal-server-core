@@ -99,7 +99,7 @@ namespace jsdal_server_core
                     cfg.IncludeErrorDetails = false;
 
                     var issuer = Configuration["Tokens:Issuer"];
-                    var key = Configuration["Tokens:Key"];
+                    var key = Configuration["Tokens:Key"]!;
 
                     Log.Information("Issuer: {0}, Key: {1}", issuer, key);
 

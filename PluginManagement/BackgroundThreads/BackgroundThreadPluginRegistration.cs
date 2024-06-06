@@ -60,7 +60,7 @@ namespace jsdal_server_core.PluginManagement
             var endpointCollection = apps.SelectMany(app => app.Endpoints);
 
             // create a default instance just to read the Default Value collection
-            var defaultInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName);
+            var defaultInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName)!;
 
             var defaultConfig = defaultInstance.GetDefaultConfig();
 
@@ -88,7 +88,7 @@ namespace jsdal_server_core.PluginManagement
                         continue;
                     }
 
-                    var pluginInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName);
+                    var pluginInstance = (BackgroundThreadPlugin)this.Assembly.CreateInstance(this.TypeInfo.FullName)!;
                     var initMethod = typeof(BackgroundThreadPlugin).GetMethod("Init", BindingFlags.Instance | BindingFlags.NonPublic);
               //      var initMethod = typeof(BackgroundThreadPlugin).GetMethod("Init", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -214,9 +214,10 @@ namespace jsdal_server_core.PluginManagement
                                 updateDataCallback,
                                 browserConsoleSendCallback,
                                 addToGroupAsync,
+                                removeFromGroupAsync,
                                 sendToGroupsAsync,
-                                null/*configKeys*/,
-                                null/*configSource*/ });
+                                null!/*configKeys*/,
+                                null!/*configSource*/ });
 
 
                         {

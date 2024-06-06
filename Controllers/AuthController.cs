@@ -50,8 +50,10 @@ namespace jsdal_server_core.Controllers
 
                     };
 
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Tokens:Key"]));
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                
+                var key = _config!["Tokens:Key"]!;
+                var symKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+                var creds = new SigningCredentials(symKey, SecurityAlgorithms.HmacSha256);
 
                 var token = new JwtSecurityToken(_config["Tokens:Issuer"], _config["Tokens:Issuer"],
                                     claims, expires: expires, signingCredentials: creds);
