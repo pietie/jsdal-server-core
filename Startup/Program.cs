@@ -18,6 +18,7 @@ using Serilog.Events;
 using jsdal_server_core.Performance.DataCollector;
 using jsdal_server_core.Performance;
 using System.Threading;
+using Microsoft.Extensions.Hosting;
 
 namespace jsdal_server_core
 {

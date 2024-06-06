@@ -163,6 +163,11 @@ namespace jsdal_server_core.PluginManagement
                             return hub.Groups.AddToGroupAsync(connectionId, $"{endpoint.Pedigree}.{groupName}", cancellationToken);
                         });
 
+                        var removeFromGroupAsync = new Func<string, string, CancellationToken, Task>((connectionId, groupName, cancellationToken) =>
+                        {
+                            return hub.Groups.RemoveFromGroupAsync(connectionId, $"{endpoint.Pedigree}.{groupName}", cancellationToken);
+                        });
+
                         var sendToGroupsAsync = new Func<string, string, object[], Task>((groupName, methodName, args) =>
                         {
                             groupName = $"{endpoint.Pedigree}.{groupName}";
