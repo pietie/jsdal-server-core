@@ -64,7 +64,7 @@ namespace jsdal_server_core
 
             Log.Error("§ERROR:\t{0}", output);
 
-            return output?.ToLower().Contains("url reservation successfully added") ?? false;
+            return output?.ToLower().Contains("url reservation successfully added", StringComparison.CurrentCultureIgnoreCase) ?? false;
         }
 
         public static string ShowUrlAcl(bool isHttps, string hostname, int port)
