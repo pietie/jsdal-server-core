@@ -43,7 +43,7 @@ namespace jsdal_server_core
             try
             {
                 // TODO: Figure out out casing on this property 
-                string jsNamespace = null;//endpoint.JsNamespace;
+                string jsNamespace = null;
                 if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
                 var jsSafeNamespace = MakeNameJsSafe(jsNamespace);
@@ -181,8 +181,8 @@ namespace jsdal_server_core
                 // Custom/User types
                 if (endpoint.CustomTypeLookupWithTypeScriptDef.Count > 0)
                 {
-                    var customTSD = from kv in endpoint.CustomTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value};";
-                    typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD));
+                    var customTSD = from kv in endpoint.CustomTypeLookupWithTypeScriptDef select $"\t\ttype {kv.Key} = {kv.Value}";
+                    typeScriptParameterAndResultTypesSB.Insert(0, string.Join("\r\n", customTSD) + "\r\n");
                 }
 
                 var resultAndParameterTypes = typeScriptParameterAndResultTypesSB.ToString();

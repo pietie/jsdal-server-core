@@ -71,7 +71,7 @@ namespace jsdal_server_core.Controllers
                          enabled = ws.EnableSSL, hostname = ws.HttpsServerHostname, port = ws.HttpsServerPort,
                          cert = new {
                             cert?.HasPrivateKey,
-                            FriendlyName = !string.IsNullOrWhiteSpace(cert?.FriendlyName) ? cert.FriendlyName : cert.Subject?.Substring(3),
+                            FriendlyName = !string.IsNullOrWhiteSpace(cert?.FriendlyName) ? cert?.FriendlyName : cert?.Subject?.Substring(3),
                             cert?.Thumbprint,
                             Subject = cert?.Subject?.Substring(3),
                             cert?.Issuer,

@@ -52,7 +52,7 @@
 		<Content Remove="omnisharp.json" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="./../jsdal-plugin/jsdal-plugin.csproj" />
+		<ProjectReference Include="./../01 - jsdal-plugin-base/jsdal-plugin.csproj" />
 	</ItemGroup>
 	<!-- <ItemGroup>
 		<Reference Include="MirrorSharp.Common">
