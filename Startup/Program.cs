@@ -312,7 +312,7 @@ namespace jsdal_server_core
                   .CreateDefaultBuilder(args)
                   .UseSerilog()
                   .UseContentRoot(pathToContentRoot)
-                  .UseWebRoot(Path.Combine(pathToContentRoot, "wwwroot"))
+                  .UseWebRoot(Path.Combine(pathToContentRoot, "web"))
                   .UseSetting(WebHostDefaults.SuppressStatusMessagesKey, "true")
                   //   .ConfigureAppConfiguration((builderContext, config) =>
                   //   {

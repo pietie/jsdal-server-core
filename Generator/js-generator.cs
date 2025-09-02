@@ -43,7 +43,7 @@ namespace jsdal_server_core
             try
             {
                 // TODO: Figure out out casing on this property 
-                string jsNamespace = null;
+                string jsNamespace = endpoint.Application.JsNamespace;
                 if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
                 var jsSafeNamespace = MakeNameJsSafe(jsNamespace);

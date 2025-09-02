@@ -30,9 +30,9 @@
 		<!-- <GitCDN>https://gitee.com/liesauer/HostFXRPatcher</GitCDN> 
 		<GitTree>master</GitTree> -->
 	</PropertyGroup>
+	 
 	<ItemGroup>
-		<!-- <Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" /> -->
-		<Content Include=".\wwwroot\**\*.*" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" ExcludeFromSingleFile="true" />
+		<Content Include=".\web\**\*.*" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" ExcludeFromSingleFile="true" />
 		<Content Include=".\cache\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 		<Content Include=".\data\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 		<Content Include=".\generated\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
@@ -44,6 +44,7 @@
 		<None Include="appsettings.json" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
 		<Content Include=".\plugins\**\*.*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" ExcludeFromSingleFile="true" />
 	</ItemGroup>
+
 	<ItemGroup>
 		<Content Remove="00-Release/**/*" />
 		<Content Remove="Refs/**/*" />

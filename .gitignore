@@ -14,7 +14,7 @@ key*.xml
 jsdal-server.json
 generated
 /cache
-wwwroot
+web
 data
 00-Release
 /inline-plugins

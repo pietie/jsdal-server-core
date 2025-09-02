@@ -67,11 +67,11 @@ namespace jsdal_server_core.Controllers
                     return resp;
                 }
 
-                var anotherExisting = proj.GetApplication(name);
+                var existing = proj.GetApplication(name);
 
-                if (anotherExisting != null)
+                if (existing == null)
                 {
-                    return ApiResponse.ExclamationModal($"The application \"{name}\" already exists on project \" {project}\".");
+                    return ApiResponse.ExclamationModal($"The application \"{name}\" was not found.");
                 }
 
                 var ret = app.Update(name, jsNamespace, defaultRuleMode);
