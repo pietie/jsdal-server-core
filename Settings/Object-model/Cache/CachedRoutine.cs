@@ -347,8 +347,11 @@ namespace jsdal_server_core.Settings.ObjectModel
 
                 // TODO: Figure out what to do with JsNamespace CASING. Sometimes case changes in connection string and that breaks all existing code
                 string jsNamespace = null;//endpoint.JsNamespace;
-                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
 
+                jsNamespace = endpoint.Application.JsNamespace;
+
+
+                if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = endpoint.MetadataConnection.InitialCatalog;
                 if (string.IsNullOrWhiteSpace(jsNamespace)) jsNamespace = "NotSet";
 
                 var jsSafeNamespace = JsFileGenerator.MakeNameJsSafe(jsNamespace);

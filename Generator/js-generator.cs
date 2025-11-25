@@ -32,7 +32,7 @@ namespace jsdal_server_core
         public static string MakeNameJsSafe(string s)
         {
             if (JsFileGenerator.StartsWithNum(s)) s = "_" + s;
-            return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_");
+            return s.Replace(" ", "_").Replace("#", "").Replace(".", "_").Replace("-", "_").Trim();
         }
 
         public static void GenerateJsFileV2(string source, Endpoint endpoint, JsFile jsFile, Dictionary<string, ChangeDescriptor> fullChangeSet = null, bool rulesChanged = false)
