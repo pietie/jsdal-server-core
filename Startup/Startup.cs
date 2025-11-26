@@ -391,19 +391,19 @@ namespace jsdal_server_core
             {
                 allMetadataReferences = CSharpCompilerHelper.GetCommonMetadataReferences();
 
-                var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
+                // var jsDALBasePluginPath = Path.GetFullPath("./plugins/jsdal-plugin.dll");
 
-                if (File.Exists("./plugins/jsdal-plugin.dll"))
-                {
-                    Array.Resize(ref allMetadataReferences, allMetadataReferences.Length + 1);
+                // if (File.Exists("./plugins/jsdal-plugin.dll"))
+                // {
+                //     Array.Resize(ref allMetadataReferences, allMetadataReferences.Length + 1);
 
-                    allMetadataReferences[allMetadataReferences.Length - 1] = Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(jsDALBasePluginPath);
-                }
-                else
-                {
-                    Log.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
-                    SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
-                }
+                //     allMetadataReferences[allMetadataReferences.Length - 1] = Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(jsDALBasePluginPath);
+                // }
+                // else
+                // {
+                //     Log.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                //     SessionLog.Error($"Failed to find base plugin assembly at {jsDALBasePluginPath}");
+                // }
             }
             catch (Exception mex)
             {

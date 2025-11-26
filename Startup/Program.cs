@@ -224,7 +224,7 @@ namespace jsdal_server_core
         public static void ShutdownAllBackgroundThreads()
         {
             IsShuttingDown = true;
-            CTS.Cancel();
+            if (!CTS.IsCancellationRequested) CTS.Cancel();
 
             SessionLog.Info("Shutting down");
 
@@ -253,6 +253,8 @@ namespace jsdal_server_core
             Log.Information("Shutting down session log...");
             SessionLog.Shutdown();
 
+
+            Log.Information("Shutdown complete...");
         }
 
         public static void OverrideStdout()
@@ -288,7 +290,12 @@ namespace jsdal_server_core
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
         public static IWebHostBuilder BuildWebHost(string pathToContentRoot, string[] args)
         {
-            var webServerSettings = SettingsInstance.Instance.Settings.WebServer;
+            var webServerSettings = SettingsInstance.Instance?.Settings?.WebServer;
+
+            if (webServerSettings == null)
+            {
+                throw new Exception("Failed to read WebServer settings");
+            }
 
             // var certPath = "cert.pfx";
             // var certPassPath = Path.GetFullPath("cert.pass");

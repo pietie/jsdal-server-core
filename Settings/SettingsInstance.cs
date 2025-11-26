@@ -64,6 +64,7 @@ namespace jsdal_server_core.Settings
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Failed to load Settings");
                 SessionLog.Exception(ex);
                 return false;
             }

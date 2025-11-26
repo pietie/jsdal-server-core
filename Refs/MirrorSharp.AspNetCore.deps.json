@@ -6,19 +6,14 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "MirrorSharp.Common/3.0.10": {
+      "MirrorSharp.AspNetCore/4.0.0": {
         "dependencies": {
-          "Microsoft.CodeAnalysis.CSharp": "4.9.2",
-          "Microsoft.CodeAnalysis.CSharp.Features": "4.9.2",
-          "Microsoft.CodeAnalysis.Common": "4.9.2",
-          "Microsoft.CodeAnalysis.PublicApiAnalyzers": "2.9.8",
-          "Microsoft.CodeAnalysis.Workspaces.Common": "4.9.2",
-          "System.Memory": "4.5.5",
-          "System.Net.Http": "4.3.4",
-          "System.Text.RegularExpressions": "4.3.1"
+          "Microsoft.CodeAnalysis.PublicApiAnalyzers": "3.3.0",
+          "MirrorSharp.Common": "3.0.10",
+          "MirrorSharp.Common.Reference": "3.0.10.0"
         },
         "runtime": {
-          "MirrorSharp.Common.dll": {}
+          "MirrorSharp.AspNetCore.dll": {}
         }
       },
       "Humanizer.Core/2.14.1": {
@@ -327,7 +322,7 @@
           }
         }
       },
-      "Microsoft.CodeAnalysis.PublicApiAnalyzers/2.9.8": {},
+      "Microsoft.CodeAnalysis.PublicApiAnalyzers/3.3.0": {},
       "Microsoft.CodeAnalysis.Scripting.Common/4.9.2": {
         "dependencies": {
           "Microsoft.CodeAnalysis.Common": "4.9.2"
@@ -657,14 +652,7 @@
           "System.Runtime": "4.3.1"
         }
       },
-      "System.IO.Pipelines/8.0.0": {
-        "runtime": {
-          "lib/net8.0/System.IO.Pipelines.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
-          }
-        }
-      },
+      "System.IO.Pipelines/8.0.0": {},
       "System.Linq/4.3.0": {
         "dependencies": {
           "System.Collections": "4.3.0",
@@ -974,11 +962,35 @@
           "Microsoft.NETCore.Targets": "1.1.3",
           "System.Runtime": "4.3.1"
         }
+      },
+      "MirrorSharp.Common/3.0.10": {
+        "dependencies": {
+          "Microsoft.CodeAnalysis.CSharp": "4.9.2",
+          "Microsoft.CodeAnalysis.CSharp.Features": "4.9.2",
+          "Microsoft.CodeAnalysis.Common": "4.9.2",
+          "Microsoft.CodeAnalysis.Workspaces.Common": "4.9.2",
+          "System.Memory": "4.5.5",
+          "System.Net.Http": "4.3.4",
+          "System.Text.RegularExpressions": "4.3.1"
+        },
+        "runtime": {
+          "MirrorSharp.Common.dll": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "MirrorSharp.Common.Reference/3.0.10.0": {
+        "runtime": {
+          "MirrorSharp.Common.dll": {
+            "assemblyVersion": "3.0.10.0",
+            "fileVersion": "3.0.10.0"
+          }
+        }
       }
     }
   },
   "libraries": {
-    "MirrorSharp.Common/3.0.10": {
+    "MirrorSharp.AspNetCore/4.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -1046,12 +1058,12 @@
       "path": "microsoft.codeanalysis.features/4.9.2",
       "hashPath": "microsoft.codeanalysis.features.4.9.2.nupkg.sha512"
     },
-    "Microsoft.CodeAnalysis.PublicApiAnalyzers/2.9.8": {
+    "Microsoft.CodeAnalysis.PublicApiAnalyzers/3.3.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-oaanBu3yA/c5NUMVnpe8w7YcBRG7UmEKKnP7HxVt6lHb78XdNh8OTNFeVkVJhtlfDO1kX5y2iCeSkVSDdl9trw==",
-      "path": "microsoft.codeanalysis.publicapianalyzers/2.9.8",
-      "hashPath": "microsoft.codeanalysis.publicapianalyzers.2.9.8.nupkg.sha512"
+      "sha512": "sha512-upaG6u/PxjkOj39Kk0DLmmA75acYChmv6/HnOUxvSgGWul53uPcVaPxBWCzkHDfIljyiq5qeIG+CatT8x8FAEA==",
+      "path": "microsoft.codeanalysis.publicapianalyzers/3.3.0",
+      "hashPath": "microsoft.codeanalysis.publicapianalyzers.3.3.0.nupkg.sha512"
     },
     "Microsoft.CodeAnalysis.Scripting.Common/4.9.2": {
       "type": "package",
@@ -1563,6 +1575,16 @@
       "sha512": "sha512-LbSxKEdOUhVe8BezB/9uOGGppt+nZf6e1VFyw6v3DN6lqitm0OSn2uXMOdtP0M3W4iMcqcivm2J6UgqiwwnXiA==",
       "path": "system.threading.tasks/4.3.0",
       "hashPath": "system.threading.tasks.4.3.0.nupkg.sha512"
+    },
+    "MirrorSharp.Common/3.0.10": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MirrorSharp.Common.Reference/3.0.10.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
     }
   }
 }

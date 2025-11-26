@@ -11,6 +11,7 @@ using jsdal_server_core.Settings.ObjectModel;
 using Newtonsoft.Json;
 using System.Threading.Tasks;
 using System.Runtime.Loader;
+using NetTopologySuite.Operation.Linemerge;
 
 namespace jsdal_server_core
 {
@@ -42,34 +43,17 @@ namespace jsdal_server_core
             // load from plugin directory
             try
             {
-                // AppDomain.CurrentDomain.AssemblyResolve += (sender, e) =>
-                // {
-                //     try
-                //     {
-                //         var asmName = new AssemblyName(e.Name);
-                //         var requestingLocation = e.RequestingAssembly.Location;
-                //         var requestingDir = Path.GetDirectoryName(requestingLocation);
-
-                //         // look for a dll in the same location as the requesting assembly
-                //         var path = Path.Combine(requestingDir, asmName.Name + ".dll");
-
-                //         if (!File.Exists(path)) return null;
-
-                //         Assembly.LoadFrom(path);
-
-                //         return null;
-                //     }
-                //     catch
-                //     {
-                //         return null;
-                //     }
-                // };
-
                 var pluginPath = Path.GetFullPath("plugins");
+
+                //typeof(PluginBase)
+                SessionLog.Info($"{typeof(PluginBase).Assembly.FullName} @ {typeof(PluginBase).Assembly.Location}");
+                SessionLog.Info($"Host ALC: {AssemblyLoadContext.GetLoadContext(typeof(PluginBase).Assembly)}");
 
                 if (Directory.Exists("./plugins"))
                 {
                     var dllCollection = Directory.EnumerateFiles("plugins", "*.dll", SearchOption.TopDirectoryOnly);
+
+                    Serilog.Log.Information($"\tFound {dllCollection.Count()} DLLs");
 
                     foreach (var dllPath in dllCollection)
                     {
@@ -87,10 +71,18 @@ namespace jsdal_server_core
                             var dllFullPath = Path.GetFullPath(dllPath);
                             var pluginAssembly = asmCtx.LoadFromAssemblyPath(dllFullPath);
 
+                            // if (pluginAssembly != null)
+                            // {
+                            //     var typesCsv = string.Join(",", pluginAssembly.DefinedTypes.Select(t => t.Name));
+                            //     Serilog.Log.Information($"\t{pluginAssembly.FullName} loaded, Types: {typesCsv}");
+                            // }
+
+
                             ParseAndLoadPluginAssembly(asmCtx, pluginAssembly, null);
                         }
                         catch (Exception ee)
                         {
+                            Serilog.Log.Error(ee, $"Failed to load {dllPath}");
                             SessionLog.Error("Failed to load plugin DLL '{0}'. See exception that follows.", dllPath);
                             SessionLog.Exception(ee);
                         }
@@ -141,7 +133,7 @@ namespace jsdal_server_core
         public static void RemoveAssemblyContextRef(PluginAssemblyLoadContext ctx)
         {
             ASM_CTXES.Remove(ctx);
-        } 
+        }
 
         private void CompileCodeIntoAssemblyContext(InlineModuleManifestEntry inlineEntry, string code)
         {
@@ -273,9 +265,11 @@ namespace jsdal_server_core
             errorList = new List<string>();
             pluginInfoList = new List<PluginInfo>();
 
+            Type pluginBaseType = typeof(PluginBase);
+
             if (pluginAssembly.DefinedTypes != null)
             {
-                var pluginTypeList = pluginAssembly.DefinedTypes.Where(typ => typ.IsSubclassOf(typeof(PluginBase))).ToList();
+                var pluginTypeList = pluginAssembly.DefinedTypes.Where(typ => typ.IsSubclassOf(pluginBaseType)).ToList();
 
                 if (pluginTypeList != null && pluginTypeList.Count > 0)
                 {
@@ -305,7 +299,7 @@ namespace jsdal_server_core
 
                                 if (conflict != null)
                                 {
-                                    errorList.Add($"Plugin '{pluginType.FullName}' has a conflicting Guid. The conflict is on assembly {conflict.TypeInfo.FullName} and plugin '{conflict.Name}' with Guid value {conflict.Guid}.");
+                                    errorList.Add($"Plugin '{pluginType.FullName}' ({pluginType.Assembly.Location}) has a conflicting Guid. The conflict is on assembly {conflict.TypeInfo.FullName} ({conflict.TypeInfo.Assembly.Location}) and plugin '{conflict.Name}' with Guid value {conflict.Guid}; .");
                                     continue;
 
                                 }
@@ -355,12 +349,26 @@ namespace jsdal_server_core
                 }
                 else
                 {
-                    errorList.Add($"Failed to find any jsDAL Server plugins in the assembly '{pluginAssembly.Location}'. Make sure you have a public class available that derives from one of the plugin types.");
+
+                    string definedTypes = string.Join("", pluginAssembly.DefinedTypes.Select(t => $"<li>{t.FullName} <-- {t.BaseType?.FullName} ({t.BaseType?.Assembly.FullName}) </li>"));
+
+                    string vs = "";
+
+                    var x = pluginAssembly.DefinedTypes.FirstOrDefault(t => t.BaseType.Name == "BackgroundThreadPlugin");
+
+                    if (x != null)
+                    {
+                        vs = AssemblyLoadContext.GetLoadContext(x.Assembly).ToString();
+                    }
+
+                    errorList.Add($"01 - Failed to find any jsDAL Server plugins in the assembly '{pluginAssembly.Location}'. Make sure you have a public class available that derives from one of the plugin types.<br/><hr/> Defined types found:<br/><ul>{definedTypes}</ul><hr/>Expected {pluginBaseType.FullName} @ {pluginBaseType.Assembly.Location} ({pluginBaseType.Assembly.FullName})<hr/>{AssemblyLoadContext.GetLoadContext(pluginBaseType.Assembly)}<br/>{vs}");
+                    //   SessionLog.Info($"Host ALC: {AssemblyLoadContext.GetLoadContext(typeof(PluginBase).Assembly)}");
+
                 }
             }
             else
             {
-                errorList.Add($"Failed to find any jsDAL Server plugins in the assembly '{pluginAssembly.Location}'. Make sure you have a public class available that derives from one of the plugin types.");
+                errorList.Add($"02 - Failed to find any jsDAL Server plugins in the assembly '{pluginAssembly.Location}'. Make sure you have a public class available that derives from one of the plugin types.");
             }
 
             return errorList == null || errorList.Count == 0;
@@ -379,14 +387,24 @@ namespace jsdal_server_core
                     if (existing == null)
                     {
                         var newPA = new PluginAssembly(asmCtx, assembly, inlineEntryId);
+                        
                         newPA.AddPlugin(pluginInfo);
+                        
                         _pluginAssemblies.Add(newPA);
+
+
+                        SessionLog.Info($"AddPlugin: {pluginInfo.Name} {pluginInfo.TypeInfo.FullName} ({pluginInfo.TypeInfo.Assembly.Location})");
                     }
                     else
                     {
                         existing.AddPlugin(pluginInfo);
                     }
                 }
+            }
+            else
+            {
+                SessionLog.Error($"Failed to parse assembly {assembly.GetName()} with error(s): {string.Join(Environment.NewLine, errorList)}");
+                Serilog.Log.Error($"Failed to parse assembly {assembly.FullName} with error(s): {string.Join(Environment.NewLine, errorList)}");
             }
         }
 

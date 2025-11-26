@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
+using jsdal_plugin;
 
 namespace jsdal_server_core
 {
@@ -64,6 +65,14 @@ namespace jsdal_server_core
 
         protected override Assembly Load(AssemblyName assemblyName)
         {
+            // 1. Share jsdal-plugin.dll with default ALC
+            var sharedName = typeof(PluginBase).Assembly.GetName().Name;
+            if (assemblyName.Name == sharedName)
+            {
+                // This is the same instance the host uses
+                return typeof(PluginBase).Assembly;
+            }
+
             string assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
 
             if (assemblyPath != null)

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>MirrorSharp.AspNetCore</name>
+    </assembly>
+    <members>
+        <member name="T:MirrorSharp.AspNetCore.MirrorSharpStartupExtensions">
+            <summary>MirrorSharp setup extensions.</summary>
+        </member>
+        <member name="M:MirrorSharp.AspNetCore.MirrorSharpStartupExtensions.UseMirrorSharp(Microsoft.AspNetCore.Builder.IApplicationBuilder,MirrorSharp.MirrorSharpOptions)">
+            <summary>Adds MirrorSharp middleware to the <see cref="T:Microsoft.AspNetCore.Builder.IApplicationBuilder" />.</summary>
+            <param name="app">The app builder.</param>
+            <param name="options">The <see cref="T:MirrorSharp.MirrorSharpOptions" /> object used by the MirrorSharp middleware.</param>
+        </member>
+        <member name="M:MirrorSharp.AspNetCore.MirrorSharpStartupExtensions.MapMirrorSharp(Microsoft.AspNetCore.Builder.IApplicationBuilder,Microsoft.AspNetCore.Http.PathString,MirrorSharp.MirrorSharpOptions)">
+            <summary>Maps MirrorSharp middleware to a certain path in the <see cref="T:Microsoft.AspNetCore.Builder.IApplicationBuilder" />.</summary>
+            <param name="app">The app builder.</param>
+            <param name="path">Relative path to be used by MirrorSharp server, e.g. '/mirrorsharp'.</param>
+            <param name="options">The <see cref="T:MirrorSharp.MirrorSharpOptions" /> object used by the MirrorSharp middleware.</param>
+        </member>
+        <member name="M:MirrorSharp.AspNetCore.MirrorSharpStartupExtensions.MapMirrorSharp(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,MirrorSharp.MirrorSharpOptions)">
+            <summary>Maps MirrorSharp middleware to a certain route in the <see cref="T:Microsoft.AspNetCore.Routing.IEndpointRouteBuilder" />.</summary>
+            <param name="endpoints">The endpoint route builder.</param>
+            <param name="pattern">The route pattern to be used by MirrorSharp server, e.g. '/mirrorsharp'.</param>
+            <param name="options">The <see cref="T:MirrorSharp.MirrorSharpOptions" /> object used by the MirrorSharp middleware.</param>
+        </member>
+    </members>
+</doc>

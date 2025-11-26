@@ -55,11 +55,16 @@
 	<ItemGroup>
 		<ProjectReference Include="./../01 - jsdal-plugin-base/jsdal-plugin.csproj" />
 	</ItemGroup>
-	<!-- <ItemGroup>
+	<ItemGroup>
 		<Reference Include="MirrorSharp.Common">
 			<HintPath>Refs\MirrorSharp.Common.dll</HintPath>
 		</Reference>
-	</ItemGroup> -->
+	</ItemGroup> 
+	<ItemGroup>
+		<Reference Include="MirrorSharp.AspNetCore">
+			<HintPath>Refs\MirrorSharp.AspNetCore.dll</HintPath>
+		</Reference>
+	</ItemGroup> 
 	<ItemGroup>
 		<Reference Include="Microsoft.Diagnostics.Tools.RuntimeClient">
 			<HintPath>Refs\Microsoft.Diagnostics.Tools.RuntimeClient.dll</HintPath>
@@ -85,7 +90,6 @@
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="8.0.6" />
 		<PackageReference Include="Microsoft.Windows.Compatibility" Version="8.0.6" />
 
-		<PackageReference Include="MirrorSharp.AspNetCore" Version="4.0.0" />
 		<PackageReference Include="nulastudio.NetCoreBeauty" Version="1.2.9.5" />
 		<PackageReference Include="Serilog.AspNetCore" Version="5.0.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.9.2" />

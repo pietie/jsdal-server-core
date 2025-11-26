@@ -55,7 +55,7 @@ namespace jsdal_server_core
                                         MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Http.IHeaderDictionary).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(Microsoft.Extensions.Primitives.StringValues).Assembly.Location),
                                         MetadataReference.CreateFromFile(typeof(System.ComponentModel.IComponent).Assembly.Location),
-                                        Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(Path.GetFullPath("./plugins/jsdal-plugin.dll"))
+                                        Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(jsdal_plugin.PluginBase).Assembly.Location)
             };
 
                 {
@@ -133,15 +133,6 @@ namespace jsdal_server_core
                 CSharpParseOptions parseOptions = CSharpParseOptions.Default;
 
                 SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, options: parseOptions);
-
-                // if (Debugger.IsAttached)
-                // {
-                //     pluginBasePath = "./../jsdal-plugin/bin/Debug/netcoreapp2.0/jsdal-plugin.dll";
-                // }
-
-                //var pluginBaseRef = MetadataReference.CreateFromFile(pluginBasePath);
-
-                //var trustedAssembliesPaths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
 
                 MetadataReference[] references = GetCommonMetadataReferences();
 
